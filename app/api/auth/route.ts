@@ -1,6 +1,48 @@
 import { adminFirestore } from "@/lib/firebaseAdmin";
 import { NextResponse } from 'next/server';
 
+// Timing-safe string comparison utility
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  
+  return result === 0;
+}
+
+// Utility function to verify hashed password
+async function verifyPassword(password: string, hash: string, salt: string): Promise<boolean> {
+  try {
+    // Import crypto module dynamically for server-side only
+    const crypto = await import('crypto');
+    
+    // Convert base64 salt back to buffer
+    const saltBuffer = Buffer.from(salt, 'base64');
+    
+    // Derive key using PBKDF2
+    const derivedKey = await new Promise<Buffer>((resolve, reject) => {
+      crypto.pbkdf2(password, saltBuffer, 100000, 32, 'sha256', (err, key) => {
+        if (err) reject(err);
+        else resolve(key);
+      });
+    });
+    
+    // Convert derived key to base64 for comparison
+    const derivedKeyB64 = derivedKey.toString('base64');
+    
+    // Use timing-safe comparison
+    return timingSafeEqual(derivedKeyB64, hash);
+  } catch (error) {
+    console.error('Password verification error:', error);
+    return false;
+  }
+}
+
 // Ensure all responses are JSON
 export async function POST(req: Request) {
   try {
@@ -82,8 +124,33 @@ export async function POST(req: Request) {
     const userDoc = queryResult.data[0];
     const userData: any = userDoc;
 
-    // Validate password (simple comparison for now, in production use proper hashing)
-    if (userData.password !== password) {
+    // Check if password is set
+    if (!userData.isPasswordSet) {
+      console.log("Account exists but password not set for user:", email);
+      // Instead of just returning an error, indicate that password setup is needed
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Account exists but no password set. Please complete sign-up.",
+          needsPasswordSetup: true
+        }, 
+        { status: 400 }
+      );
+    }
+
+    // Validate password - check both hashed and plain text for backward compatibility
+    let isValidPassword = false;
+    
+    // Check if we have a password hash (newer format)
+    if (userData.passwordHash && userData.salt) {
+      isValidPassword = await verifyPassword(password, userData.passwordHash, userData.salt);
+    } 
+    // Fallback to plain text comparison for older accounts (not recommended for production)
+    else if (userData.password) {
+      isValidPassword = timingSafeEqual(password, userData.password);
+    }
+
+    if (!isValidPassword) {
       console.log("Incorrect password for user:", email);
       return NextResponse.json(
         { 

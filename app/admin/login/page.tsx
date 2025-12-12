@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { useAuth, getDashboardPath } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
 import Input from '@/components/auth/Input';
 import Button from '@/components/auth/Button';
@@ -14,34 +14,13 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
 
-  // Redirect if user is already logged in as admin
+  // Don't automatically redirect authenticated users
+  // Just show them a message that they're already logged in
   useEffect(() => {
-    if (!authLoading && user) {
-      // Check user role and redirect appropriately
-      const role = user.role?.toLowerCase() || '';
-      
-      // Admin roles with specific dashboard paths
-      if (role === 'admin') {
-        router.replace('/admin/dashboard');
-      } else if (role === 'secretary') {
-        router.replace('/admin/secretary/home');
-      } else if (role === 'chairman') {
-        router.replace('/admin/chairman/home');
-      } else if (role === 'vice chairman') {
-        router.replace('/admin/vice-chairman/home');
-      } else if (role === 'manager') {
-        router.replace('/admin/manager/home');
-      } else if (role === 'treasurer') {
-        router.replace('/admin/treasurer/home');
-      } else if (role === 'board of directors') {
-        router.replace('/admin/bod/home');
-      }
-      // For non-admin roles, we allow them to stay on the admin login page
-      // They will get an error when trying to log in
-    }
-  }, [user, authLoading, router]);
+    // No automatic redirect on admin login page
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +29,14 @@ export default function AdminLoginPage() {
 
     try {
       // Import the signIn function locally to avoid auto-redirection
-      const { success, user: loggedInUser, error: loginError } = await customLogin(email, password);
+      const { success, user: loggedInUser, error: loginError, needsPasswordSetup } = await customLogin(email, password);
+      
+      // Check if password setup is required
+      if (!success && needsPasswordSetup) {
+        // Redirect to password setup page
+        router.push(`/setup-password?email=${encodeURIComponent(email)}`);
+        return;
+      }
       
       if (success && loggedInUser) {
         // Check if user is admin
@@ -122,6 +108,10 @@ export default function AdminLoginPage() {
         document.cookie = `userRole=${encodeURIComponent(result.role)}; path=/; max-age=${60 * 60 * 24 * 7}`;
         return { success: true, user: result.user };
       } else {
+        // Check if password setup is required
+        if (result.needsPasswordSetup) {
+          return { success: false, error: result.error, needsPasswordSetup: true };
+        }
         return { success: false, error: result.error || 'Login failed' };
       }
     } catch (error: any) {
@@ -135,6 +125,54 @@ export default function AdminLoginPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
+      </div>
+    );
+  }
+
+  // If user is already authenticated, show a message but don't redirect
+  // This ensures the login form is always accessible
+  if (user && typeof user === 'object') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div>
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+              Admin Login
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              You are already signed in
+            </p>
+          </div>
+          <div className="mt-8 text-center">
+            <p className="text-gray-600 mb-4">
+              You are currently logged in. If you want to log in with a different account, 
+              please log out first.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button onClick={() => {
+                // Get the dashboard route based on user role using the unified helper function
+                const dashboardPath = getDashboardPath(user.role || '');
+                router.push(dashboardPath);
+              }}>
+                Continue to Admin Dashboard
+              </Button>
+              <Button variant="secondary" onClick={async () => {
+                // Properly handle logout
+                try {
+                  await logout();
+                  // Redirect to admin login page after logout
+                  window.location.href = '/admin/login';
+                } catch (error) {
+                  console.error('Logout error:', error);
+                  // Even if logout fails, redirect to login page
+                  window.location.href = '/admin/login';
+                }
+              }}>
+                Log Out
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

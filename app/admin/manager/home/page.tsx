@@ -26,9 +26,9 @@ export default function ManagerHomePage() {
   // Mock data - in a real app, this would come from Firestore
   useEffect(() => {
     setStats({
-      totalMembers: 124,
-      loanRequests: 8,
-      activeLoans: 23
+      totalMembers: 0.00,
+      loanRequests: 0.00 ,
+      activeLoans: 0.00,
     });
   }, []);
 
@@ -54,7 +54,7 @@ export default function ManagerHomePage() {
           </div>
           <div className="p-6">
             <div className="text-2xl font-bold">{stats.totalMembers}</div>
-            <p className="text-xs text-gray-500">+12 from last month</p>
+            <p className="text-xs text-gray-500"></p>
           </div>
         </Card>
 
@@ -65,7 +65,7 @@ export default function ManagerHomePage() {
           </div>
           <div className="p-6">
             <div className="text-2xl font-bold">{stats.loanRequests}</div>
-            <p className="text-xs text-gray-500">+3 pending approval</p>
+            <p className="text-xs text-gray-500"></p>
           </div>
         </Card>
 
@@ -76,7 +76,7 @@ export default function ManagerHomePage() {
           </div>
           <div className="p-6">
             <div className="text-2xl font-bold">{stats.activeLoans}</div>
-            <p className="text-xs text-gray-500">+5 from last month</p>
+            <p className="text-xs text-gray-500"></p>
           </div>
         </Card>
       </div>
@@ -91,19 +91,19 @@ export default function ManagerHomePage() {
               <div className="flex items-center">
                 <div className="ml-4 space-y-1">
                   <p className="text-sm font-medium">New member registered</p>
-                  <p className="text-sm text-gray-500">John Doe - 2 hours ago</p>
+                  <p className="text-sm text-gray-500"></p>
                 </div>
               </div>
               <div className="flex items-center">
                 <div className="ml-4 space-y-1">
                   <p className="text-sm font-medium">Loan request submitted</p>
-                  <p className="text-sm text-gray-500">Jane Smith - 5 hours ago</p>
+                  <p className="text-sm text-gray-500"></p>
                 </div>
               </div>
               <div className="flex items-center">
                 <div className="ml-4 space-y-1">
                   <p className="text-sm font-medium">Payment received</p>
-                  <p className="text-sm text-gray-500">Robert Johnson - 1 day ago</p>
+                  <p className="text-sm text-gray-500"></p>
                 </div>
               </div>
             </div>

@@ -18,10 +18,7 @@ interface Loan {
 
 interface User {
   id: string;
-  firstName: string;
-  middleName?: string;
-  lastName: string;
-  suffix?: string;
+  displayName: string;
   role: string;
   email: string;
   [key: string]: any;
@@ -100,16 +97,17 @@ export default function LoanRecordsPage() {
   };
 
   const getFullName = (loan: Loan, user: User | undefined) => {
+    
     // Prioritize embedded user data in loan record
     if (loan.fullName && loan.fullName !== 'Unknown Member' && loan.fullName !== 'User Not Found') {
       return loan.fullName;
     }
     
     // Fallback to fetched user data
-    if (!user) return 'User Not Found';
+    if (!user) return '';
     
-    const fullName = `${user.firstName || ''} ${user.middleName ? user.middleName.charAt(0) + '.' : ''} ${user.lastName || ''} ${user.suffix || ''}`.trim();
-    return fullName || 'User Not Found';
+    // Use displayName from user data
+    return user.displayName || 'User Unknown';
   };
 
   const getUserRole = (loan: Loan, user: User | undefined) => {

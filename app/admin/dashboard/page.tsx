@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { firestore } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import SavingsLeaderboard from '@/components/admin/SavingsLeaderboard';
 
 // Mock data for dashboard cards
 const initialStats = {
@@ -24,15 +25,8 @@ const loanData = [
   { name: 'Jun', loans: 0.00, savings: 0.00 },
 ];
 
-const savingsData = [
-  { name: 'Checking', value: 0.00 },
-  { name: 'Savings', value: 0.00 },
-  { name: 'Fixed Deposit', value: 0.00 },
-  { name: 'Investment', value: 0.00 },
-];
-/**color ng pie chart */
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+// Savings leaderboard data will be fetched in the component
+// This section has been removed as it's no longer needed
 
 /**
  * Admin Dashboard Page
@@ -189,6 +183,7 @@ export default function AdminDashboard() {
       
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
         {/* Loan and Savings Chart */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-medium text-gray-800 mb-4">Loan & Savings Overview</h2>
@@ -214,33 +209,8 @@ export default function AdminDashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-        
-        {/* Savings Distribution Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-medium text-gray-800 mb-4">Savings Distribution</h2>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={savingsData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, percent }) => `${name}: ${(percent as number * 100).toFixed(0)}%`}
-                >
-                  {savingsData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      
+        <SavingsLeaderboard />
       </div>
     </div>
   );

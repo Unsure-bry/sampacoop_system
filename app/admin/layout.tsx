@@ -72,8 +72,8 @@ export default function AdminLayout({
   const handleLogout = async () => {
     try {
       await logout();
-      // Redirect to main login page instead of admin login
-      router.push('/login');
+      // Redirect to admin login page
+      router.push('/admin/login');
     } catch (error) {
       console.error('Logout error:', error);
     }

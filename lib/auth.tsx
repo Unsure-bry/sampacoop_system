@@ -28,13 +28,21 @@ interface FirestoreUser {
   isPasswordSet?: boolean;
 }
 
+interface CustomLoginResponse {
+  success: boolean;
+  user?: AppUser;
+  error?: string;
+  needsPasswordSetup?: boolean;
+  email?: string;
+}
+
 interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ user: AppUser }>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ user: AppUser }>;
   createUser: (userData: CreateUserParams) => Promise<{ success: boolean; error?: string }>;
-  customLogin: (email: string, password: string) => Promise<{ success: boolean; user?: AppUser; error?: string }>;
+  customLogin: (email: string, password: string) => Promise<CustomLoginResponse>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
@@ -98,7 +106,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 // Helper function to determine dashboard path based on role
-function getDashboardPath(role: string): string {
+export function getDashboardPath(role: string): string {
   // Convert role to lowercase for comparison
   const normalizedRole = role.toLowerCase();
   
@@ -233,6 +241,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Handle HTTP errors
       if (!response.ok) {
         console.log('SignIn API HTTP error:', response.status, response.statusText);
+        // Check if this is a password setup required error
+        if (result.needsPasswordSetup) {
+          // Redirect to password setup page
+          router.push(`/setup-password?email=${encodeURIComponent(email)}`);
+          throw new Error('Password setup required');
+        }
         throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
       }
       
@@ -243,6 +257,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (result.error) {
         console.log('Login error from server:', result.error);
+        // Check if this is a password setup required error
+        if (result.needsPasswordSetup) {
+          // Redirect to password setup page
+          router.push(`/setup-password?email=${encodeURIComponent(email)}`);
+          throw new Error('Password setup required');
+        }
         throw new Error(result.error);
       }
       
@@ -306,7 +326,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * @param password - User's password
    * @returns Promise that resolves to success status, user object (if successful), and error message (if failed)
    */
-  const customLogin = async (email: string, password: string): Promise<{ success: boolean; user?: AppUser; error?: string }> => {
+  const customLogin = async (email: string, password: string): Promise<CustomLoginResponse> => {
     try {
       console.log('Custom login called with email:', email);
       
@@ -372,6 +392,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Handle HTTP errors
       if (!response.ok) {
         console.log('Login API HTTP error:', response.status, response.statusText);
+        // Check if this is a password setup required error
+        if (result.needsPasswordSetup) {
+          // Return a special error indicating password setup is needed
+          return { success: false, error: 'Password setup required', needsPasswordSetup: true, email: email };
+        }
         return { success: false, error: result.error || `HTTP ${response.status}: ${response.statusText}` };
       }
       
@@ -382,6 +407,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (result.error) {
         console.log('Login error from server:', result.error);
+        // Check if this is a password setup required error
+        if (result.needsPasswordSetup) {
+          // Return a special error indicating password setup is needed
+          return { success: false, error: 'Password setup required', needsPasswordSetup: true, email: email };
+        }
         return { success: false, error: result.error };
       }
       
@@ -477,8 +507,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const appUser: AppUser = { uid, email, displayName: fullName || '', role: 'member', lastLogin: userData.lastLogin };
     setUser(appUser);
 
-    // Redirect to user dashboard after signup
-    router.push('/dashboard');
+    // Redirect to user dashboard after signup using the unified helper function
+    const dashboardPath = getDashboardPath('member');
+    router.push(dashboardPath);
 
     return { user: appUser };
   };
@@ -543,10 +574,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     // Clear cookies and user state
-    document.cookie = 'authenticated=; path=/; max-age=0';
-    document.cookie = 'userRole=; path=/; max-age=0';
+    document.cookie = 'authenticated=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'userRole=; path=/; max-age=0; SameSite=Lax';
+    
+    // Also clear any localStorage items that might be storing auth state
+    localStorage.removeItem('authenticated');
+    localStorage.removeItem('userRole');
+    
+    // Clear user state
     setUser(null);
-    router.push('/login');
+    
+    // Show success message
     toast.success('Signed out successfully.');
   };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/lib/auth';
+import { useAuth, getDashboardPath } from '@/lib/auth';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
@@ -27,28 +27,10 @@ export default function UnauthorizedPage() {
   };
 
   const handleGoHome = () => {
-    // Redirect to role-specific dashboard
+    // Redirect to role-specific dashboard using the unified helper function
     if (user?.role) {
-      const role = user.role.toLowerCase();
-      if (role === 'admin') {
-        router.push('/admin/dashboard');
-      } else if (role === 'secretary') {
-        router.push('/admin/secretary/home');
-      } else if (role === 'chairman') {
-        router.push('/admin/chairman/home');
-      } else if (role === 'vice chairman') {
-        router.push('/admin/vice-chairman/home');
-      } else if (role === 'manager') {
-        router.push('/admin/manager/home');
-      } else if (role === 'treasurer') {
-        router.push('/admin/treasurer/home');
-      } else if (role === 'board of directors') {
-        router.push('/admin/bod/home');
-      } else if (['member', 'driver', 'operator'].includes(role)) {
-        router.push('/dashboard');
-      } else {
-        router.push('/dashboard');
-      }
+      const dashboardPath = getDashboardPath(user.role);
+      router.push(dashboardPath);
     } else {
       router.push('/admin/login');
     }

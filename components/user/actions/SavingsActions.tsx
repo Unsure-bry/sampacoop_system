@@ -15,6 +15,7 @@ export default function SavingsActions({ onTransactionComplete, currentBalance =
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw'>('deposit');
 
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,85 +128,109 @@ export default function SavingsActions({ onTransactionComplete, currentBalance =
   };
 
   return (
-    <div className="space-y-6">
-      {/* Current Balance Display */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">Current Savings Balance</h3>
-        <p className="text-3xl font-bold text-green-600">{formatCurrency(currentBalance)}</p>
-      </div>
-
-      {/* Deposit Form */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Make a Deposit</h3>
-        <form onSubmit={handleDeposit}>
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="depositAmount">
-              Amount (PHP)
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
-                ₱
-              </span>
-              <input
-                id="depositAmount"
-                type="number"
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
-                className="pl-8 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                placeholder="Enter deposit amount"
-                min="1"
-                step="0.01"
-                required
-              />
-            </div>
-          </div>
+    <div className="bg-white rounded-xl shadow-md overflow-hidden">
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="flex">
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+            type="button"
+            className={`py-4 px-6 text-center flex-1 text-sm font-medium ${
+              activeTab === 'deposit'
+                ? 'text-red-600 border-b-2 border-red-600'
+                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            onClick={() => setActiveTab('deposit')}
           >
-            {loading ? 'Processing...' : 'Deposit'}
+            Deposit
           </button>
-        </form>
+          <button
+            type="button"
+            className={`py-4 px-6 text-center flex-1 text-sm font-medium ${
+              activeTab === 'withdraw'
+                ? 'text-red-600 border-b-2 border-red-600'
+                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            onClick={() => setActiveTab('withdraw')}
+          >
+            Withdraw
+          </button>
+        </nav>
       </div>
 
-      {/* Withdrawal Form */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Request Withdrawal</h3>
-        <form onSubmit={handleWithdrawal}>
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="withdrawalAmount">
-              Amount (PHP)
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
-                ₱
-              </span>
-              <input
-                id="withdrawalAmount"
-                type="number"
-                value={withdrawalAmount}
-                onChange={(e) => setWithdrawalAmount(e.target.value)}
-                className="pl-8 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                placeholder="Enter withdrawal amount"
-                min="1"
-                max={currentBalance}
-                step="0.01"
-                required
-              />
-              <div className="text-xs text-gray-500 mt-1">
-                Max: {formatCurrency(currentBalance)}
+      <div className="p-6">
+        {activeTab === 'deposit' ? (
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Make a Deposit</h3>
+            <form onSubmit={handleDeposit}>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="depositAmount">
+                  Amount (PHP)
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                    ₱
+                  </span>
+                  <input
+                    id="depositAmount"
+                    type="number"
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(e.target.value)}
+                    className="pl-8 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    placeholder="Enter deposit amount"
+                    min="1"
+                    step="0.01"
+                    required
+                  />
+                </div>
               </div>
-            </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Processing...' : 'Deposit'}
+              </button>
+            </form>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Processing...' : 'Request Withdrawal'}
-          </button>
-        </form>
+        ) : (
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Request Withdrawal</h3>
+            <form onSubmit={handleWithdrawal}>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="withdrawalAmount">
+                  Amount (PHP)
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                    ₱
+                  </span>
+                  <input
+                    id="withdrawalAmount"
+                    type="number"
+                    value={withdrawalAmount}
+                    onChange={(e) => setWithdrawalAmount(e.target.value)}
+                    className="pl-8 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    placeholder="Enter withdrawal amount"
+                    min="1"
+                    max={currentBalance}
+                    step="0.01"
+                    required
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Max: {formatCurrency(currentBalance)}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Processing...' : 'Request Withdrawal'}
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );

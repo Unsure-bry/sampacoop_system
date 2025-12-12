@@ -231,7 +231,7 @@ export default function MemberRegistrationModal({
           displayName: `${data.firstName} ${data.lastName}`,
           role: data.role.toLowerCase(),
           createdAt: new Date().toISOString(),
-          isPasswordSet: false, // Set to false since password will be created by member
+          isPasswordSet: false, // Keep as false since password will be created by member during first login
         }
       );
 
@@ -358,15 +358,15 @@ export default function MemberRegistrationModal({
                 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name <span className="text-red-500">*</span>
+                      Middle Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      {...register('lastName', { required: 'Last name is required' })}
+                      {...register('middleName', { required: 'middle name is required' })}
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                         errors.lastName ? 'border-red-500' : 'border-gray-300'
                       }`}
-                      placeholder="Enter last name"
+                      placeholder="Enter middle name"
                     />
                     {errors.lastName && (
                       <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
@@ -375,13 +375,13 @@ export default function MemberRegistrationModal({
                 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Middle Name
+                      Last Name
                     </label>
                     <input
                       type="text"
-                      {...register('middleName')}
+                      {...register('lastName')}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                      placeholder="Enter middle name"
+                      placeholder="Enter last name"
                     />
                   </div>
                 

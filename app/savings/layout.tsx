@@ -1,18 +1,9 @@
-import Header from '@/components/shared/Header';
-import Footer from '@/components/shared/Footer';
+import LoanLayout from '@/components/shared/LoanLayout';
 
 export default function SavingsPagesLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <main className="flex- grow container mx-auto px-4 py-8">
-        {children}
-      </main>
-      <Footer />
-    </div>
-  );
+  return <LoanLayout>{children}</LoanLayout>;
 }

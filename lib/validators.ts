@@ -1,4 +1,5 @@
 import { AppUser } from '@/lib/auth';
+import { getDashboardPath } from '@/lib/auth';
 
 /**
  * Validates admin routes specifically
@@ -92,8 +93,9 @@ export function validateUserRoute(user: AppUser | null): boolean {
  * @returns boolean indicating if access is allowed
  */
 export function validateAuthRoute(user: AppUser | null): boolean {
-  // Auth routes are accessible when not authenticated
-  return !user;
+  // Auth routes are accessible to everyone - both authenticated and unauthenticated users
+  // This ensures the login form is always accessible
+  return true;
 }
 
 /**
@@ -105,33 +107,8 @@ export function getDashboardRoute(user: AppUser | null): string {
   if (!user) return '/login';
   if (!user.role) return '/login';
   
-  // Convert role to lowercase for comparison
-  const normalizedRole = user.role.toLowerCase();
-  
-  // Admin roles with specific dashboard paths
-  if (normalizedRole === 'admin') {
-    return '/admin/dashboard';
-  } else if (normalizedRole === 'secretary') {
-    return '/admin/secretary/home';
-  } else if (normalizedRole === 'chairman') {
-    return '/admin/chairman/home';
-  } else if (normalizedRole === 'vice chairman') {
-    return '/admin/vice-chairman/home';
-  } else if (normalizedRole === 'manager') {
-    return '/admin/manager/home';
-  } else if (normalizedRole === 'treasurer') {
-    return '/admin/treasurer/home';
-  } else if (normalizedRole === 'board of directors') {
-    return '/admin/bod/home';
-  }
-  
-  // Member roles
-  const memberRoles = ['member', 'driver', 'operator'];
-  if (memberRoles.includes(normalizedRole)) {
-    return '/dashboard';
-  }
-  
-  return '/login';
+  // Use the unified helper function
+  return getDashboardPath(user.role);
 }
 
 /**
@@ -141,10 +118,22 @@ export function getDashboardRoute(user: AppUser | null): string {
  * @returns string with redirect path or null if no conflict
  */
 export function preventRouteConflict(pathname: string, user: AppUser | null): string | null {
-  // If no user, redirect to login
+  // If no user, redirect to login for protected routes
   if (!user) {
-    if (pathname.startsWith('/admin')) return '/admin/login';
-    return '/login';
+    // For admin routes, redirect to admin login
+    if (pathname.startsWith('/admin') && pathname !== '/admin/login' && pathname !== '/admin/register') {
+      return '/admin/login';
+    }
+    // For user routes, redirect to user login
+    if (pathname.startsWith('/dashboard') || pathname.startsWith('/profile') || 
+        pathname.startsWith('/loan') || pathname.startsWith('/savings')) {
+      return '/login';
+    }
+    // For auth routes, allow access
+    if (pathname === '/login' || pathname === '/register' || pathname === '/admin/login' || pathname === '/admin/register') {
+      return null;
+    }
+    return null; // Allow access to public routes
   }
   
   // If user has no role or invalid role, redirect to login
@@ -157,8 +146,11 @@ export function preventRouteConflict(pathname: string, user: AppUser | null): st
   const adminRoles = ['admin', 'secretary', 'chairman', 'vice chairman', 'manager', 'treasurer', 'board of directors'];
   const memberRoles = ['member', 'driver', 'operator'];
   
-  // If non-admin user tries to access admin routes
-  if (pathname.startsWith('/admin') && !adminRoles.includes(normalizedRole)) {
+  // If non-admin user tries to access admin routes (except login/register)
+  if (pathname.startsWith('/admin') && 
+      pathname !== '/admin/login' && 
+      pathname !== '/admin/register' && 
+      !adminRoles.includes(normalizedRole)) {
     // Redirect member roles to user dashboard
     if (memberRoles.includes(normalizedRole)) {
       return '/dashboard';
@@ -217,7 +209,10 @@ export function validateRouteAccess(pathname: string, user: AppUser | null): str
   }
 
   // Validate based on route type
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login' && pathname !== '/admin/unauthorized') {
+  if (pathname.startsWith('/admin') && 
+      pathname !== '/admin/login' && 
+      pathname !== '/admin/register' && 
+      pathname !== '/admin/unauthorized') {
     if (!user) return '/admin/login';
     if (!validateRoleSpecificAdminRoute(pathname, user)) return '/admin/unauthorized';
   }
@@ -228,28 +223,16 @@ export function validateRouteAccess(pathname: string, user: AppUser | null): str
     if (!validateUserRoute(user)) return '/login';
   }
 
-  if (pathname === '/login' || pathname === '/register' || pathname === '/create-password') {
-    // Allow access to auth routes for unauthenticated users
-    if (!user) {
-      return null; // Allow access
-    }
-    // For authenticated users, don't force redirect - let them stay on the current page
-    // Only redirect if they specifically navigate to the login page
-    if (pathname === '/login') {
-      return getDashboardRoute(user);
-    }
-    return null; // Allow access to register and create-password even for authenticated users
+  if (pathname === '/login' || pathname === '/register') {
+    // Allow access to auth routes for everyone
+    // Don't force redirect authenticated users
+    return null;
   }
   
-  if (pathname === '/admin/register') {
-    // Allow access to admin register page for authenticated admins only
-    if (!user) {
-      return '/admin/login';
-    }
-    if (user.role === 'admin') {
-      return null; // Allow access
-    }
-    return '/admin/login';
+  if (pathname === '/admin/login' || pathname === '/admin/register') {
+    // Allow access to admin auth routes for everyone
+    // Don't force redirect authenticated users
+    return null;
   }
 
   // Public routes or access allowed

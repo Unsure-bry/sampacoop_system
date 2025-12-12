@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/lib/auth';
+import { useAuth, getDashboardPath } from '@/lib/auth';
 import toast from 'react-hot-toast';
 import AuthLayout from '@/components/auth/AuthLayout';
 import Input from '@/components/auth/Input';
@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { customLogin, user, loading: authLoading } = useAuth();
+  const { customLogin, user, loading: authLoading, logout } = useAuth();
   const router = useRouter();
 
   // Don't automatically redirect authenticated users to their dashboard
@@ -27,6 +27,7 @@ export default function LoginPage() {
 
     try {
       console.log('Attempting to login with email:', email);
+
       // Authenticate the user
       const result = await customLogin(email, password);
       console.log('Login result:', result);
@@ -37,6 +38,13 @@ export default function LoginPage() {
         return;
       }
       
+      // Check if password setup is required
+      if (!result.success && result.needsPasswordSetup) {
+        // Redirect to password setup page
+        router.push(`/setup-password?email=${encodeURIComponent(email)}`);
+        return;
+      }
+      
       if (!result.success) {
         toast.error(result.error || 'Failed to log in');
         return;
@@ -44,34 +52,10 @@ export default function LoginPage() {
       
       if (result.success && result.user) {
         console.log('Login successful, user:', result.user);
-        // Determine redirect path based on user role using the same logic as in auth.tsx
-        const role = result.user.role?.toLowerCase() || '';
-        console.log('User role:', role);
         
-        // Admin roles with specific dashboard paths
-        if (role === 'admin') {
-          router.push('/admin/dashboard');
-        } else if (role === 'secretary') {
-          router.push('/admin/secretary/home');
-        } else if (role === 'chairman') {
-          router.push('/admin/chairman/home');
-        } else if (role === 'vice chairman') {
-          router.push('/admin/vice-chairman/home');
-        } else if (role === 'manager') {
-          router.push('/admin/manager/home');
-        } else if (role === 'treasurer') {
-          router.push('/admin/treasurer/home');
-        } else if (role === 'board of directors') {
-          router.push('/admin/bod/home');
-        }
-        // Member roles
-        else if (['member', 'driver', 'operator'].includes(role)) {
-          router.push('/dashboard');
-        } 
-        // Default fallback
-        else {
-          router.push('/dashboard');
-        }
+        // Determine redirect path based on user role using the unified helper function
+        const dashboardPath = getDashboardPath(result.user.role || '');
+        router.push(dashboardPath);
       } else {
         console.log('Login failed:', result?.error);
         toast.error(result?.error || 'Failed to log in');
@@ -109,21 +93,42 @@ export default function LoginPage() {
     );
   }
 
-  // If user is already authenticated, don't show the login form
-  // But handle this case more gracefully to prevent crashes
+  // If user is already authenticated, show a message but don't redirect
+  // This ensures the login form is always accessible
   if (user && typeof user === 'object') {
-    // User is already logged in, but we're on the login page
-    // This is fine - we just won't show the form
     return (
       <AuthLayout
         title="Welcome Back"
-        subtitle="Sign in to your account to continue"
+        subtitle="You are already signed in"
       >
         <div className="mt-8 text-center">
-          <p className="text-gray-600 mb-4">You are already signed in.</p>
-          <Button onClick={() => router.push('/dashboard')}>
-            Continue to Dashboard
-          </Button>
+          <p className="text-gray-600 mb-4">
+            You are currently logged in. If you want to log in with a different account, 
+            please log out first.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Button onClick={() => {
+              // Get the dashboard route based on user role using the unified helper function
+              const dashboardPath = getDashboardPath(user.role || '');
+              router.push(dashboardPath);
+            }}>
+              Continue to Dashboard
+            </Button>
+            <Button variant="secondary" onClick={async () => {
+              // Properly handle logout
+              try {
+                await logout();
+                // Redirect to login page after logout
+                window.location.href = '/login';
+              } catch (error) {
+                console.error('Logout error:', error);
+                // Even if logout fails, redirect to login page
+                window.location.href = '/login';
+              }
+            }}>
+              Log Out
+            </Button>
+          </div>
         </div>
       </AuthLayout>
     );

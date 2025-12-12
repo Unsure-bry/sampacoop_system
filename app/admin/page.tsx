@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/lib/auth';
+import { useAuth, getDashboardPath } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -10,7 +10,9 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.push('/admin/dashboard');
+      // Use the unified helper function for consistent redirection
+      const dashboardPath = getDashboardPath(user.role || '');
+      router.push(dashboardPath);
     }
   }, [user, loading, router]);
 

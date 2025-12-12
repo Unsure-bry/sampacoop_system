@@ -1,5 +1,26 @@
 import { adminFirestore } from "@/lib/firebaseAdmin";
 import { NextResponse } from 'next/server';
+import * as crypto from 'crypto';
+
+// Utility function to create salt and hash password
+async function hashPassword(password: string): Promise<{ salt: string; hash: string }> {
+  // Create salt
+  const salt = crypto.randomBytes(16);
+  
+  // Hash password with salt using PBKDF2
+  const hash = await new Promise<Buffer>((resolve, reject) => {
+    crypto.pbkdf2(password, salt, 100000, 32, 'sha256', (err, derivedKey) => {
+      if (err) reject(err);
+      else resolve(derivedKey);
+    });
+  });
+  
+  // Convert to base64 for storage
+  return {
+    salt: salt.toString('base64'),
+    hash: hash.toString('base64')
+  };
+}
 
 // GET all members
 export async function GET() {
@@ -43,7 +64,6 @@ export async function GET() {
   }
 }
 
-// POST - Create a new member
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -97,9 +117,11 @@ export async function POST(req: Request) {
       isPasswordSet: !!password
     };
     
-    // If password is provided, store it (simplified for this example)
+    // If password is provided, hash and store it properly
     if (password) {
-      userData.password = password; // In production, hash this properly
+      const { salt, hash } = await hashPassword(password);
+      userData.passwordHash = hash;
+      userData.salt = salt;
     }
     
     const userId = encodeURIComponent(email.toLowerCase());

@@ -20,10 +20,7 @@ interface LoanRequest {
 
 interface User {
   id: string;
-  firstName: string;
-  middleName?: string;
-  lastName: string;
-  suffix?: string;
+  displayName: string;
   role: string;
   email: string;
   [key: string]: any;
@@ -105,6 +102,7 @@ export default function LoanRequestsTable() {
       });
 
       if (updateResult.success) {
+
         // Fetch user details to include in loan record
         const userResult = await firestore.getDocument('users', userId);
         let userData = {
@@ -114,13 +112,20 @@ export default function LoanRequestsTable() {
 
         if (userResult.success && userResult.data) {
           const userDoc = userResult.data as any;
-          // Construct full name from user data
-          const fullName = `${userDoc.firstName || ''} ${userDoc.middleName ? userDoc.middleName.charAt(0) + '.' : ''} ${userDoc.lastName || ''} ${userDoc.suffix || ''}`.trim();
+
+          // Use displayName from user data
+          const fullName = userDoc.displayName || 'User Not Found';
           userData = {
             fullName: fullName || 'User Not Found',
             role: userDoc.role || 'N/A'
           };
+        } else {
+          userData = {
+            fullName: 'User Not Found',
+            role: 'N/A'
+          };
         }
+        
 
         // Create approved loan document in the loans collection with user details
         const loanData = {
@@ -196,8 +201,7 @@ export default function LoanRequestsTable() {
   const getFullName = (user: User | undefined) => {
     if (!user) return 'User Not Found';
     
-    const fullName = `${user.firstName || ''} ${user.middleName ? user.middleName.charAt(0) + '.' : ''} ${user.lastName || ''} ${user.suffix || ''}`.trim();
-    return fullName || 'User Not Found';
+    return user.displayName || 'User Not Found';
   };
 
   const getUserRole = (user: User | undefined) => {
