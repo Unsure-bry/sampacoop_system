@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
+import { clearAllAuthData } from '@/lib/logoutUtils';
 
 // User shape for this app (stored in Firestore)
 export interface AppUser {
@@ -127,8 +128,17 @@ export function getDashboardPath(role: string): string {
     return '/admin/bod/home';
   }
   
-  // Member roles
-  if (['member', 'driver', 'operator'].includes(normalizedRole)) {
+  // Specific roles with individual dashboards
+  if (normalizedRole === 'driver') {
+    return '/driver/dashboard';
+  }
+  
+  if (normalizedRole === 'operator') {
+    return '/operator/dashboard';
+  }
+  
+  // Member role (default user dashboard)
+  if (normalizedRole === 'member') {
     return '/dashboard';
   }
   
@@ -572,20 +582,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = async () => {
-    // Clear cookies and user state
-    document.cookie = 'authenticated=; path=/; max-age=0; SameSite=Lax';
-    document.cookie = 'userRole=; path=/; max-age=0; SameSite=Lax';
-    
-    // Also clear any localStorage items that might be storing auth state
-    localStorage.removeItem('authenticated');
-    localStorage.removeItem('userRole');
-    
-    // Clear user state
+  const logout = () => {
+    // Clear user state immediately to prevent UI flickering
     setUser(null);
     
-    // Show success message
-    toast.success('Signed out successfully.');
+    // Clear all authentication data using centralized utility
+    clearAllAuthData();
+    
+    // Don't show toast message during logout as it introduces delay
+    // toast.success('Signed out successfully.');
   };
 
   const resetPassword = async (email: string) => {

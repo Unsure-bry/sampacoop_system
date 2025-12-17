@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { useAuth } from '@/lib/auth';
+import { getSidebarConfig } from '@/lib/sidebarConfig';
+import { handleAdminLogout } from '@/lib/logoutUtils';
 
 // Icons for navigation items
 const DashboardIcon = ({ className }: { className?: string }) => (
@@ -41,142 +44,235 @@ const ReportIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const MenuIcon = ({ className }: { className?: string }) => (
+// Chevron icon for dropdown
+const ChevronDownIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
   </svg>
 );
 
-const CollapseIcon = ({ className }: { className?: string }) => (
+// Logout icon component
+const LogoutIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
   </svg>
 );
 
-const ExpandIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-  </svg>
-);
+// Icon mapping
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Home: DashboardIcon,
+  Users: MembersIcon,
+  FileText: LoanIcon,
+  DollarSign: SavingsIcon,
+  BarChart3: ReportIcon,
+  Document: DocumentIcon,
+};
 
-// Navigation structure for the admin sidebar
-const navigationSections = [
-  {
-    title: 'Main',
-    items: [
-      { name: 'Dashboard', path: '/admin/dashboard', icon: DashboardIcon },
-    ],
-  },
-  {
-    title: 'Members',
-    items: [
-      { name: 'Members Record', path: '/admin/members/record', icon: MembersIcon },
-      { name: 'Membership', path: '/admin/members/membership', icon: MembersIcon },
-    ],
-  },
-  {
-    title: 'Loan Manager',
-    items: [
-      { name: 'Loan Records', path: '/admin/loans/records', icon: LoanIcon },
-      { name: 'Loan Requests', path: '/admin/loans/requests', icon: LoanIcon },
-      { name: 'Loan Plans', path: '/admin/loans/plans', icon: LoanIcon },
-    ],
-  },
-  {
-    title: 'Savings Manager',
-    items: [
-      { name: 'Savings Record', path: '/admin/savings', icon: SavingsIcon },
-    ],
-  },
-  {
-    title: 'Documentation',
-    items: [
-      { name: 'Reports and Analytics', path: '/admin/reports', icon: DocumentIcon },
-    ],
-  },
-];
+interface AdminSidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+  role?: string;
+}
 
 /**
  * Admin Sidebar Component
  * 
  * Provides a collapsible sidebar navigation for the admin panel with:
- * - Section-based organization
+ * - Role-based menu items
  * - Active route highlighting
  * - Collapsible functionality
+ * - Dropdown menus for sections
+ * - Logout button at the bottom
  * 
  * Props:
  * - collapsed: boolean - Whether the sidebar is collapsed
  * - onToggle: () => void - Function to toggle the sidebar state
+ * - role: string - User role to determine which menu items to show
  */
 export default function AdminSidebar({ 
   collapsed, 
-  onToggle 
-}: { 
-  collapsed: boolean; 
-  onToggle: () => void; 
-}) {
+  onToggle,
+  role = 'admin'
+}: AdminSidebarProps) {
   const pathname = usePathname();
+  const { logout } = useAuth();
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+
+  // Get sidebar configuration based on user role
+  const navigationSections = getSidebarConfig(role);
+
+  // Handle user logout
+  const handleLogout = () => {
+    try {
+      // Call logout function to clear user state
+      logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Perform immediate admin logout with proper redirection
+      handleAdminLogout();
+    }
+  };
+
+  // Toggle section expansion
+  const toggleSection = (title: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [title]: !prev[title]
+    }));
+  };
 
   return (
     <aside 
-      className={`flex flex-col bg-gray-800 text-white h-full transition-all duration-300 ease-in-out ${
+      className={`flex flex-col bg-white shadow-md h-full transition-all duration-300 ease-in-out ${
         collapsed ? 'w-20' : 'w-64'
       }`}
     >
       {/* Sidebar header with logo and toggle button */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b">
         {!collapsed && (
-          <h1 className="text-xl font-bold text-red-500">ADMIN PANEL</h1>
+          <h1 className="text-xl font-bold text-red-600">
+            {role.charAt(0).toUpperCase() + role.slice(1)} Panel
+          </h1>
         )}
         <button 
           onClick={onToggle}
-          className="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+          className="p-2 rounded-md hover:bg-gray-200"
         >
-          {collapsed ? (
-            <ExpandIcon className="h-6 w-6 text-gray-300" />
-          ) : (
-            <CollapseIcon className="h-6 w-6 text-gray-300" />
-          )}
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
         </button>
       </div>
       
       {/* Navigation sections */}
-      <div className="flex-1 overflow-y-auto py-4">
-        <nav>
+      <div className="flex-1 overflow-y-auto py-4 flex flex-col">
+        <nav className="flex-1">
           {navigationSections.map((section) => (
-            <div key={section.title} className="mb-6">
-              {!collapsed && (
-                <h3 className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                  {section.title}
-                </h3>
-              )}
-              <ul className="space-y-1">
-                {section.items.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = pathname === item.path;
+            <div key={section.title} className="mb-2">
+              {!collapsed && section.items.length > 1 ? (
+                // Section with dropdown for multiple items
+                <>
+                  <button
+                    onClick={() => toggleSection(section.title)}
+                    className={`flex items-center justify-between w-full px-4 py-3 rounded-md transition-colors ${
+                      expandedSections[section.title] 
+                        ? 'bg-red-50 text-red-600 font-medium' 
+                        : 'text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <span>{section.title}</span>
+                    </div>
+                    <ChevronDownIcon 
+                      className={`h-4 w-4 transform transition-transform ${
+                        expandedSections[section.title] ? 'rotate-180' : ''
+                      }`} 
+                    />
+                  </button>
                   
-                  return (
-                    <li key={item.path}>
-                      <Link
-                        href={item.path}
-                        className={`flex items-center px-4 py-3 transition-colors ${
-                          isActive
-                            ? 'bg-red-600 text-white font-medium'
-                            : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                        }`}
-                      >
-                        <Icon className="h-5 w-5 flex- shrink-0" />
-                        {!collapsed && (
-                          <span className="ml-3">{item.name}</span>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+                  {/* Dropdown menu */}
+                  {expandedSections[section.title] && (
+                    <ul className="ml-4 mt-1 space-y-1 border-l border-gray-200 pl-2">
+                      {section.items.map((item) => {
+                        const Icon = iconMap[item.name] || item.icon;
+                        const isActive = pathname === item.path;
+                        
+                        return (
+                          <li key={item.path}>
+                            <Link
+                              href={item.path}
+                              className={`flex items-center p-2 rounded-md transition-colors ${
+                                isActive
+                                  ? 'bg-red-600 text-white font-medium'
+                                  : 'text-gray-600 hover:bg-gray-200'
+                              }`}
+                            >
+                              <Icon className="h-5 w-5" />
+                              <span className="ml-2">{item.name}</span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </>
+              ) : section.items.length > 1 ? (
+                // Collapsed view with dropdown indicator
+                <div className="px-2">
+                  <button
+                    onClick={() => toggleSection(section.title)}
+                    className="flex items-center justify-center w-full p-3 rounded-md text-gray-700 hover:bg-gray-200"
+                  >
+                    <ChevronDownIcon className="h-4 w-4" />
+                  </button>
+                  
+                  {/* Dropdown menu when collapsed */}
+                  {expandedSections[section.title] && (
+                    <ul className="ml-4 mt-1 space-y-1 border-l border-gray-200 pl-2">
+                      {section.items.map((item) => {
+                        const Icon = iconMap[item.name] || item.icon;
+                        const isActive = pathname === item.path;
+                        
+                        return (
+                          <li key={item.path}>
+                            <Link
+                              href={item.path}
+                              className={`flex items-center p-2 rounded-md transition-colors ${
+                                isActive
+                                  ? 'bg-red-600 text-white font-medium'
+                                  : 'text-gray-600 hover:bg-gray-200'
+                              }`}
+                            >
+                              <Icon className="h-5 w-5" />
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                // Single item section
+                <ul className="space-y-1 px-2">
+                  {section.items.map((item) => {
+                    const Icon = iconMap[item.name] || item.icon;
+                    const isActive = pathname === item.path;
+                    
+                    return (
+                      <li key={item.path}>
+                        <Link
+                          href={item.path}
+                          className={`flex items-center p-3 rounded-md transition-colors ${
+                            isActive
+                              ? 'bg-red-600 text-white font-medium'
+                              : 'text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          <Icon className="h-6 w-6" />
+                          {!collapsed && (
+                            <span className="ml-3">{item.name}</span>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           ))}
         </nav>
+        
+        {/* Logout button at the bottom */}
+        <div className="p-2 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="flex items-center w-full p-3 rounded-md text-gray-700 hover:bg-gray-200 transition-colors"
+          >
+            <LogoutIcon className="h-6 w-6" />
+            {!collapsed && <span className="ml-3">Sign out</span>}
+          </button>
+        </div>
       </div>
     </aside>
   );

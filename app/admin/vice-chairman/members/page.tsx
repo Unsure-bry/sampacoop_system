@@ -38,7 +38,7 @@ export default function ViceChairmanMembersPage() {
             <h3 className="text-lg font-medium text-gray-800">Member Overview</h3>
           </div>
           <div className="p-6">
-            <p className="text-gray-600">View member records and membership statistics here.</p>
+            <p className="text-gray-600">View and manage all member records and statistics here.</p>
             {/* Add member records functionality here */}
           </div>
         </Card>

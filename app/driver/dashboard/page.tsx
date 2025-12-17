@@ -19,7 +19,7 @@ const events = [
   { id: 3, title: 'Holiday Closure', date: 'Dec 25, 2025', description: 'Office will be closed for Christmas Day.' },
 ];
 
-export default function DashboardPage() {
+export default function DriverDashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -40,13 +40,13 @@ export default function DashboardPage() {
   return (
     <div className="max-w-7xl mx-auto w-full">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Welcome, {user?.email}</h1>
-        <p className="text-gray-600 mt-2"></p>
+        <h1 className="text-3xl font-bold text-gray-800">Welcome, Driver {user?.email}</h1>
+        <p className="text-gray-600 mt-2">Your personalized dashboard for managing your cooperative account</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
         {/* Savings Card */}
-        <Card title=" My Savings" className="h-full">
+        <Card title="My Savings" className="h-full">
           <div className="flex flex-col items-center justify-center h-full py-8">
             <div className="text-4xl font-bold text-gray-800 mb-2">₱0.00</div>
             <p className="text-gray-600 mb-4">Current Savings Balance</p>
@@ -101,7 +101,7 @@ export default function DashboardPage() {
               </svg>
             </div>
             <h3 className="font-semibold text-gray-800">My Savings</h3>
-            <p className="text-gray-600 text-sm mt-1">See your deposits</p>
+            <p className="text-gray-600 text-sm mt-1">Deposit or withdraw</p>
           </button>
 
           <button 

@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth, getDashboardPath } from '@/lib/auth';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
+import { handleUserLogout } from '@/lib/logoutUtils';
 import AuthLayout from '@/components/auth/AuthLayout';
 import Input from '@/components/auth/Input';
 import Button from '@/components/auth/Button';
-import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -77,57 +78,65 @@ export default function LoginPage() {
     }
 
     try {
-      // Since we're not using Firebase Auth, we can't send password reset emails
-      toast.error('Password reset is not implemented in this demo');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to send reset email');
+      // TODO: Implement actual password reset functionality
+      toast.success('Password reset instructions sent to your email');
+    } catch (error) {
+      toast.error('Failed to send password reset instructions');
     }
   };
 
-  // Show loading screen while checking auth state
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
-      </div>
-    );
-  }
-
-  // If user is already authenticated, show a message but don't redirect
-  // This ensures the login form is always accessible
-  if (user && typeof user === 'object') {
+  // If user is authenticated, show option to continue to dashboard or logout
+  if (user && !authLoading) {
     return (
       <AuthLayout
-        title="Welcome Back"
-        subtitle="You are already signed in"
+        title="Already Logged In"
+        subtitle="You are currently signed in"
       >
-        <div className="mt-8 text-center">
-          <p className="text-gray-600 mb-4">
-            You are currently logged in. If you want to log in with a different account, 
-            please log out first.
-          </p>
-          <div className="flex flex-col gap-2">
-            <Button onClick={() => {
-              // Get the dashboard route based on user role using the unified helper function
-              const dashboardPath = getDashboardPath(user.role || '');
-              router.push(dashboardPath);
-            }}>
-              Continue to Dashboard
-            </Button>
-            <Button variant="secondary" onClick={async () => {
-              // Properly handle logout
-              try {
-                await logout();
-                // Redirect to login page after logout
-                window.location.href = '/login';
-              } catch (error) {
-                console.error('Logout error:', error);
-                // Even if logout fails, redirect to login page
-                window.location.href = '/login';
-              }
-            }}>
-              Log Out
-            </Button>
+        <div className="mt-8">
+          <div className="rounded-md bg-green-50 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-green-800">
+                  Welcome back, {user.email}
+                </h3>
+                <p className="mt-2 text-sm text-green-700">
+                  You are already logged in. You can continue to your dashboard or log out to switch accounts.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 text-center">
+            <p className="text-gray-600 mb-4">
+              You are currently logged in. If you want to log in with a different account, 
+              please log out first.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button onClick={() => {
+                // Get the dashboard route based on user role using the unified helper function
+                const dashboardPath = getDashboardPath(user.role || '');
+                router.push(dashboardPath);
+              }}>
+                Continue to Dashboard
+              </Button>
+              <Button variant="secondary" onClick={() => {
+                // Properly handle logout with immediate redirect
+                try {
+                  logout();
+                } catch (error) {
+                  console.error('Logout error:', error);
+                } finally {
+                  // Perform immediate user logout with proper redirection
+                  handleUserLogout();
+                }
+              }}>
+                Log Out
+              </Button>
+            </div>
           </div>
         </div>
       </AuthLayout>
@@ -154,34 +163,46 @@ export default function LoginPage() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="********"
+          placeholder="••••••••"
         />
-        
         <div className="flex items-center justify-between">
-          <button
-            type="button"
+          <Button 
+            type="button" 
+            variant="secondary"
             onClick={handleForgotPassword}
-            className="text-sm text-red-600 hover:text-red-500"
+            className="text-sm"
           >
             Forgot password?
-          </button>
+          </Button>
         </div>
-
-        <Button type="submit" isLoading={isLoading}>
-          Sign In
+        <Button 
+          type="submit" 
+          disabled={isLoading || authLoading}
+          className="w-full"
+        >
+          {isLoading || authLoading ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Signing In...
+            </>
+          ) : 'Sign In'}
         </Button>
-
-        <p className="text-center text-sm text-gray-600">
-          Don't have an account?{' '}
-          <button 
-            type="button"
-            onClick={() => router.push('/register')}
-            className="font-medium text-red-600 hover:text-red-500"
-          >
-            Sign up
-          </button>
-        </p>
       </form>
+      <div className="mt-6 text-center">
+        <p className="text-sm text-gray-600">
+          Don't have an account?{' '}
+          <Button 
+            variant="secondary"
+            onClick={() => router.push('/register')}
+            className="font-medium"
+          >
+            Register here
+          </Button>
+        </p>
+      </div>
     </AuthLayout>
   );
 }

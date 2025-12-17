@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/lib/auth';
+import { handleUserLogout } from '@/lib/logoutUtils';
 
 // Simple SVG Icon Components
 const HomeIcon = ({ className }: { className?: string }) => (
@@ -40,6 +42,12 @@ const MenuIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const LogoutIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+  </svg>
+);
+
 // Navigation items with icons
 const navigationItems = [
   { name: 'Dashboard', path: '/dashboard', icon: HomeIcon },
@@ -57,6 +65,7 @@ const navigationItems = [
  * - Navigation items with icons
  * - Collapsible functionality
  * - Active page highlighting
+ * - Logout button at the bottom
  * 
  * Props:
  * - collapsed: boolean - Whether the sidebar is collapsed
@@ -70,6 +79,20 @@ export default function CollapsibleSidebar({
   onToggle: () => void; 
 }) {
   const pathname = usePathname();
+  const { logout } = useAuth();
+
+  // Handle user logout
+  const handleLogout = () => {
+    try {
+      // Call logout function to clear user state
+      logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Perform immediate user logout with proper redirection
+      handleUserLogout();
+    }
+  };
 
   return (
     <aside className={`flex flex-col bg-white shadow-lg h-full transition-all duration-300 ease-in-out ${
@@ -89,8 +112,8 @@ export default function CollapsibleSidebar({
       </div>
       
       {/* Navigation items */}
-      <div className="flex-1 overflow-y-auto">
-        <nav className="mt-6 px-2">
+      <div className="flex-1 overflow-y-auto flex flex-col">
+        <nav className="mt-6 px-2 flex-1">
           <ul className="space-y-2">
             {navigationItems.map((item) => {
               const Icon = item.icon;
@@ -114,6 +137,19 @@ export default function CollapsibleSidebar({
             })}
           </ul>
         </nav>
+        
+        {/* Logout button at the bottom */}
+        <div className="p-2 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="flex items-center w-full px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <LogoutIcon className="h-5 w-5" />
+            {!collapsed && (
+              <span className="ml-3">Sign out</span>
+            )}
+          </button>
+        </div>
       </div>
     </aside>
   );

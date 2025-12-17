@@ -5,7 +5,7 @@ import { firestore } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
 import { SavingsTransaction } from '@/lib/types/savings';
-import { SavingsActions } from '@/components';
+// Removed SavingsActions import
 
 export default function UserSavingsPage() {
   const [transactions, setTransactions] = useState<SavingsTransaction[]>([]);
@@ -67,10 +67,7 @@ export default function UserSavingsPage() {
     }
   };
 
-  const handleTransactionComplete = () => {
-    // Refresh the transactions after a successful transaction
-    fetchSavingsTransactions();
-  };
+  // Removed handleTransactionComplete function since it's no longer needed
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {
@@ -100,12 +97,12 @@ export default function UserSavingsPage() {
     <div className="max-w-7xl mx-auto w-full">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">My Savings</h1>
-        <p className="text-gray-600 mt-2">Manage your savings and view transaction history</p>
+        <p className="text-gray-600 mt-2">View your savings history and balance</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Summary Card */}
-        <div className="lg:col-span-3 bg-white rounded-xl shadow-md p-6">
+        <div className="bg-white rounded-xl shadow-md p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-medium text-gray-600">Current Savings Balance</h2>
@@ -119,16 +116,8 @@ export default function UserSavingsPage() {
           </div>
         </div>
 
-        {/* Savings Actions - Left Column */}
-        <div className="lg:col-span-1">
-          <SavingsActions 
-            currentBalance={totalSavings}
-            onTransactionComplete={handleTransactionComplete}
-          />
-        </div>
-
-        {/* Savings History - Right Column */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-md p-6">
+        {/* Savings History - Full Width */}
+        <div className="bg-white rounded-xl shadow-md p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800">Savings History</h2>
           </div>
@@ -145,7 +134,7 @@ export default function UserSavingsPage() {
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-1">No transactions yet</h3>
-              <p className="text-gray-500">Your savings transactions will appear here once you make deposits or withdrawals.</p>
+              <p className="text-gray-500">Your savings transactions will appear here.</p>
             </div>
           ) : (
             <div className="overflow-hidden">

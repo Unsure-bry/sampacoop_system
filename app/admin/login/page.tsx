@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, getDashboardPath } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
+import { handleAdminLogout } from '@/lib/logoutUtils';
 import Input from '@/components/auth/Input';
 import Button from '@/components/auth/Button';
 import Link from 'next/link';
@@ -14,7 +15,7 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, loading: authLoading, logout, customLogin } = useAuth();
 
   // Don't automatically redirect authenticated users
   // Just show them a message that they're already logged in
@@ -28,42 +29,28 @@ export default function AdminLoginPage() {
     setError('');
 
     try {
-      // Import the signIn function locally to avoid auto-redirection
-      const { success, user: loggedInUser, error: loginError, needsPasswordSetup } = await customLogin(email, password);
+      // Use the standardized customLogin function from the auth library
+      const result = await customLogin(email, password);
       
       // Check if password setup is required
-      if (!success && needsPasswordSetup) {
+      if (!result.success && result.needsPasswordSetup) {
         // Redirect to password setup page
         router.push(`/setup-password?email=${encodeURIComponent(email)}`);
         return;
       }
       
-      if (success && loggedInUser) {
+      if (result.success && result.user) {
         // Check if user is admin
-        const role = loggedInUser.role?.toLowerCase() || '';
+        const role = result.user.role?.toLowerCase() || '';
         
         // Admin roles with specific dashboard paths
-        if (role === 'admin') {
-          toast.success('Welcome back, Admin!');
-          router.replace('/admin/dashboard');
-        } else if (role === 'secretary') {
-          toast.success('Welcome back, Secretary!');
-          router.replace('/admin/secretary/home');
-        } else if (role === 'chairman') {
-          toast.success('Welcome back, Chairman!');
-          router.replace('/admin/chairman/home');
-        } else if (role === 'vice chairman') {
-          toast.success('Welcome back, Vice Chairman!');
-          router.replace('/admin/vice-chairman/home');
-        } else if (role === 'manager') {
-          toast.success('Welcome back, Manager!');
-          router.replace('/admin/manager/home');
-        } else if (role === 'treasurer') {
-          toast.success('Welcome back, Treasurer!');
-          router.replace('/admin/treasurer/home');
-        } else if (role === 'board of directors') {
-          toast.success('Welcome back, Board of Directors!');
-          router.replace('/admin/bod/home');
+        const adminRoles = ['admin', 'secretary', 'chairman', 'vice chairman', 'manager', 'treasurer', 'board of directors'];
+        
+        if (adminRoles.includes(role)) {
+          // Use the unified helper function for consistent redirection
+          const dashboardPath = getDashboardPath(role);
+          toast.success(`Welcome back, ${role.charAt(0).toUpperCase() + role.slice(1)}!`);
+          router.push(dashboardPath);
         } else if (['member', 'user', 'driver', 'operator'].includes(role)) {
           const errorMsg = 'Access denied. Admin privileges required.';
           setError(errorMsg);
@@ -74,7 +61,7 @@ export default function AdminLoginPage() {
           toast.error(errorMsg);
         }
       } else {
-        const errorMessage = loginError || 'Invalid credentials or not authorized as admin';
+        const errorMessage = result.error || 'Invalid credentials or not authorized as admin';
         setError(errorMessage);
         toast.error(errorMessage);
       }
@@ -85,38 +72,6 @@ export default function AdminLoginPage() {
       console.error('Login error:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Custom login function that doesn't cause auto-redirection
-  const customLogin = async (email: string, password: string) => {
-    try {
-      const response = await fetch('/api/auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const result = await response.json();
-      
-      if (response.ok && result.success) {
-        
-        // Set cookies manually
-        document.cookie = `authenticated=${encodeURIComponent(result.uid)}; path=/; max-age=${60 * 60 * 24 * 7}`;
-        document.cookie = `userRole=${encodeURIComponent(result.role)}; path=/; max-age=${60 * 60 * 24 * 7}`;
-        return { success: true, user: result.user };
-      } else {
-        // Check if password setup is required
-        if (result.needsPasswordSetup) {
-          return { success: false, error: result.error, needsPasswordSetup: true };
-        }
-        return { success: false, error: result.error || 'Login failed' };
-      }
-    } catch (error: any) {
-      console.error('Login error:', error);
-      return { success: false, error: error.message || 'An unexpected error occurred during login' };
     }
   };
 
@@ -156,19 +111,18 @@ export default function AdminLoginPage() {
               }}>
                 Continue to Admin Dashboard
               </Button>
-              <Button variant="secondary" onClick={async () => {
-                // Properly handle logout
+              <Button variant="secondary" onClick={() => {
+                // Properly handle logout with immediate redirect
                 try {
-                  await logout();
-                  // Redirect to admin login page after logout
-                  window.location.href = '/admin/login';
+                  logout();
                 } catch (error) {
                   console.error('Logout error:', error);
-                  // Even if logout fails, redirect to login page
-                  window.location.href = '/admin/login';
+                } finally {
+                  // Perform immediate admin logout with proper redirection
+                  handleAdminLogout();
                 }
               }}>
-                Log Out
+
               </Button>
             </div>
           </div>

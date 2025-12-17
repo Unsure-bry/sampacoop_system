@@ -125,8 +125,8 @@ export function preventRouteConflict(pathname: string, user: AppUser | null): st
       return '/admin/login';
     }
     // For user routes, redirect to user login
-    if (pathname.startsWith('/dashboard') || pathname.startsWith('/profile') || 
-        pathname.startsWith('/loan') || pathname.startsWith('/savings')) {
+    if (pathname.startsWith('/dashboard') || pathname.startsWith('/driver') || pathname.startsWith('/operator') ||
+        pathname.startsWith('/profile') || pathname.startsWith('/loan') || pathname.startsWith('/savings')) {
       return '/login';
     }
     // For auth routes, allow access
@@ -144,33 +144,54 @@ export function preventRouteConflict(pathname: string, user: AppUser | null): st
   
   // Admin roles
   const adminRoles = ['admin', 'secretary', 'chairman', 'vice chairman', 'manager', 'treasurer', 'board of directors'];
-  const memberRoles = ['member', 'driver', 'operator'];
+  const memberRoles = ['member'];
+  const driverRoles = ['driver'];
+  const operatorRoles = ['operator'];
   
   // If non-admin user tries to access admin routes (except login/register)
   if (pathname.startsWith('/admin') && 
       pathname !== '/admin/login' && 
       pathname !== '/admin/register' && 
       !adminRoles.includes(normalizedRole)) {
-    // Redirect member roles to user dashboard
+    // Redirect member roles to appropriate dashboard
     if (memberRoles.includes(normalizedRole)) {
       return '/dashboard';
+    } else if (driverRoles.includes(normalizedRole)) {
+      return '/driver/dashboard';
+    } else if (operatorRoles.includes(normalizedRole)) {
+      return '/operator/dashboard';
     }
     return '/login';
   }
   
   // If member tries to access admin-specific routes
-  if (adminRoles.includes(normalizedRole) && memberRoles.includes(normalizedRole)) {
+  if (adminRoles.includes(normalizedRole) && (memberRoles.includes(normalizedRole) || 
+      driverRoles.includes(normalizedRole) || operatorRoles.includes(normalizedRole))) {
     // This shouldn't happen with proper role assignment, but just in case
-    return '/dashboard';
+    if (memberRoles.includes(normalizedRole)) {
+      return '/dashboard';
+    } else if (driverRoles.includes(normalizedRole)) {
+      return '/driver/dashboard';
+    } else if (operatorRoles.includes(normalizedRole)) {
+      return '/operator/dashboard';
+    }
   }
   
   // If member tries to access admin dashboard
   if (pathname === '/admin/dashboard' && !adminRoles.includes(normalizedRole)) {
+    if (memberRoles.includes(normalizedRole)) {
+      return '/dashboard';
+    } else if (driverRoles.includes(normalizedRole)) {
+      return '/driver/dashboard';
+    } else if (operatorRoles.includes(normalizedRole)) {
+      return '/operator/dashboard';
+    }
     return '/dashboard';
   }
   
   // If admin tries to access user dashboard, redirect to their specific admin dashboard
-  if (pathname === '/dashboard' && adminRoles.includes(normalizedRole)) {
+  if ((pathname === '/dashboard' || pathname === '/driver/dashboard' || pathname === '/operator/dashboard') && 
+      adminRoles.includes(normalizedRole)) {
     // Return the appropriate admin dashboard based on role
     if (normalizedRole === 'admin') {
       return '/admin/dashboard';
@@ -189,6 +210,31 @@ export function preventRouteConflict(pathname: string, user: AppUser | null): st
     }
     // Default fallback
     return '/admin/dashboard';
+  }
+  
+  // Role-specific dashboard access restrictions
+  if (pathname === '/driver/dashboard' && !driverRoles.includes(normalizedRole)) {
+    // Drivers can only access their own dashboard
+    if (memberRoles.includes(normalizedRole)) {
+      return '/dashboard';
+    } else if (operatorRoles.includes(normalizedRole)) {
+      return '/operator/dashboard';
+    } else if (adminRoles.includes(normalizedRole)) {
+      return getDashboardPath(normalizedRole);
+    }
+    return '/dashboard';
+  }
+  
+  if (pathname === '/operator/dashboard' && !operatorRoles.includes(normalizedRole)) {
+    // Operators can only access their own dashboard
+    if (memberRoles.includes(normalizedRole)) {
+      return '/dashboard';
+    } else if (driverRoles.includes(normalizedRole)) {
+      return '/driver/dashboard';
+    } else if (adminRoles.includes(normalizedRole)) {
+      return getDashboardPath(normalizedRole);
+    }
+    return '/dashboard';
   }
   
   // No conflict
@@ -217,8 +263,8 @@ export function validateRouteAccess(pathname: string, user: AppUser | null): str
     if (!validateRoleSpecificAdminRoute(pathname, user)) return '/admin/unauthorized';
   }
 
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/profile') || 
-      pathname.startsWith('/loan') || pathname.startsWith('/savings')) {
+  if (pathname.startsWith('/dashboard') || pathname.startsWith('/driver') || pathname.startsWith('/operator') ||
+      pathname.startsWith('/profile') || pathname.startsWith('/loan') || pathname.startsWith('/savings')) {
     if (!user) return '/login';
     if (!validateUserRoute(user)) return '/login';
   }

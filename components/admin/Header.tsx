@@ -45,11 +45,16 @@ export default function AdminHeader({
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Handle user logout
-  const handleLogout = async () => {
+  const handleLogout = () => {
     try {
-      await logout();
+      // Call logout function to clear user state
+      logout();
+      // Immediately redirect to admin login
+      handleAdminLogout();
     } catch (error) {
       console.error('Logout error:', error);
+      // Even if there's an error, still redirect
+      handleAdminLogout();
     }
   };
 

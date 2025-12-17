@@ -46,12 +46,15 @@ export default function AdminProfilePage() {
     toast('Change password functionality would open here', { icon: '🔑' });
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     try {
-      await logout();
-      toast.success('Logged out successfully');
+      // Call logout function to clear user state immediately
+      logout();
     } catch (error) {
-      toast.error('Failed to logout');
+      console.error('Logout error:', error);
+    } finally {
+      // Perform immediate admin logout with proper redirection
+      handleAdminLogout();
     }
   };
 
@@ -123,6 +126,15 @@ export default function AdminProfilePage() {
             Change Password
           </button>
           
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
+          >
+            <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Sign Out
+          </button>
         </div>
       </div>
       

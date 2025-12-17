@@ -4,11 +4,15 @@ import { useAuth } from '@/lib/auth';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/admin';
+import MemberRegistrationModal from '@/components/admin/MemberRegistrationModal';
+import { firestore } from '@/lib/firebase';
+import { toast } from 'react-hot-toast';
 
 export default function SecretaryMembersRecordsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [members, setMembers] = useState<any[]>([]);
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -18,14 +22,182 @@ export default function SecretaryMembersRecordsPage() {
     }
   }, [user, loading, router]);
 
-  // Mock data - in a real app, this would come from Firestore
+  // Fetch members from Firestore
   useEffect(() => {
-    setMembers([
-      { id: 1, name: 'John Doe', email: 'john@example.com', status: 'Active' },
-      { id: 2, name: 'Jane Smith', email: 'jane@example.com', status: 'Active' },
-      { id: 3, name: 'Robert Johnson', email: 'robert@example.com', status: 'Inactive' },
-    ]);
+    const fetchMembers = async () => {
+      try {
+        // First try to fetch from 'members' collection
+        let result = await firestore.getCollection('members');
+        
+        // If that fails or returns no data, try 'users' collection with member filtering
+        if (!result.success || !result.data || result.data.length === 0) {
+          console.log('No data in members collection, trying users collection');
+          result = await firestore.getCollection('users');
+          
+          if (result.success && result.data) {
+            // Filter for users with member roles
+            const membersData = result.data
+              .filter((doc: any) => {
+                const role = doc.role?.toLowerCase();
+                return role && ['member', 'driver', 'operator'].includes(role);
+              })
+              .map((doc: any) => ({
+                id: doc.id,
+                firstName: doc.firstName || doc.fullName?.split(' ')[0] || 'Unknown',
+                lastName: doc.lastName || doc.fullName?.split(' ').slice(-1)[0] || 'User',
+                middleName: doc.middleName || '',
+                suffix: doc.suffix || '',
+                role: doc.role || 'Member',
+                email: doc.email || '',
+                phoneNumber: doc.contactNumber || doc.phoneNumber || '',
+                birthdate: doc.birthdate || '',
+                age: doc.age || 0,
+                status: doc.status || 'Active',
+                createdAt: doc.createdAt || new Date().toISOString(),
+                archived: doc.archived || false,
+                driverInfo: doc.driverInfo || null,
+                operatorInfo: doc.operatorInfo || null,
+                ...doc
+              }));
+            
+            setMembers(membersData);
+            return;
+          }
+        }
+        
+        if (result.success && result.data) {
+          // Process members from the members collection
+          const membersData = result.data.map((doc: any) => {
+            // Handle different data structures
+            const firstName = doc.firstName || 
+                             doc.fullName?.split(' ')[0] || 
+                             doc.displayName?.split(' ')[0] || 
+                             'Unknown';
+                             
+            const lastName = doc.lastName || 
+                            doc.fullName?.split(' ').slice(-1)[0] || 
+                            doc.displayName?.split(' ').slice(-1)[0] || 
+                            'User';
+            
+            return {
+              id: doc.id,
+              firstName,
+              lastName,
+              middleName: doc.middleName || '',
+              suffix: doc.suffix || '',
+              role: doc.role || 'Member',
+              email: doc.email || '',
+              phoneNumber: doc.contactNumber || doc.phoneNumber || '',
+              birthdate: doc.birthdate || '',
+              age: doc.age || 0,
+              status: doc.status || 'Active',
+              createdAt: doc.createdAt || new Date().toISOString(),
+              archived: doc.archived || false,
+              driverInfo: doc.driverInfo || null,
+              operatorInfo: doc.operatorInfo || null,
+              ...doc
+            };
+          });
+          
+          setMembers(membersData);
+        }
+      } catch (error) {
+        console.error('Error fetching members:', error);
+        toast.error('Failed to load members');
+      }
+    };
+
+    fetchMembers();
   }, []);
+
+  const handleMemberAdded = () => {
+    // Refresh the member list after adding a new member
+    const fetchMembers = async () => {
+      try {
+        // First try to fetch from 'members' collection
+        let result = await firestore.getCollection('members');
+        
+        // If that fails or returns no data, try 'users' collection with member filtering
+        if (!result.success || !result.data || result.data.length === 0) {
+          console.log('No data in members collection, trying users collection');
+          result = await firestore.getCollection('users');
+          
+          if (result.success && result.data) {
+            // Filter for users with member roles
+            const membersData = result.data
+              .filter((doc: any) => {
+                const role = doc.role?.toLowerCase();
+                return role && ['member', 'driver', 'operator'].includes(role);
+              })
+              .map((doc: any) => ({
+                id: doc.id,
+                firstName: doc.firstName || doc.fullName?.split(' ')[0] || 'Unknown',
+                lastName: doc.lastName || doc.fullName?.split(' ').slice(-1)[0] || 'User',
+                middleName: doc.middleName || '',
+                suffix: doc.suffix || '',
+                role: doc.role || 'Member',
+                email: doc.email || '',
+                phoneNumber: doc.contactNumber || doc.phoneNumber || '',
+                birthdate: doc.birthdate || '',
+                age: doc.age || 0,
+                status: doc.status || 'Active',
+                createdAt: doc.createdAt || new Date().toISOString(),
+                archived: doc.archived || false,
+                driverInfo: doc.driverInfo || null,
+                operatorInfo: doc.operatorInfo || null,
+                ...doc
+              }));
+            
+            setMembers(membersData);
+            return;
+          }
+        }
+        
+        if (result.success && result.data) {
+          // Process members from the members collection
+          const membersData = result.data.map((doc: any) => {
+            // Handle different data structures
+            const firstName = doc.firstName || 
+                             doc.fullName?.split(' ')[0] || 
+                             doc.displayName?.split(' ')[0] || 
+                             'Unknown';
+                             
+            const lastName = doc.lastName || 
+                            doc.fullName?.split(' ').slice(-1)[0] || 
+                            doc.displayName?.split(' ').slice(-1)[0] || 
+                            'User';
+            
+            return {
+              id: doc.id,
+              firstName,
+              lastName,
+              middleName: doc.middleName || '',
+              suffix: doc.suffix || '',
+              role: doc.role || 'Member',
+              email: doc.email || '',
+              phoneNumber: doc.contactNumber || doc.phoneNumber || '',
+              birthdate: doc.birthdate || '',
+              age: doc.age || 0,
+              status: doc.status || 'Active',
+              createdAt: doc.createdAt || new Date().toISOString(),
+              archived: doc.archived || false,
+              driverInfo: doc.driverInfo || null,
+              operatorInfo: doc.operatorInfo || null,
+              ...doc
+            };
+          });
+          
+          setMembers(membersData);
+        }
+      } catch (error) {
+        console.error('Error fetching members:', error);
+        toast.error('Failed to load members');
+      }
+    };
+
+    fetchMembers();
+    toast.success('Member registered successfully!');
+  };
 
   if (loading) {
     return (
@@ -39,66 +211,52 @@ export default function SecretaryMembersRecordsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Member Records</h1>
-        <button 
-          onClick={() => router.push('/admin/secretary/members')}
-          className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
-        >
-          Back
-        </button>
+        <div className="flex space-x-2">
+          <button 
+            onClick={() => setIsAddMemberModalOpen(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Add Member
+          </button>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {members.map((member) => (
+          <Card key={member.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {member.firstName} {member.lastName}
+                </h3>
+                <p className="text-gray-600">{member.role}</p>
+              </div>
+              <span className={`px-2 py-1 text-xs rounded-full ${
+                member.archived ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-800'
+              }`}>
+                {member.archived ? 'Archived' : 'Active'}
+              </span>
+            </div>
+            <div className="mt-4 space-y-2">
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Email:</span> {member.email || 'N/A'}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Phone:</span> {member.phoneNumber || 'N/A'}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Joined:</span> {member.createdAt ? new Date(member.createdAt).toLocaleDateString() : 'N/A'}
+              </p>
+            </div>
+          </Card>
+        ))}
       </div>
 
-      <Card>
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-800">All Members</h3>
-        </div>
-        <div className="p-6">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {members.map((member) => (
-                  <tr key={member.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{member.name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{member.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        member.status === 'Active' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {member.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button className="text-red-600 hover:text-red-900 mr-3">Edit</button>
-                      <button className="text-red-600 hover:text-red-900">View</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </Card>
+      <MemberRegistrationModal 
+        isOpen={isAddMemberModalOpen} 
+        onClose={() => setIsAddMemberModalOpen(false)} 
+        onMemberAdded={handleMemberAdded} 
+      />
     </div>
   );
 }
