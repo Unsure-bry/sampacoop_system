@@ -180,7 +180,7 @@ export default function RegisterPage() {
         fullName: formData.fullName,
         contactNumber: formData.contactNumber,
         email: formData.email,
-        role: formData.role,
+        role: formData.role, // Store role as entered by user
         passwordHash: hashB64,
         salt: saltB64,
         isPasswordSet: true,

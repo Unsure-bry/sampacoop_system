@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Card from '@/components/shared/Card';
+import { ActiveSavings } from '@/components';
 
 // Mock data for reminders
 const reminders = [
@@ -23,8 +24,20 @@ export default function DriverDashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  // Remove the useEffect that was causing redirects
   // The middleware and route validation should handle navigation
+  // But we still check on the client side for better UX
+  useEffect(() => {
+    if (!loading && user) {
+      // Validate that this user should be on this dashboard
+      const userRole = user.role?.toLowerCase() || '';
+      if (userRole !== 'driver') {
+        // Redirect to correct dashboard
+        if (typeof window !== 'undefined') {
+          window.location.replace('/login');
+        }
+      }
+    }
+  }, [user, loading]);
 
   if (loading) {
     return (
@@ -41,23 +54,12 @@ export default function DriverDashboardPage() {
     <div className="max-w-7xl mx-auto w-full">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Welcome, Driver {user?.email}</h1>
-        <p className="text-gray-600 mt-2">Your personalized dashboard for managing your cooperative account</p>
+        <p className="text-gray-600 mt-2">Driver Dashboard</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
         {/* Savings Card */}
-        <Card title="My Savings" className="h-full">
-          <div className="flex flex-col items-center justify-center h-full py-8">
-            <div className="text-4xl font-bold text-gray-800 mb-2">₱0.00</div>
-            <p className="text-gray-600 mb-4">Current Savings Balance</p>
-            <button 
-              onClick={() => router.push('/savings')}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              View Savings
-            </button>
-          </div>
-        </Card>
+        <ActiveSavings compact={true} />
 
         {/* Reminders Card */}
         <Card title="Reminders" className="h-full">
@@ -85,6 +87,11 @@ export default function DriverDashboardPage() {
             ))}
           </div>
         </Card>
+      </div>
+
+      {/* Recent Savings Transactions Section */}
+      <div className="mt-8">
+        <ActiveSavings compact={false} />
       </div>
 
       {/* Quick Actions Section */}

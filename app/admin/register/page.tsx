@@ -171,7 +171,7 @@ export default function AdminRegisterPage() {
       const userData = {
         fullName: formData.fullName,
         email: formData.email,
-        role: formData.role,
+        role: formData.role, // Store role as entered by admin
         passwordHash: hashB64,
         salt: saltB64,
         isPasswordSet: true,

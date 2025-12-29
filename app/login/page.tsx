@@ -54,12 +54,18 @@ export default function LoginPage() {
       if (result.success && result.user) {
         console.log('Login successful, user:', result.user);
         
-        // Determine redirect path based on user role using the unified helper function
-        const dashboardPath = getDashboardPath(result.user.role || '');
-        router.push(dashboardPath);
+        // Role-based redirection is now handled automatically in the auth context
+        toast.success('Welcome back!');
       } else {
         console.log('Login failed:', result?.error);
-        toast.error(result?.error || 'Failed to log in');
+        // Provide more specific error messages for role-related issues
+        if (result?.error?.includes('role not assigned')) {
+          toast.error('Your account does not have a role assigned. Please contact an administrator.');
+        } else if (result?.error?.includes('Invalid user role')) {
+          toast.error('Your account has an invalid role. Please contact an administrator.');
+        } else {
+          toast.error(result?.error || 'Failed to log in');
+        }
       }
     } catch (error: any) {
       console.error('Login error:', error);

@@ -29,31 +29,23 @@ export function validateRoleSpecificAdminRoute(pathname: string, user: AppUser |
   if (!user.role) return false;
   
   // Convert role to lowercase for comparison
-  const normalizedRole = user.role.toLowerCase();
+  const normalizedRole = user.role.toLowerCase().trim();
+  
+  // Define role-specific paths
+  const rolePaths: Record<string, string> = {
+    'secretary': '/admin/secretary/',
+    'chairman': '/admin/chairman/',
+    'vice chairman': '/admin/vice-chairman/',
+    'manager': '/admin/manager/',
+    'treasurer': '/admin/treasurer/',
+    'board of directors': '/admin/bod/'
+  };
   
   // Check if accessing role-specific dashboard
-  if (pathname.startsWith('/admin/secretary/') && normalizedRole !== 'secretary') {
-    return false;
-  }
-  
-  if (pathname.startsWith('/admin/chairman/') && normalizedRole !== 'chairman') {
-    return false;
-  }
-  
-  if (pathname.startsWith('/admin/vice-chairman/') && normalizedRole !== 'vice chairman') {
-    return false;
-  }
-  
-  if (pathname.startsWith('/admin/manager/') && normalizedRole !== 'manager') {
-    return false;
-  }
-  
-  if (pathname.startsWith('/admin/treasurer/') && normalizedRole !== 'treasurer') {
-    return false;
-  }
-  
-  if (pathname.startsWith('/admin/bod/') && normalizedRole !== 'board of directors') {
-    return false;
+  for (const [role, pathPrefix] of Object.entries(rolePaths)) {
+    if (pathname.startsWith(pathPrefix) && normalizedRole !== role) {
+      return false;
+    }
   }
   
   // For admin dashboard, allow access to admin and all other admin roles
@@ -118,7 +110,7 @@ export function getDashboardRoute(user: AppUser | null): string {
  * @returns string with redirect path or null if no conflict
  */
 export function preventRouteConflict(pathname: string, user: AppUser | null): string | null {
-  // If no user, redirect to login for protected routes
+  // If no user, redirect to appropriate login for protected routes
   if (!user) {
     // For admin routes, redirect to admin login
     if (pathname.startsWith('/admin') && pathname !== '/admin/login' && pathname !== '/admin/register') {
@@ -140,7 +132,29 @@ export function preventRouteConflict(pathname: string, user: AppUser | null): st
   if (!user.role) return '/login';
   
   // Convert role to lowercase for comparison
-  const normalizedRole = user.role.toLowerCase();
+  const normalizedRole = user.role.toLowerCase().trim();
+  
+  // Define valid roles and their dashboard paths
+  const roleDashboardMap: Record<string, string> = {
+    'admin': '/admin/dashboard',
+    'secretary': '/admin/secretary/home',
+    'chairman': '/admin/chairman/home',
+    'vice chairman': '/admin/vice-chairman/home',
+    'manager': '/admin/manager/home',
+    'treasurer': '/admin/treasurer/home',
+    'board of directors': '/admin/bod/home',
+    'member': '/dashboard',
+    'driver': '/driver/dashboard',
+    'operator': '/operator/dashboard'
+  };
+  
+  // Get the expected dashboard path for this user's role
+  const expectedDashboardPath = roleDashboardMap[normalizedRole];
+  
+  // If role is not recognized, redirect to login
+  if (!expectedDashboardPath) {
+    return '/login';
+  }
   
   // Admin roles
   const adminRoles = ['admin', 'secretary', 'chairman', 'vice chairman', 'manager', 'treasurer', 'board of directors'];
@@ -153,88 +167,23 @@ export function preventRouteConflict(pathname: string, user: AppUser | null): st
       pathname !== '/admin/login' && 
       pathname !== '/admin/register' && 
       !adminRoles.includes(normalizedRole)) {
-    // Redirect member roles to appropriate dashboard
-    if (memberRoles.includes(normalizedRole)) {
-      return '/dashboard';
-    } else if (driverRoles.includes(normalizedRole)) {
-      return '/driver/dashboard';
-    } else if (operatorRoles.includes(normalizedRole)) {
-      return '/operator/dashboard';
-    }
-    return '/login';
-  }
-  
-  // If member tries to access admin-specific routes
-  if (adminRoles.includes(normalizedRole) && (memberRoles.includes(normalizedRole) || 
-      driverRoles.includes(normalizedRole) || operatorRoles.includes(normalizedRole))) {
-    // This shouldn't happen with proper role assignment, but just in case
-    if (memberRoles.includes(normalizedRole)) {
-      return '/dashboard';
-    } else if (driverRoles.includes(normalizedRole)) {
-      return '/driver/dashboard';
-    } else if (operatorRoles.includes(normalizedRole)) {
-      return '/operator/dashboard';
-    }
-  }
-  
-  // If member tries to access admin dashboard
-  if (pathname === '/admin/dashboard' && !adminRoles.includes(normalizedRole)) {
-    if (memberRoles.includes(normalizedRole)) {
-      return '/dashboard';
-    } else if (driverRoles.includes(normalizedRole)) {
-      return '/driver/dashboard';
-    } else if (operatorRoles.includes(normalizedRole)) {
-      return '/operator/dashboard';
-    }
-    return '/dashboard';
+    // Redirect to their appropriate dashboard
+    return expectedDashboardPath;
   }
   
   // If admin tries to access user dashboard, redirect to their specific admin dashboard
   if ((pathname === '/dashboard' || pathname === '/driver/dashboard' || pathname === '/operator/dashboard') && 
       adminRoles.includes(normalizedRole)) {
-    // Return the appropriate admin dashboard based on role
-    if (normalizedRole === 'admin') {
-      return '/admin/dashboard';
-    } else if (normalizedRole === 'secretary') {
-      return '/admin/secretary/home';
-    } else if (normalizedRole === 'chairman') {
-      return '/admin/chairman/home';
-    } else if (normalizedRole === 'vice chairman') {
-      return '/admin/vice-chairman/home';
-    } else if (normalizedRole === 'manager') {
-      return '/admin/manager/home';
-    } else if (normalizedRole === 'treasurer') {
-      return '/admin/treasurer/home';
-    } else if (normalizedRole === 'board of directors') {
-      return '/admin/bod/home';
-    }
-    // Default fallback
-    return '/admin/dashboard';
+    return expectedDashboardPath;
   }
   
   // Role-specific dashboard access restrictions
   if (pathname === '/driver/dashboard' && !driverRoles.includes(normalizedRole)) {
-    // Drivers can only access their own dashboard
-    if (memberRoles.includes(normalizedRole)) {
-      return '/dashboard';
-    } else if (operatorRoles.includes(normalizedRole)) {
-      return '/operator/dashboard';
-    } else if (adminRoles.includes(normalizedRole)) {
-      return getDashboardPath(normalizedRole);
-    }
-    return '/dashboard';
+    return expectedDashboardPath;
   }
   
   if (pathname === '/operator/dashboard' && !operatorRoles.includes(normalizedRole)) {
-    // Operators can only access their own dashboard
-    if (memberRoles.includes(normalizedRole)) {
-      return '/dashboard';
-    } else if (driverRoles.includes(normalizedRole)) {
-      return '/driver/dashboard';
-    } else if (adminRoles.includes(normalizedRole)) {
-      return getDashboardPath(normalizedRole);
-    }
-    return '/dashboard';
+    return expectedDashboardPath;
   }
   
   // No conflict

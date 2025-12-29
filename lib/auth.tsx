@@ -109,7 +109,13 @@ function timingSafeEqual(a: string, b: string): boolean {
 // Helper function to determine dashboard path based on role
 export function getDashboardPath(role: string): string {
   // Convert role to lowercase for comparison
-  const normalizedRole = role.toLowerCase();
+  const normalizedRole = role.toLowerCase().trim();
+  
+  // Validate that role exists
+  if (!normalizedRole) {
+    console.warn('getDashboardPath called with empty role, defaulting to /login');
+    return '/login';
+  }
   
   // Admin roles with specific dashboard paths
   if (normalizedRole === 'admin') {
@@ -142,8 +148,9 @@ export function getDashboardPath(role: string): string {
     return '/dashboard';
   }
   
-  // Default fallback
-  return '/dashboard';
+  // Default fallback - redirect to login for invalid roles
+  console.warn(`getDashboardPath called with invalid role: ${role}, redirecting to /login`);
+  return '/login';
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -316,10 +323,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
       console.log('User state set');
 
-      // Remove auto-redirect here - let the user stay on the current page
-      // Role-based redirection should be handled by the calling component if needed
-      // const dashboardPath = getDashboardPath(role);
-      // router.push(dashboardPath);
+      // Automatically redirect user to their correct dashboard based on role
+      // Use setTimeout to ensure state is properly set before redirecting
+      const dashboardPath = getDashboardPath(role);
+      if (typeof window !== 'undefined') {
+        // Use replace to prevent back-navigation to login page
+        setTimeout(() => {
+          window.location.replace(dashboardPath);
+        }, 0);
+      }
 
       return { user };
     } catch (error: any) {
@@ -466,6 +478,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
       console.log('User state set');
 
+      // Validate role exists
+      if (!role) {
+        console.error('User has no role assigned:', user);
+        // Clear user state and redirect to login
+        setUser(null);
+        if (typeof window !== 'undefined') {
+          window.location.replace('/login');
+        }
+        return { success: false, error: 'User role not assigned. Please contact administrator.' };
+      }
+
+      // Automatically redirect user to their correct dashboard based on role
+      // Use setTimeout to ensure state is properly set before redirecting
+      const dashboardPath = getDashboardPath(role);
+      if (typeof window !== 'undefined') {
+        // Use replace to prevent back-navigation to login page
+        setTimeout(() => {
+          window.location.replace(dashboardPath);
+        }, 0);
+      }
+
       return { success: true, user };
     } catch (error: any) {
       console.error('Login error:', error);
@@ -517,9 +550,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const appUser: AppUser = { uid, email, displayName: fullName || '', role: 'member', lastLogin: userData.lastLogin };
     setUser(appUser);
 
-    // Redirect to user dashboard after signup using the unified helper function
-    const dashboardPath = getDashboardPath('member');
-    router.push(dashboardPath);
+    // Role-based redirection is now handled automatically in the auth context
 
     return { user: appUser };
   };
@@ -582,7 +613,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     // Clear user state immediately to prevent UI flickering
     setUser(null);
     

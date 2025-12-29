@@ -42,7 +42,22 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(initialStats);
   const [loading, setLoading] = useState(true);
 
-  // Redirect users to their role-specific dashboards
+  // Validate that this user should be on this dashboard
+  useEffect(() => {
+    if (!authLoading && user) {
+      const role = user.role?.toLowerCase() || '';
+      // Only admin users should stay on this page
+      // Other admin roles are redirected by middleware, but we double-check here
+      if (role !== 'admin') {
+        // Redirect to their specific dashboard
+        if (typeof window !== 'undefined') {
+          window.location.replace('/login');
+        }
+      }
+    }
+  }, [user, authLoading]);
+
+  // Redirect users to their role-specific dashboards (keeping existing logic for backward compatibility)
   useEffect(() => {
     if (!authLoading && user) {
       const role = user.role?.toLowerCase() || '';

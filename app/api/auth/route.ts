@@ -167,7 +167,24 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { 
           success: false, 
-          error: "User role not assigned" 
+          error: "User role not assigned. Please contact administrator." 
+        }, 
+        { status: 400 }
+      );
+    }
+
+    // Validate that user role is valid
+    const validRoles = [
+      'admin', 'secretary', 'chairman', 'vice chairman', 'manager', 
+      'treasurer', 'board of directors', 'member', 'driver', 'operator'
+    ];
+    const normalizedRole = userData.role.toLowerCase().trim();
+    if (!validRoles.includes(normalizedRole)) {
+      console.log("Invalid user role for user:", email, "Role:", userData.role);
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `Invalid user role: ${userData.role}. Please contact administrator.` 
         }, 
         { status: 400 }
       );
@@ -178,7 +195,7 @@ export async function POST(req: Request) {
       uid: userDoc.id,
       email: userData.email,
       displayName: userData.displayName || null,
-      role: userData.role,
+      role: userData.role, // Return the original role as stored in DB
       lastLogin: userData.lastLogin || null
     };
 
@@ -206,7 +223,7 @@ export async function POST(req: Request) {
       { 
         success: true, 
         user: user,
-        role: user.role 
+        role: user.role // Include role in response for client-side routing
       }, 
       { status: 200 }
     );

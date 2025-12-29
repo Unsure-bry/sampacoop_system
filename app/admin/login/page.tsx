@@ -47,23 +47,30 @@ export default function AdminLoginPage() {
         const adminRoles = ['admin', 'secretary', 'chairman', 'vice chairman', 'manager', 'treasurer', 'board of directors'];
         
         if (adminRoles.includes(role)) {
-          // Use the unified helper function for consistent redirection
-          const dashboardPath = getDashboardPath(role);
+          // Role-based redirection is now handled automatically in the auth context
           toast.success(`Welcome back, ${role.charAt(0).toUpperCase() + role.slice(1)}!`);
-          router.push(dashboardPath);
         } else if (['member', 'user', 'driver', 'operator'].includes(role)) {
           const errorMsg = 'Access denied. Admin privileges required.';
           setError(errorMsg);
           toast.error(errorMsg);
         } else {
-          const errorMsg = 'No valid role assigned to this account.';
+          const errorMsg = 'No valid role assigned to this account. Please contact an administrator.';
           setError(errorMsg);
           toast.error(errorMsg);
         }
       } else {
         const errorMessage = result.error || 'Invalid credentials or not authorized as admin';
-        setError(errorMessage);
-        toast.error(errorMessage);
+        // Provide more specific error messages for role-related issues
+        if (errorMessage?.includes('role not assigned')) {
+          setError('Your account does not have a role assigned. Please contact an administrator.');
+          toast.error('Your account does not have a role assigned. Please contact an administrator.');
+        } else if (errorMessage?.includes('Invalid user role')) {
+          setError('Your account has an invalid role. Please contact an administrator.');
+          toast.error('Your account has an invalid role. Please contact an administrator.');
+        } else {
+          setError(errorMessage);
+          toast.error(errorMessage);
+        }
       }
     } catch (err: any) {
       const errorMessage = err.message || 'Invalid credentials or not authorized as admin';

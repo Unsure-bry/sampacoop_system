@@ -23,8 +23,20 @@ export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  // Remove the useEffect that was causing redirects
   // The middleware and route validation should handle navigation
+  // But we still check on the client side for better UX
+  useEffect(() => {
+    if (!loading && user) {
+      // Validate that this user should be on this dashboard
+      const userRole = user.role?.toLowerCase() || '';
+      if (userRole !== 'member') {
+        // Redirect to correct dashboard
+        if (typeof window !== 'undefined') {
+          window.location.replace('/login');
+        }
+      }
+    }
+  }, [user, loading]);
 
   if (loading) {
     return (
@@ -41,12 +53,12 @@ export default function DashboardPage() {
     <div className="max-w-7xl mx-auto w-full">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Welcome, {user?.email}</h1>
-        <p className="text-gray-600 mt-2"></p>
+        <p className="text-gray-600 mt-2">Member Dashboard</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
         {/* Savings Card */}
-        <Card title=" My Savings" className="h-full">
+        <Card title="My Savings" className="h-full">
           <div className="flex flex-col items-center justify-center h-full py-8">
             <div className="text-4xl font-bold text-gray-800 mb-2">₱0.00</div>
             <p className="text-gray-600 mb-4">Current Savings Balance</p>
