@@ -37,14 +37,51 @@ export default function LoanRequestForm({ onLoanSubmitted }: LoanRequestFormProp
         return;
       }
 
+      // Fetch user's member information from members collection
+      const memberResult = await firestore.getDocument('members', user?.uid || '');
+      let memberInfo = {};
+      
+      if (memberResult.success && memberResult.data) {
+        const memberData = memberResult.data;
+        
+        // Create full name from member data
+        const firstName = memberData.firstName || '';
+        const middleName = memberData.middleName || '';
+        const lastName = memberData.lastName || '';
+        const suffix = memberData.suffix || '';
+        
+        const fullName = `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}${suffix ? ' ' + suffix : ''}`.trim();
+        
+        memberInfo = {
+          memberId: memberData.id || user?.uid,
+          firstName,
+          lastName,
+          middleName,
+          suffix,
+          fullName,
+          email: memberData.email || user?.email,
+          role: memberData.role || user?.role,
+          phone: memberData.phoneNumber,
+        };
+      } else {
+        // Fallback to user data if member info not found
+        memberInfo = {
+          memberId: user?.uid,
+          email: user?.email,
+          role: user?.role,
+        };
+      }
+
       // Create loan request document
       const loanRequest = {
         userId: user?.uid,
+        ...memberInfo, // Include member information
+        planName: 'General Loan', // Default plan name
         amount: amountValue,
         term: termValue,
         description: description || '',
         status: 'pending',
-        timestamp: new Date().toISOString(),
+        createdAt: new Date().toISOString(), // Changed from timestamp to createdAt
       };
 
       // Save to Firestore

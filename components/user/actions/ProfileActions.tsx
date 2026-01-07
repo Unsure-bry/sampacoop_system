@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
+import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { handleUserLogout } from '@/lib/logoutUtils';
 
@@ -11,6 +12,7 @@ interface ProfileActionsProps {
 
 export default function ProfileActions({ onProfileUpdate }: ProfileActionsProps) {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const handleSignOut = () => {
@@ -26,27 +28,18 @@ export default function ProfileActions({ onProfileUpdate }: ProfileActionsProps)
   };
 
   const handleEditProfile = () => {
-    toast('Profile editing feature coming soon!', {
-      icon: 'ℹ️',
-    });
+    // Navigate to edit profile page
+    router.push('/profile/edit');
   };
 
   const handleSecuritySettings = () => {
-    toast('Security settings feature coming soon!', {
-      icon: 'ℹ️',
-    });
+    // Navigate to security settings page
+    router.push('/profile/security');
   };
 
   const handleNotificationSettings = () => {
-    toast('Notification settings feature coming soon!', {
-      icon: 'ℹ️',
-    });
-  };
-
-  const handlePrivacySettings = () => {
-    toast('Privacy settings feature coming soon!', {
-      icon: 'ℹ️',
-    });
+    // Navigate to notification settings page
+    router.push('/profile/notifications');
   };
 
   return (
@@ -84,19 +77,6 @@ export default function ProfileActions({ onProfileUpdate }: ProfileActionsProps)
         </div>
         <button 
           onClick={handleNotificationSettings}
-          className="text-red-600 hover:text-red-800 font-medium"
-        >
-          Manage
-        </button>
-      </div>
-      
-      <div className="flex justify-between items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-        <div>
-          <h3 className="font-medium text-gray-800">Privacy Settings</h3>
-          <p className="text-sm text-gray-600">Control your privacy and data sharing</p>
-        </div>
-        <button 
-          onClick={handlePrivacySettings}
           className="text-red-600 hover:text-red-800 font-medium"
         >
           Manage

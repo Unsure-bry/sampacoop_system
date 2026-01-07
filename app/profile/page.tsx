@@ -1,14 +1,24 @@
 'use client';
 
 import { useAuth } from '@/lib/auth';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Card from '@/components/shared/Card';
 import { ProfileActions } from '@/components';
+import ProfilePhotoUpload from '@/components/user/ProfilePhotoUpload';
+import { firestore } from '@/lib/firebase';
+import { toast } from 'react-hot-toast';
 
 export default function ProfilePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [memberData, setMemberData] = useState<any>(null);
+  const [loadingMember, setLoadingMember] = useState(true);
+  const [savingsData, setSavingsData] = useState({
+    totalSavings: '₱0.00',
+    totalLoans: '₱0.00',
+    pendingPayments: '₱0.00',
+  });
 
   // Remove the redirect effect - middleware handles authentication
   // useEffect(() => {
@@ -17,7 +27,114 @@ export default function ProfilePage() {
   //   }
   // }, [user, loading, router]);
 
-  if (loading) {
+  useEffect(() => {
+    if (user && user.uid) {
+      fetchMemberData();
+    }
+  }, [user]);
+
+  const fetchMemberData = async () => {
+    try {
+      setLoadingMember(true);
+      
+      // First try to fetch from 'members' collection
+      let result = await firestore.getDocument('members', user?.uid || '');
+      
+      if (result.success && result.data) {
+        // Process member data from members collection
+        setMemberData(result.data);
+      } else {
+        // If not found in members, try users collection
+        console.log('Member not found in members collection, trying users collection');
+        const userResult = await firestore.getDocument('users', user?.uid || '');
+        
+        if (userResult.success && userResult.data) {
+          // Process user data to match member structure
+          const userData = userResult.data;
+          
+          // Extract name parts from fullName if available
+          let firstName = userData.firstName || '';
+          let lastName = userData.lastName || '';
+          let middleName = userData.middleName || '';
+          let suffix = userData.suffix || '';
+          
+          if (!firstName && !lastName && userData.fullName) {
+            const nameParts = userData.fullName.split(' ');
+            if (nameParts.length >= 2) {
+              firstName = nameParts[0];
+              lastName = nameParts[nameParts.length - 1];
+              if (nameParts.length > 2) {
+                middleName = nameParts.slice(1, nameParts.length - 1).join(' ');
+              }
+            }
+          }
+          
+          setMemberData({
+            id: user?.uid,
+            firstName,
+            lastName,
+            middleName,
+            suffix,
+            email: userData.email || user?.email,
+            phoneNumber: userData.contactNumber || userData.phoneNumber || '',
+            birthdate: userData.birthdate || '',
+            age: userData.age || 0,
+            role: userData.role || user?.role,
+            status: userData.status || 'Active',
+            createdAt: userData.createdAt || '',
+            archived: userData.archived || false,
+            driverInfo: userData.driverInfo || null,
+            operatorInfo: userData.operatorInfo || null,
+            ...userData
+          });
+        } else {
+          toast.error('Member data not found');
+          console.error('Member not found in both members and users collections');
+        }
+      }
+      
+      // Fetch savings data
+      if (user?.uid) {
+        await fetchSavingsData(user.uid);
+      }
+    } catch (error) {
+      console.error('Error fetching member data:', error);
+      toast.error('Failed to load member data');
+    } finally {
+      setLoadingMember(false);
+    }
+  };
+
+  const fetchSavingsData = async (userId: string) => {
+    try {
+      // Fetch savings transactions from /members/{userId}/savings collection
+      const result = await firestore.getCollection(`members/${userId}/savings`);
+      
+      if (result.success && result.data) {
+        // Calculate running balance for each transaction
+        let runningBalance = 0;
+        const sortedTransactions = result.data
+          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          
+        sortedTransactions.forEach((transaction: any) => {
+          if (transaction.type === 'deposit') {
+            runningBalance += transaction.amount;
+          } else if (transaction.type === 'withdrawal') {
+            runningBalance -= transaction.amount;
+          }
+        });
+        
+        setSavingsData(prev => ({
+          ...prev,
+          totalSavings: `₱${runningBalance.toFixed(2)}`
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching savings data:', error);
+    }
+  };
+
+  if (loading || loadingMember) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
@@ -25,20 +142,130 @@ export default function ProfilePage() {
     );
   }
 
-  // Mock user data
-  const userData = {
-    name: user?.displayName || 'Juan Dela Cruz S.',
-    email: user?.email || 'Aboveba@gmail.com',
-    memberSince: 'Jan 01, 2025',
-    memberId: 'D-2025-0001',
-    phone: '+63 912 345 6789',
-    address: '123 Main Street, Santa Maria, Bulacan',
+  const getFullName = () => {
+    if (!memberData) return user?.email || 'Unknown User';
+    
+    const firstName = memberData.firstName || '';
+    const middleName = memberData.middleName || '';
+    const lastName = memberData.lastName || '';
+    const suffix = memberData.suffix || '';
+    
+    return `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}${suffix ? ' ' + suffix : ''}`.trim();
   };
 
-  const accountSummary = {
-    totalSavings: '₱00.00',
-    totalLoans: '₱00.00',
-    pendingPayments: '₱00.00',
+  const getAddress = () => {
+    if (!memberData) return 'Address not available';
+    
+    // Check if it's a driver or operator with specific address info
+    if (memberData.role?.toLowerCase() === 'driver' && memberData.driverInfo) {
+      const { houseNumber, blockNumber, lotNumber, street, barangay, city } = memberData.driverInfo;
+      return `${houseNumber || ''} ${street || ''}, ${barangay || ''}, ${city || ''}`.trim();
+    } else if (memberData.role?.toLowerCase() === 'operator' && memberData.operatorInfo) {
+      const { houseNumber, blockNumber, lotNumber, street, barangay, city } = memberData.operatorInfo;
+      return `${houseNumber || ''} ${street || ''}, ${barangay || ''}, ${city || ''}`.trim();
+    }
+    
+    // If it's a general member, check if address info exists in member data
+    if (memberData.houseNumber || memberData.street || memberData.barangay || memberData.city) {
+      return `${memberData.houseNumber || ''} ${memberData.street || ''}, ${memberData.barangay || ''}, ${memberData.city || ''}`.trim();
+    }
+    
+    return 'Address not available';
+  };
+
+  const getLicenseInfo = () => {
+    if (!memberData) return null;
+    
+    if (memberData.role?.toLowerCase() === 'driver' && memberData.driverInfo) {
+      return {
+        licenseNumber: memberData.driverInfo.licenseNumber,
+        tinId: memberData.driverInfo.tinId
+      };
+    } else if (memberData.role?.toLowerCase() === 'operator' && memberData.operatorInfo) {
+      return {
+        licenseNumber: memberData.operatorInfo.licenseNumber,
+        tinId: memberData.operatorInfo.tinId
+      };
+    }
+    
+    return null;
+  };
+
+  const getMemberSince = () => {
+    if (!memberData) return 'Unknown';
+    
+    const dateStr = memberData.createdAt;
+    if (!dateStr) return 'Unknown';
+    
+    try {
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (e) {
+      return 'Unknown';
+    }
+  };
+
+  const handleDownloadAccountData = () => {
+    if (!memberData) {
+      toast.error('No member data available to download');
+      return;
+    }
+    
+    // Create a JSON representation of the user's personal information
+    const accountData = {
+      personalInformation: {
+        id: memberData.id,
+        firstName: memberData.firstName,
+        lastName: memberData.lastName,
+        middleName: memberData.middleName,
+        suffix: memberData.suffix,
+        fullName: getFullName(),
+        email: memberData.email || user?.email || 'N/A',
+        phoneNumber: memberData.phoneNumber || 'N/A',
+        birthdate: memberData.birthdate || 'N/A',
+        role: memberData.role || user?.role || 'N/A',
+        status: memberData.status || 'N/A',
+        createdAt: memberData.createdAt || 'N/A',
+        memberSince: getMemberSince(),
+        address: getAddress(),
+        licenseInfo: getLicenseInfo(),
+      },
+      savingsData: {
+        totalSavings: savingsData.totalSavings,
+        totalLoans: savingsData.totalLoans,
+        pendingPayments: savingsData.pendingPayments,
+      },
+      metadata: {
+        downloadedAt: new Date().toISOString(),
+        userId: user?.uid,
+      }
+    };
+    
+    // Convert to JSON string with proper formatting
+    const jsonString = JSON.stringify(accountData, null, 2);
+    
+    // Create a blob and download link
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    // Set filename with timestamp
+    const fileName = `account-data-${user?.uid}-${new Date().toISOString().split('T')[0]}.json`;
+    link.href = url;
+    link.download = fileName;
+    
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast.success('Account data downloaded successfully!');
   };
 
   return (
@@ -48,14 +275,7 @@ export default function ProfilePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-1">
           <Card title="Profile Picture" className="text-center">
-            <div className="flex flex-col items-center">
-              <div className="w-24 h-24 rounded-full bg-red-100 flex items-center justify-center mb-4">
-                <UserIcon className="h-12 w-12 text-red-600" />
-              </div>
-              <button className="text-red-600 hover:text-red-800 text-sm font-medium">
-                Change Photo
-              </button>
-            </div>
+            <ProfilePhotoUpload />
           </Card>
         </div>
         
@@ -65,27 +285,53 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-gray-500">Full Name</label>
-                  <p className="font-medium">{userData.name}</p>
+                  <p className="font-medium">{getFullName()}</p>
                 </div>
                 <div>
                   <label className="text-sm text-gray-500">Email Address</label>
-                  <p className="font-medium">{userData.email}</p>
+                  <p className="font-medium">{memberData?.email || user?.email || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Role</label>
+                  <p className="font-medium">
+                    <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
+                      {memberData?.role || user?.role || 'Member'}
+                    </span>
+                  </p>
                 </div>
                 <div>
                   <label className="text-sm text-gray-500">Phone Number</label>
-                  <p className="font-medium">{userData.phone}</p>
+                  <p className="font-medium">{memberData?.phoneNumber || 'N/A'}</p>
                 </div>
                 <div>
                   <label className="text-sm text-gray-500">Member Since</label>
-                  <p className="font-medium">{userData.memberSince}</p>
+                  <p className="font-medium">{getMemberSince()}</p>
                 </div>
               </div>
               <div>
                 <label className="text-sm text-gray-500">Address</label>
-                <p className="font-medium">{userData.address}</p>
+                <p className="font-medium">{getAddress()}</p>
               </div>
+              
+              {/* Additional Information for Driver/Operator */}
+              {getLicenseInfo() && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
+                  <div>
+                    <label className="text-sm text-gray-500">License Number</label>
+                    <p className="font-medium">{getLicenseInfo()?.licenseNumber || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-500">TIN ID</label>
+                    <p className="font-medium">{getLicenseInfo()?.tinId || 'N/A'}</p>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex justify-end pt-4">
-                <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                <button 
+                  onClick={() => router.push('/profile/edit')}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+                >
                   Edit Profile
                 </button>
               </div>
@@ -96,13 +342,13 @@ export default function ProfilePage() {
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card title="Total Savings" className="text-center">
-          <p className="text-3xl font-bold text-green-600 mt-2">{accountSummary.totalSavings}</p>
+          <p className="text-3xl font-bold text-green-600 mt-2">{savingsData.totalSavings}</p>
         </Card>
         <Card title="Active Loans" className="text-center">
-          <p className="text-3xl font-bold text-red-600 mt-2">{accountSummary.totalLoans}</p>
+          <p className="text-3xl font-bold text-red-600 mt-2">{savingsData.totalLoans}</p>
         </Card>
         <Card title="Pending Payments" className="text-center">
-          <p className="text-3xl font-bold text-yellow-600 mt-2">{accountSummary.pendingPayments}</p>
+          <p className="text-3xl font-bold text-yellow-600 mt-2">{savingsData.pendingPayments}</p>
         </Card>
       </div>
       
@@ -110,6 +356,28 @@ export default function ProfilePage() {
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <h2 className="text-xl font-semibold mb-4">Account Settings</h2>
         <ProfileActions />
+      </div>
+      
+      {/* Account Data Section */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Account Data</h2>
+          <button 
+            onClick={handleDownloadAccountData}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+          >
+            <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download Personal Data
+          </button>
+        </div>
+        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+          <p className="text-gray-700">
+            You can view your personal information in the sections above and download all your account data using the button.
+            This includes personal details, contact information, membership status, and financial data.
+          </p>
+        </div>
       </div>
     </div>
   );

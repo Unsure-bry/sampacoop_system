@@ -5,12 +5,13 @@ import { firestore } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
 import { SavingsTransaction } from '@/lib/types/savings';
-// Removed SavingsActions import
+import AddSavingsTransactionModal from '@/components/user/AddSavingsTransactionModal';
 
 export default function UserSavingsPage() {
   const [transactions, setTransactions] = useState<SavingsTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalSavings, setTotalSavings] = useState(0);
+  const [showAddModal, setShowAddModal] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -64,6 +65,59 @@ export default function UserSavingsPage() {
       toast.error('Failed to load savings transactions');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddSavings = async (transactionData: { type: 'deposit' | 'withdrawal', amount: number, date: string, remarks: string }) => {
+    try {
+      if (!user) {
+        toast.error('User not authenticated');
+        return false;
+      }
+
+      // Calculate new balance
+      const amount = parseFloat(transactionData.amount.toString());
+      const newBalance = transactionData.type === 'deposit' 
+        ? totalSavings + amount 
+        : totalSavings - amount;
+      
+      // Validate withdrawal doesn't exceed balance
+      if (transactionData.type === 'withdrawal' && amount > totalSavings) {
+        toast.error('Withdrawal amount cannot exceed current balance');
+        return false;
+      }
+      
+      // Create transaction object
+      const newTransaction = {
+        memberId: user.uid,
+        memberName: user.email || 'Unknown Member',
+        date: transactionData.date,
+        type: transactionData.type,
+        amount: amount,
+        balance: newBalance,
+        remarks: transactionData.remarks,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Generate a unique ID for the transaction
+      const transactionId = `${transactionData.type}-${Date.now()}`;
+      
+      // Save to Firestore under /members/{memberId}/savings collection
+      const result = await firestore.setDocument(`members/${user.uid}/savings`, transactionId, newTransaction);
+      
+      if (result.success) {
+        toast.success(`Savings ${transactionData.type} recorded successfully!`);
+        // Refresh transactions
+        fetchSavingsTransactions();
+        return true;
+      } else {
+        toast.error('Failed to record savings transaction');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error adding savings transaction:', error);
+      toast.error('Failed to record savings transaction');
+      return false;
     }
   };
 
@@ -188,6 +242,14 @@ export default function UserSavingsPage() {
           )}
         </div>
       </div>
+
+      {/* Add Savings Transaction Modal */}
+      <AddSavingsTransactionModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAddSavings={handleAddSavings}
+        currentBalance={totalSavings}
+      />
     </div>
   );
 }

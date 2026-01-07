@@ -46,6 +46,7 @@ interface AuthContextType {
   customLogin: (email: string, password: string) => Promise<CustomLoginResponse>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  updateProfile: (updatedData: Partial<AppUser>) => Promise<{ success: boolean; error?: string }>;
 }
 
 // Parameters for creating a user
@@ -631,8 +632,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     throw new Error('Password reset via Firestore is not implemented. Implement a secure server-side flow.');
   };
 
+  const updateProfile = async (updatedData: Partial<AppUser>) => {
+    try {
+      if (!user?.uid) {
+        return { success: false, error: 'User not authenticated' };
+      }
+      
+      // Update user data in Firestore
+      const result = await firestore.updateDocument('users', user.uid, {
+        ...updatedData,
+        updatedAt: new Date().toISOString()
+      });
+      
+      if (result.success) {
+        // Update local user state
+        setUser(prev => prev ? { ...prev, ...updatedData } : null);
+        return { success: true };
+      } else {
+        return { success: false, error: 'Failed to update user data in Firestore' };
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  };
+  
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, createUser, customLogin, logout, resetPassword }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, createUser, customLogin, logout, resetPassword, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

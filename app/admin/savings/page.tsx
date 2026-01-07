@@ -113,56 +113,106 @@ export default function SavingsPage() {
     }
   };
 
-  const filterMembers = () => {
+  // Function to fetch total savings for a specific member
+  const fetchMemberTotalSavings = async (memberId: string) => {
+    try {
+      // Fetch savings transactions from /members/{memberId}/savings collection
+      const result = await firestore.getCollection(`members/${memberId}/savings`);
+      
+      if (result.success && result.data) {
+        // Sort transactions by date (oldest first) to calculate running balance correctly
+        const sortedTransactions = result.data
+          .map((doc: any) => ({
+            id: doc.id,
+            ...doc
+          }))
+          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        // Calculate running balance for each transaction
+        let runningBalance = 0;
+        sortedTransactions.forEach((transaction: any) => {
+          if (transaction.type === 'deposit') {
+            runningBalance += transaction.amount;
+          } else if (transaction.type === 'withdrawal') {
+            runningBalance -= transaction.amount;
+          }
+        });
+        
+        return runningBalance;
+      }
+    } catch (error) {
+      console.error(`Error fetching savings for member ${memberId}:`, error);
+    }
+    return 0; // Return 0 if there's an error or no data
+  };
+
+  // Function to fetch all members' savings data
+  const fetchAllMembersSavings = async () => {
+    const membersWithSavings = await Promise.all(
+      members.map(async (member) => {
+        const totalSavings = await fetchMemberTotalSavings(member.id);
+        return {
+          memberId: member.id,
+          memberName: `${member.firstName || ''} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName || ''}${member.suffix ? ' ' + member.suffix : ''}`.trim(),
+          totalSavings,
+          status: member.status || 'Active',
+          lastUpdated: member.createdAt || new Date().toISOString()
+        };
+      })
+    );
+    return membersWithSavings;
+  };
+
+  const filterMembers = async () => {
     // Check if members data is loaded
     if (!members || members.length === 0) {
       setFilteredMembers([]);
       return;
     }
     
+    let membersWithSavings: MemberSavings[] = [];
+    
     if (!searchTerm) {
-      // Transform members to MemberSavings format
-      const transformedMembers = members.map(member => ({
-        memberId: member.id,
-        memberName: `${member.firstName || ''} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName || ''}${member.suffix ? ' ' + member.suffix : ''}`.trim(),
-        totalSavings: 0, // Default value, would need to fetch actual savings data
-        status: member.status || 'Active',
-        lastUpdated: member.createdAt || new Date().toISOString()
-      }));
-      setFilteredMembers(transformedMembers);
-      return;
-    }
-
-    const term = searchTerm.toLowerCase();
-    const filtered = members.filter(member => {
-      // Safely handle potentially undefined fields
-      const firstName = member.firstName || '';
-      const lastName = member.lastName || '';
-      const email = member.email || '';
-      const id = member.id || '';
-      const middleName = member.middleName || '';
-      const suffix = member.suffix || '';
+      // Fetch all members with their savings data
+      membersWithSavings = await fetchAllMembersSavings();
+    } else {
+      // Filter members first
+      const term = searchTerm.toLowerCase();
+      const filtered = members.filter(member => {
+        // Safely handle potentially undefined fields
+        const firstName = member.firstName || '';
+        const lastName = member.lastName || '';
+        const email = member.email || '';
+        const id = member.id || '';
+        const middleName = member.middleName || '';
+        const suffix = member.suffix || '';
+        
+        return (
+          firstName.toLowerCase().includes(term) ||
+          lastName.toLowerCase().includes(term) ||
+          email.toLowerCase().includes(term) ||
+          id.toLowerCase().includes(term) ||
+          middleName.toLowerCase().includes(term) ||
+          suffix.toLowerCase().includes(term)
+        );
+      });
       
-      return (
-        firstName.toLowerCase().includes(term) ||
-        lastName.toLowerCase().includes(term) ||
-        email.toLowerCase().includes(term) ||
-        id.toLowerCase().includes(term) ||
-        middleName.toLowerCase().includes(term) ||
-        suffix.toLowerCase().includes(term)
+      // Fetch savings data for filtered members
+      membersWithSavings = await Promise.all(
+        filtered.map(async (member) => {
+          const totalSavings = await fetchMemberTotalSavings(member.id);
+          return {
+            memberId: member.id,
+            memberName: `${member.firstName || ''} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName || ''}${member.suffix ? ' ' + member.suffix : ''}`.trim(),
+            totalSavings,
+            status: member.status || 'Active',
+            lastUpdated: member.createdAt || new Date().toISOString()
+          };
+        })
       );
-    });
+    }
     
-    // Transform filtered members to MemberSavings format
-    const transformedMembers = filtered.map(member => ({
-      memberId: member.id,
-      memberName: `${member.firstName || ''} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName || ''}${member.suffix ? ' ' + member.suffix : ''}`.trim(),
-      totalSavings: 0, // Default value, would need to fetch actual savings data
-      status: member.status || 'Active',
-      lastUpdated: member.createdAt || new Date().toISOString()
-    }));
-    
-    setFilteredMembers(transformedMembers);
+    setFilteredMembers(membersWithSavings);
   };
 
   const handleViewSavings = (memberId: string) => {
@@ -216,6 +266,9 @@ export default function SavingsPage() {
                     Member Name
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total Savings
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -232,6 +285,11 @@ export default function SavingsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {member.memberName}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        ₱{member.totalSavings.toFixed(2)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

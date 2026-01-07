@@ -8,13 +8,22 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 interface LoanRequest {
   id: string;
   userId: string;
-  userName: string;
+  memberId?: string;
+  userName?: string;
+  firstName?: string;
+  lastName?: string;
+  middleName?: string;
+  suffix?: string;
+  fullName?: string;
   email: string;
-  planId: string;
-  planName: string;
+  role?: string;
+  phone?: string;
+  planId?: string;
+  planName?: string;
   amount: number;
   term: number;
   status: string;
+  description?: string;
   createdAt: string;
 }
 
@@ -28,7 +37,6 @@ interface User {
 
 export default function LoanRequestsTable() {
   const [loanRequests, setLoanRequests] = useState<LoanRequest[]>([]);
-  const [users, setUsers] = useState<Record<string, User>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,9 +66,6 @@ export default function LoanRequestsTable() {
       
       setLoanRequests(requestsData);
       setLoading(false);
-      
-      // Fetch user data for each request
-      fetchUsersForRequests(requestsData);
     }, (error) => {
       console.error('Error listening to loan requests:', error);
       toast.error('Failed to listen to loan requests');
@@ -70,28 +75,6 @@ export default function LoanRequestsTable() {
     // Clean up listener on unmount
     return () => unsubscribe();
   }, []);
-
-  const fetchUsersForRequests = async (requests: LoanRequest[]) => {
-    try {
-      const userIds = [...new Set(requests.map(req => req.userId))];
-      const usersData: Record<string, User> = {};
-      
-      // Fetch each user individually (in a real app, you might want to batch these)
-      for (const userId of userIds) {
-        const userResult = await firestore.getDocument('users', userId);
-        if (userResult.success && userResult.data) {
-          usersData[userId] = {
-            id: userId,
-            ...userResult.data as any
-          };
-        }
-      }
-      
-      setUsers(usersData);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    }
-  };
 
   const handleApprove = async (requestId: string, userId: string, planName: string, amount: number, term: number) => {
     try {
@@ -103,35 +86,42 @@ export default function LoanRequestsTable() {
 
       if (updateResult.success) {
 
-        // Fetch user details to include in loan record
-        const userResult = await firestore.getDocument('users', userId);
-        let userData = {
+        // Fetch loan request data to get member information
+        const requestResult = await firestore.getDocument('loanRequests', requestId);
+        let memberData = {
           fullName: 'User Not Found',
           role: 'N/A'
         };
 
-        if (userResult.success && userResult.data) {
-          const userDoc = userResult.data as any;
+        if (requestResult.success && requestResult.data) {
+          const requestData = requestResult.data as any;
 
-          // Use displayName from user data
-          const fullName = userDoc.displayName || 'User Not Found';
-          userData = {
-            fullName: fullName || 'User Not Found',
-            role: userDoc.role || 'N/A'
+          // Use member information from the loan request
+          const fullName = requestData.fullName || `${requestData.firstName || ''} ${requestData.lastName || ''}`.trim() || 'User Not Found';
+          memberData = {
+            fullName: fullName,
+            role: requestData.role || 'N/A'
           };
         } else {
-          userData = {
-            fullName: 'User Not Found',
-            role: 'N/A'
-          };
+          // Fallback to fetching from users collection
+          const userResult = await firestore.getDocument('users', userId);
+          if (userResult.success && userResult.data) {
+            const userDoc = userResult.data as any;
+            
+            const fullName = userDoc.displayName || 'User Not Found';
+            memberData = {
+              fullName: fullName,
+              role: userDoc.role || 'N/A'
+            };
+          }
         }
         
 
-        // Create approved loan document in the loans collection with user details
+        // Create approved loan document in the loans collection with member details
         const loanData = {
           userId: userId,
-          fullName: userData.fullName,
-          role: userData.role,
+          fullName: memberData.fullName,
+          role: memberData.role,
           amount: amount,
           term: term,
           planName: planName,
@@ -254,9 +244,10 @@ export default function LoanRequestsTable() {
               </tr>
             ) : (
               loanRequests.map((request) => {
-                const user = users[request.userId];
-                const fullName = getFullName(user);
-                const role = getUserRole(user);
+                // Use the member information directly from the request
+                const fullName = request.fullName || `${request.firstName || ''} ${request.lastName || ''}`.trim() || 'User Not Found';
+                const role = request.role || 'N/A';
+                const email = request.email || 'N/A';
                 
                 return (
                   <tr key={request.id} className="hover:bg-gray-50">
@@ -265,14 +256,14 @@ export default function LoanRequestsTable() {
                         {fullName}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {request.email || user?.email}
+                        {email}
                       </div>
                       <div className="text-xs text-gray-400">
                         {role}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {request.planName}
+                      {request.planName || 'General Loan'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatCurrency(request.amount)}
@@ -285,7 +276,7 @@ export default function LoanRequestsTable() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
-                        onClick={() => handleApprove(request.id, request.userId, request.planName, request.amount, request.term)}
+                        onClick={() => handleApprove(request.id, request.userId, request.planName || 'General Loan', request.amount, request.term)}
                         className="text-green-600 hover:text-green-900 mr-3"
                       >
                         Approve

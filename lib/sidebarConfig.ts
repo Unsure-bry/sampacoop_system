@@ -60,6 +60,12 @@ export const roleSidebarConfig: RoleSidebarConfig = {
         { name: 'Reports and Analytics', path: '/admin/reports', icon: BarChart3 },
       ],
     },
+    {
+      title: 'System Setup',
+      items: [
+        { name: 'Initialize Dashboard Data', path: '/admin/dashboard-data', icon: FileText },
+      ],
+    },
   ],
 
   // Secretary role configuration

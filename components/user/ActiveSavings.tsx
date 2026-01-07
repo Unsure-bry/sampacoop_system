@@ -16,9 +16,30 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
   const [totalSavings, setTotalSavings] = useState(0);
   const [dataLoading, setDataLoading] = useState(true);
 
+  // Function to refresh data
+  const refreshData = async () => {
+    if (user) {
+      await fetchSavingsTransactions();
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchSavingsTransactions();
+      
+      // Refresh data when the page becomes visible again (e.g., user returns to tab)
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          fetchSavingsTransactions();
+        }
+      };
+      
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      // Clean up the event listener when the component unmounts
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
     } else if (user === null) {
       // User is explicitly not logged in
       setDataLoading(false);
@@ -27,12 +48,40 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
     }
   }, [user]);
 
+  // Expose refresh function to parent components if needed
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).refreshSavingsData = refreshData;
+    }
+    
+    return () => {
+      if ((window as any).refreshSavingsData === refreshData) {
+        (window as any).refreshSavingsData = null;
+      }
+    };
+  }, [refreshData]);
+
   const fetchSavingsTransactions = async () => {
     try {
       if (!user) return;
       
       setDataLoading(true);
-      // Fetch savings transactions from /members/{memberId}/savings collection
+      
+      // Validate user exists in both users and members collections using UID
+      const userCheck = await firestore.getDocument('users', user.uid);
+      if (!userCheck.success || !userCheck.data) {
+        console.warn(`User not found in users collection: ${user.uid}`);
+        // Still try to fetch savings using the UID as the member ID
+      }
+      
+      // Also check if user exists in members collection
+      const memberCheck = await firestore.getDocument('members', user.uid);
+      if (!memberCheck.success || !memberCheck.data) {
+        console.warn(`User not found in members collection: ${user.uid}`);
+        // Still try to fetch savings from the expected location
+      }
+      
+      // Fetch savings transactions from /members/{userId}/savings using authenticated user's UID
       const result = await firestore.getCollection(`members/${user.uid}/savings`);
       
       if (result.success && result.data) {
@@ -68,9 +117,16 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
         // Use the balance from the most recent transaction, or 0 if no transactions
         const latestBalance = transactionsData.length > 0 ? transactionsData[0].balance : 0;
         setTotalSavings(latestBalance);
+      } else {
+        // If no savings found, set empty arrays and zero balance
+        setTransactions([]);
+        setTotalSavings(0);
       }
     } catch (error) {
       console.error('Error fetching savings transactions:', error);
+      // Set defaults on error
+      setTransactions([]);
+      setTotalSavings(0);
     } finally {
       setDataLoading(false);
     }
@@ -136,16 +192,25 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
             {dataLoading ? '...' : formatCurrency(totalSavings)}
           </div>
           <p className="text-gray-600 mb-4">Current Savings Balance</p>
-          <button 
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.location.href = '/savings';
-              }
-            }}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            View Savings
-          </button>
+          <div className="flex flex-col space-y-2">
+            <button 
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.location.href = '/savings';
+                }
+              }}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              View Savings
+            </button>
+            <button 
+              onClick={refreshData}
+              disabled={dataLoading}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {dataLoading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
         </div>
       </Card>
     );
@@ -155,7 +220,16 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
   return (
     <div className="bg-white rounded-xl shadow-md p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-gray-800">Recent Savings Transactions</h2>
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-800">Recent Savings Transactions</h2>
+          <button 
+            onClick={refreshData}
+            disabled={dataLoading}
+            className="px-3 py-1 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {dataLoading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
       </div>
       
       {dataLoading ? (
@@ -224,4 +298,5 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
       )}
     </div>
   );
+
 }
