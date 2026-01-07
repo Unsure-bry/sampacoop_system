@@ -51,10 +51,39 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
         return;
       }
 
+      // Fetch user's member information from members collection
+      const memberResult = await firestore.getDocument('members', user?.uid || '');
+      let memberInfo = {};
+      
+      if (memberResult.success && memberResult.data) {
+        const memberData = memberResult.data;
+        const fullName = `${memberData.firstName || ''} ${memberData.middleName ? memberData.middleName + ' ' : ''}${memberData.lastName || ''}${memberData.suffix ? ' ' + memberData.suffix : ''}`.trim();
+        
+        memberInfo = {
+          firstName: memberData.firstName || '',
+          lastName: memberData.lastName || '',
+          middleName: memberData.middleName || '',
+          suffix: memberData.suffix || '',
+          fullName: fullName || user?.displayName || '',
+          role: memberData.role || user?.role || '',
+          phone: memberData.phone || memberData.phoneNumber || '',
+        };
+      } else {
+        // Fallback to user data if member record doesn't exist
+        memberInfo = {
+          firstName: '',
+          lastName: '',
+          middleName: '',
+          suffix: '',
+          fullName: user?.displayName || '',
+          role: user?.role || '',
+          phone: '',
+        };
+      }
+      
       // Create loan request document with user info
       const loanRequest = {
         userId: user?.uid,
-        userName: user?.displayName || '',
         email: user?.email || '',
         planId: selectedPlan.id,
         planName: selectedPlan.name,
@@ -62,6 +91,8 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
         term: termValue,
         status: 'pending',
         createdAt: new Date().toISOString(),
+        // Include member information for admin visibility
+        ...memberInfo,
       };
 
       // Save to Firestore

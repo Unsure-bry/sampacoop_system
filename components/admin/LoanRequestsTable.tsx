@@ -117,6 +117,40 @@ export default function LoanRequestsTable() {
         }
         
 
+        // Calculate amortization schedule
+        const monthlyInterestRate = 3 / 100 / 12; // 3% interest rate
+        const numberOfPayments = term;
+        const monthlyPayment = (amount * monthlyInterestRate) / (1 - Math.pow(1 + monthlyInterestRate, -numberOfPayments));
+        
+        // Generate payment schedule
+        let remainingBalance = amount;
+        let currentDate = new Date();
+        const paymentSchedule = [];
+        
+        for (let month = 1; month <= numberOfPayments; month++) {
+          // Add one month for each payment date
+          currentDate.setMonth(currentDate.getMonth() + 1);
+          
+          const interestPayment = remainingBalance * monthlyInterestRate;
+          const principalPayment = monthlyPayment - interestPayment;
+          remainingBalance -= principalPayment;
+          
+          // Ensure remaining balance doesn't go below 0
+          if (remainingBalance < 0) {
+            remainingBalance = 0;
+          }
+          
+          paymentSchedule.push({
+            month,
+            paymentDate: currentDate.toISOString().split('T')[0],
+            principal: principalPayment,
+            interest: interestPayment,
+            totalPayment: monthlyPayment,
+            remainingBalance,
+            status: 'pending' // Initial status for payments
+          });
+        }
+        
         // Create approved loan document in the loans collection with member details
         const loanData = {
           userId: userId,
@@ -128,8 +162,7 @@ export default function LoanRequestsTable() {
           startDate: new Date().toISOString(),
           interest: 3, // Fixed interest rate as per requirements
           status: 'active',
-          // In a real app, you would generate a proper payment schedule here
-          paymentSchedule: []
+          paymentSchedule: paymentSchedule
         };
 
         const loanResult = await firestore.setDocument(

@@ -149,13 +149,22 @@ export default function ActiveLoans() {
                   <h3 className="font-medium text-gray-800">Payment Schedule</h3>
                   <div className="mt-2 text-sm">
                     <p className="text-gray-600">Monthly Payment: <span className="font-medium">
-                      {formatCurrency(loan.amount * (1 + loan.interest / 100) / loan.term)}
+                      {loan.paymentSchedule && loan.paymentSchedule.length > 0 
+                        ? formatCurrency(loan.paymentSchedule[0].totalPayment) 
+                        : formatCurrency(loan.amount * (1 + loan.interest / 100) / loan.term)}
                     </span></p>
                     <p className="text-gray-600">Next Payment: <span className="font-medium">
                       {loan.paymentSchedule && loan.paymentSchedule.length > 0 
-                        ? formatDate(loan.paymentSchedule[0].dueDate) 
+                        ? formatDate(loan.paymentSchedule[0].paymentDate) 
                         : 'N/A'}
                     </span></p>
+                    <p className="text-gray-600 mt-1">
+                      <span className="font-medium">
+                        {loan.paymentSchedule 
+                          ? `${loan.paymentSchedule.filter((p: any) => p.status !== 'paid').length} payments remaining` 
+                          : 'N/A'}
+                      </span>
+                    </p>
                   </div>
                 </div>
               </div>

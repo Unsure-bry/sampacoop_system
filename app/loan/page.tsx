@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { LoanPlan } from '@/lib/types/loan';
-import { ActiveLoans, LoanActions } from '@/components';
+import { ActiveLoans, LoanActions, LoanRecords } from '@/components';
 
 export default function LoanPage() {
   const { user, loading } = useAuth();
@@ -131,6 +131,10 @@ export default function LoanPage() {
       
       <div className="mt-8">
         <ActiveLoans />
+      </div>
+      
+      <div className="mt-8">
+        <LoanRecords />
       </div>
     </div>
   );
