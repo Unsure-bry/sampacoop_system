@@ -39,6 +39,36 @@ export default function LoanRequestsTable() {
   const [loanRequests, setLoanRequests] = useState<LoanRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Function to refresh data
+  const refreshData = async () => {
+    setLoading(true);
+    try {
+      // Fetch all pending loan requests directly
+      const result = await firestore.queryDocuments('loanRequests', [
+        { field: 'status', operator: '==', value: 'pending' }
+      ]);
+      
+      if (result.success && result.data) {
+        const requestsData: LoanRequest[] = result.data
+          .map((doc: any) => ({
+            id: doc.id,
+            ...doc
+          }))
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort by createdAt descending
+        
+        console.log('Direct fetch loan requests:', requestsData.length);
+        setLoanRequests(requestsData);
+      } else {
+        setLoanRequests([]);
+        console.error('Error fetching loan requests:', result.error);
+      }
+    } catch (error) {
+      console.error('Error in direct fetch:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Check if Firestore is initialized
     if (!db) {
@@ -58,17 +88,23 @@ export default function LoanRequestsTable() {
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const requestsData: LoanRequest[] = [];
       querySnapshot.forEach((doc) => {
+        const docData = doc.data();
+        console.log('Loan request document data:', { id: doc.id, ...docData }); // Debug logging
         requestsData.push({
           id: doc.id,
-          ...doc.data() as Omit<LoanRequest, 'id'>
+          ...docData as Omit<LoanRequest, 'id'>
         });
       });
       
+      console.log('Total loan requests loaded:', requestsData.length); // Debug logging
       setLoanRequests(requestsData);
       setLoading(false);
     }, (error) => {
       console.error('Error listening to loan requests:', error);
-      toast.error('Failed to listen to loan requests');
+      console.error('Detailed error:', error.code, error.message); // More detailed error info
+      toast.error('Failed to listen to loan requests. Please check console for details.');
+      // Fallback to manual refresh
+      refreshData();
       setLoading(false);
     });
 
@@ -92,6 +128,7 @@ export default function LoanRequestsTable() {
           fullName: 'User Not Found',
           role: 'N/A'
         };
+        let interestRate = 3; // Default interest rate
 
         if (requestResult.success && requestResult.data) {
           const requestData = requestResult.data as any;
@@ -102,6 +139,15 @@ export default function LoanRequestsTable() {
             fullName: fullName,
             role: requestData.role || 'N/A'
           };
+          
+          // Get interest rate from loan plan
+          if (requestData.planId) {
+            const planResult = await firestore.getDocument('loanPlans', requestData.planId);
+            if (planResult.success && planResult.data) {
+              const planData = planResult.data as any;
+              interestRate = planData.interestRate || 3;
+            }
+          }
         } else {
           // Fallback to fetching from users collection
           const userResult = await firestore.getDocument('users', userId);
@@ -117,22 +163,27 @@ export default function LoanRequestsTable() {
         }
         
 
-        // Calculate amortization schedule
-        const monthlyInterestRate = 3 / 100 / 12; // 3% interest rate
-        const numberOfPayments = term;
-        const monthlyPayment = (amount * monthlyInterestRate) / (1 - Math.pow(1 + monthlyInterestRate, -numberOfPayments));
+        // Calculate daily amortization schedule
+        // Convert loan term to days (1 month = 30 days)
+        const totalDays = term * 30;
+        
+        // Calculate daily interest rate
+        const dailyInterestRate = interestRate / 100 / 365; // Annual interest rate divided by 365 days
+        
+        // Calculate daily payment
+        const dailyPayment = amount / totalDays;
         
         // Generate payment schedule
         let remainingBalance = amount;
         let currentDate = new Date();
         const paymentSchedule = [];
         
-        for (let month = 1; month <= numberOfPayments; month++) {
-          // Add one month for each payment date
-          currentDate.setMonth(currentDate.getMonth() + 1);
+        for (let day = 1; day <= totalDays; day++) {
+          // Add one day for each payment date
+          currentDate.setDate(currentDate.getDate() + 1);
           
-          const interestPayment = remainingBalance * monthlyInterestRate;
-          const principalPayment = monthlyPayment - interestPayment;
+          const interestPayment = remainingBalance * dailyInterestRate;
+          const principalPayment = dailyPayment;
           remainingBalance -= principalPayment;
           
           // Ensure remaining balance doesn't go below 0
@@ -141,11 +192,11 @@ export default function LoanRequestsTable() {
           }
           
           paymentSchedule.push({
-            month,
+            day,
             paymentDate: currentDate.toISOString().split('T')[0],
             principal: principalPayment,
             interest: interestPayment,
-            totalPayment: monthlyPayment,
+            totalPayment: principalPayment + interestPayment,
             remainingBalance,
             status: 'pending' // Initial status for payments
           });
@@ -160,7 +211,7 @@ export default function LoanRequestsTable() {
           term: term,
           planName: planName,
           startDate: new Date().toISOString(),
-          interest: 3, // Fixed interest rate as per requirements
+          interest: interestRate, // Interest rate from loan plan
           status: 'active',
           paymentSchedule: paymentSchedule
         };
@@ -244,6 +295,16 @@ export default function LoanRequestsTable() {
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="flex justify-between items-center p-4 bg-gray-50">
+        <h3 className="text-lg font-medium text-gray-800">Pending Loan Requests</h3>
+        <button 
+          onClick={refreshData}
+          disabled={loading}
+          className="px-3 py-1 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">

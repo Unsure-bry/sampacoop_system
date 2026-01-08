@@ -8,3 +8,4 @@ export { default as AddSavingsModal } from './AddSavingsModal';
 export { default as MemberDetailsModal } from './MemberDetailsModal';
 export { default as MemberEditModal } from './MemberEditModal';
 export { default as MemberRegistrationModal } from './MemberRegistrationModal';
+export { default as LoanDetailsModal } from './LoanDetailsModal';

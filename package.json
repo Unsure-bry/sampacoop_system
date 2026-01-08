@@ -9,13 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@emailjs/browser": "^4.4.1",
     "@firebase/auth": "^1.11.0",
     "body-parser": "^2.2.1",
     "crypto": "^1.0.1",
     "dotenv": "^17.2.3",
+    "emailjs": "^5.0.0",
     "express": "^5.1.0",
     "firebase": "^12.5.0",
     "firebase-admin": "^13.6.0",
+    "i": "^0.3.7",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.554.0",

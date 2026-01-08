@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
+import LoanDetailsModal from '@/components/admin/LoanDetailsModal';
 
 interface Loan {
   id: string;
@@ -28,6 +29,8 @@ export default function LoanRecordsPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [users, setUsers] = useState<Record<string, User>>({});
   const [loading, setLoading] = useState(true);
+  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchLoanRecords();
@@ -121,6 +124,11 @@ export default function LoanRecordsPage() {
     return user.role || 'N/A';
   };
 
+  const handleViewLoanDetails = (loan: Loan) => {
+    setSelectedLoan(loan);
+    setIsModalOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -184,7 +192,11 @@ export default function LoanRecordsPage() {
                   const role = getUserRole(loan, user);
                   
                   return (
-                    <tr key={loan.id} className="hover:bg-gray-50">
+                    <tr 
+                      key={loan.id} 
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => handleViewLoanDetails(loan)}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
                           {fullName} — {role}
@@ -221,6 +233,12 @@ export default function LoanRecordsPage() {
           </table>
         </div>
       </div>
+      
+      <LoanDetailsModal 
+        loan={selectedLoan}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </div>
   );
 }

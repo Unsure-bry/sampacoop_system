@@ -20,7 +20,7 @@ interface Loan {
 }
 
 interface AmortizationSchedule {
-  month: number;
+  day: number;
   paymentDate: string;
   principal: number;
   interest: number;
@@ -84,19 +84,24 @@ export default function LoanRecords() {
   const calculateAmortizationSchedule = (loan: Loan): AmortizationSchedule[] => {
     const schedule: AmortizationSchedule[] = [];
     
-    const monthlyInterestRate = loan.interest / 100 / 12;
-    const numberOfPayments = loan.term;
-    const monthlyPayment = (loan.amount * monthlyInterestRate) / (1 - Math.pow(1 + monthlyInterestRate, -numberOfPayments));
+    // Convert loan term to days (1 month = 30 days)
+    const totalDays = loan.term * 30;
+    
+    // Calculate daily interest rate
+    const dailyInterestRate = loan.interest / 100 / 365; // Annual interest rate divided by 365 days
+    
+    // Calculate daily payment
+    const dailyPayment = loan.amount / totalDays;
     
     let remainingBalance = loan.amount;
     let currentDate = new Date(loan.startDate);
     
-    for (let month = 1; month <= numberOfPayments; month++) {
-      // Add one month for each payment date
-      currentDate.setMonth(currentDate.getMonth() + 1);
+    for (let day = 1; day <= totalDays; day++) {
+      // Add one day for each payment date
+      currentDate.setDate(currentDate.getDate() + 1);
       
-      const interestPayment = remainingBalance * monthlyInterestRate;
-      const principalPayment = monthlyPayment - interestPayment;
+      const interestPayment = remainingBalance * dailyInterestRate;
+      const principalPayment = dailyPayment;
       remainingBalance -= principalPayment;
       
       // Ensure remaining balance doesn't go below 0
@@ -105,11 +110,11 @@ export default function LoanRecords() {
       }
       
       schedule.push({
-        month,
+        day,
         paymentDate: currentDate.toISOString().split('T')[0],
         principal: principalPayment,
         interest: interestPayment,
-        totalPayment: monthlyPayment,
+        totalPayment: principalPayment + interestPayment,
         remainingBalance
       });
     }
@@ -123,7 +128,16 @@ export default function LoanRecords() {
     
     // If the loan already has a payment schedule from the database, use it
     if (loan.paymentSchedule && loan.paymentSchedule.length > 0) {
-      setAmortizationSchedule(loan.paymentSchedule);
+      // Map the payment schedule to ensure consistent structure
+      const mappedSchedule = loan.paymentSchedule.map((item: any) => ({
+        day: item.day !== undefined ? item.day : item.month,
+        paymentDate: item.paymentDate,
+        principal: item.principal,
+        interest: item.interest,
+        totalPayment: item.totalPayment,
+        remainingBalance: item.remainingBalance
+      }));
+      setAmortizationSchedule(mappedSchedule);
     } else {
       // Otherwise, calculate the schedule dynamically
       const schedule = calculateAmortizationSchedule(loan);
@@ -175,9 +189,9 @@ export default function LoanRecords() {
     
     // Add table
     autoTable(doc, {
-      head: [['Month', 'Payment Date', 'Principal', 'Interest', 'Total Payment', 'Remaining Balance']],
+      head: [['Day', 'Payment Date', 'Principal', 'Interest', 'Total Payment', 'Remaining Balance']],
       body: amortizationSchedule.map(item => [
-        item.month.toString(),
+        (item.day || '').toString(),
         formatDate(item.paymentDate),
         formatCurrency(item.principal),
         formatCurrency(item.interest),
@@ -281,7 +295,7 @@ export default function LoanRecords() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Month
+                          Day
                         </th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Payment Date
@@ -304,7 +318,7 @@ export default function LoanRecords() {
                       {amortizationSchedule.map((item, index) => (
                         <tr key={index} className="hover:bg-gray-50">
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {item.month}
+                            {item.day || ''}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                             {formatDate(item.paymentDate)}
