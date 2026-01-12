@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, FieldErrors } from 'react-hook-form';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { Member } from '@/lib/types/member';
+import { sendMemberRegistrationEmail } from '@/lib/emailService';
 
 interface PersonalInfo {
   firstName: string;
@@ -94,7 +95,52 @@ export default function MemberRegistrationModal({
 }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [role, setRole] = useState<'Driver' | 'Operator' | null>(null);
-  const { register, handleSubmit, watch, setValue, formState: { errors }, reset } = useForm<FormData>();
+  const { register, handleSubmit, watch, setValue, formState: { errors }, reset, trigger } = useForm<FormData>();
+  
+  // Function to validate all required fields for current step
+  const validateCurrentStep = async () => {
+    if (currentStep === 1) {
+      const personalInfoFields = [
+        'firstName', 'middleName', 'lastName', 'email', 'phoneNumber', 'birthdate', 'role'
+      ];
+      
+      // Add address fields validation
+      if (role === 'Driver') {
+        personalInfoFields.push(
+          'driverHouseNumber', 'driverBlockNumber', 'driverLotNumber', 
+          'driverStreet', 'driverBarangay', 'driverCity'
+        );
+      } else if (role === 'Operator') {
+        personalInfoFields.push(
+          'operatorHouseNumber', 'operatorBlockNumber', 'operatorLotNumber', 
+          'operatorStreet', 'operatorBarangay', 'operatorCity'
+        );
+      }
+      
+      return await trigger(personalInfoFields as (keyof FormData)[]);
+    } else if (currentStep === 2) {
+      if (role === 'Driver') {
+        return await trigger(['driverLicenseNumber', 'driverTinId']);
+      } else if (role === 'Operator') {
+        // Validate plate numbers individually if number of jeepneys is specified
+        const operatorFields = ['operatorLicenseNumber', 'operatorTinId', 'numberOfJeepneys'];
+        
+        if (numberOfJeepneys && numberOfJeepneys > 0) {
+          // Add individual plate number validations
+          for (let i = 0; i < numberOfJeepneys; i++) {
+            operatorFields.push(`plateNumbers.${i}` as keyof FormData);
+          }
+        }
+        
+        return await trigger(operatorFields as (keyof FormData)[]);
+      }
+    } else if (currentStep === 3) {
+      // For step 3, we'll validate everything before submission
+      return Object.keys(errors).length === 0;
+    }
+    
+    return true;
+  };
   
   // Watch form values
   const birthdate = watch('birthdate');
@@ -140,12 +186,20 @@ export default function MemberRegistrationModal({
       }
       
       setValue('plateNumbers', newPlateNumbers);
+      
+      // Validate the plate numbers array
+      trigger('plateNumbers');
     }
-  }, [numberOfJeepneys, plateNumbers, setValue]);
+  }, [numberOfJeepneys, plateNumbers, setValue, trigger]);
 
-  const nextStep = () => {
+  const nextStep = async () => {
     if (currentStep < 3) {
-      setCurrentStep(currentStep + 1);
+      const isValid = await validateCurrentStep();
+      if (isValid) {
+        setCurrentStep(currentStep + 1);
+      } else {
+        toast.error('Please complete all required fields to proceed.');
+      }
     }
   };
 
@@ -156,6 +210,43 @@ export default function MemberRegistrationModal({
   };
 
   const onSubmit = async (data: FormData) => {
+    // Final validation before submission
+    const personalInfoFields = [
+      'firstName', 'middleName', 'lastName', 'email', 'phoneNumber', 'birthdate', 'role'
+    ];
+    
+    // Add address fields based on role
+    if (data.role === 'Driver') {
+      personalInfoFields.push(
+        'driverHouseNumber', 'driverBlockNumber', 'driverLotNumber', 
+        'driverStreet', 'driverBarangay', 'driverCity'
+      );
+    } else if (data.role === 'Operator') {
+      personalInfoFields.push(
+        'operatorHouseNumber', 'operatorBlockNumber', 'operatorLotNumber', 
+        'operatorStreet', 'operatorBarangay', 'operatorCity'
+      );
+    }
+    
+    // Add role-specific fields
+    if (data.role === 'Driver') {
+      personalInfoFields.push('driverLicenseNumber', 'driverTinId');
+    } else if (data.role === 'Operator' && data.numberOfJeepneys && data.numberOfJeepneys > 0) {
+      personalInfoFields.push('operatorLicenseNumber', 'operatorTinId', 'numberOfJeepneys');
+      
+      // Add validation for each plate number
+      for (let i = 0; i < data.numberOfJeepneys; i++) {
+        personalInfoFields.push(`plateNumbers.${i}` as keyof FormData);
+      }
+    }
+    
+    const allValid = await trigger(personalInfoFields as (keyof FormData)[]);
+    
+    if (!allValid || Object.keys(errors).length > 0) {
+      toast.error('Please complete all required fields to proceed.');
+      return;
+    }
+    
     try {
       // Add payment information
       const paymentData: PaymentInfo = {
@@ -268,7 +359,15 @@ export default function MemberRegistrationModal({
       );
 
       if (memberResult.success) {
-        toast.success('Member registered successfully! Payment confirmed.');
+        // Send welcome email
+        const emailSent = await sendMemberRegistrationEmail(data.email, `${data.firstName} ${data.lastName}`);
+        
+        if (emailSent) {
+          toast.success('Member registered successfully! Welcome email sent.');
+        } else {
+          toast.success('Member registered successfully! Payment confirmed. (Email delivery failed)');
+        }
+        
         reset();
         setCurrentStep(1);
         setRole(null);
@@ -285,15 +384,11 @@ export default function MemberRegistrationModal({
 
   const handleRoleChange = (selectedRole: 'Driver' | 'Operator') => {
     setRole(selectedRole);
-    setValue('role', selectedRole);
+    setValue('role', selectedRole, { shouldValidate: true });
   };
   
-  // Handle plate number changes
-  const handlePlateNumberChange = (index: number, value: string) => {
-    const newPlateNumbers: string[] = [...(plateNumbers || [])];
-    newPlateNumbers[index] = value;
-    setValue('plateNumbers', newPlateNumbers);
-  };
+  // We no longer need handlePlateNumberChange since we're using register for plate numbers
+  // The register hook handles the changes automatically
 
   if (!isOpen) return null;
 
@@ -345,7 +440,17 @@ export default function MemberRegistrationModal({
                     </label>
                     <input
                       type="text"
-                      {...register('firstName', { required: 'First name is required' })}
+                      {...register('firstName', { 
+                        required: 'First name is required',
+                        minLength: {
+                          value: 2,
+                          message: 'First name must be at least 2 characters long'
+                        },
+                        pattern: {
+                          value: /^[A-Za-z\s]+$/,
+                          message: 'First name can only contain letters and spaces'
+                        }
+                      })}
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                         errors.firstName ? 'border-red-500' : 'border-gray-300'
                       }`}
@@ -362,14 +467,24 @@ export default function MemberRegistrationModal({
                     </label>
                     <input
                       type="text"
-                      {...register('middleName', { required: 'middle name is required' })}
+                      {...register('middleName', { 
+                        required: 'Middle name is required',
+                        minLength: {
+                          value: 2,
+                          message: 'Middle name must be at least 2 characters long'
+                        },
+                        pattern: {
+                          value: /^[A-Za-z\s]+$/,
+                          message: 'Middle name can only contain letters and spaces'
+                        }
+                      })}
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                        errors.lastName ? 'border-red-500' : 'border-gray-300'
+                        errors.middleName ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter middle name"
                     />
-                    {errors.lastName && (
-                      <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
+                    {errors.middleName && (
+                      <p className="mt-1 text-sm text-red-600">{errors.middleName.message}</p>
                     )}
                   </div>
                 
@@ -379,10 +494,25 @@ export default function MemberRegistrationModal({
                     </label>
                     <input
                       type="text"
-                      {...register('lastName')}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      {...register('lastName', { 
+                        required: 'Last name is required',
+                        minLength: {
+                          value: 2,
+                          message: 'Last name must be at least 2 characters long'
+                        },
+                        pattern: {
+                          value: /^[A-Za-z\s]+$/,
+                          message: 'Last name can only contain letters and spaces'
+                        }
+                      })}
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                        errors.lastName ? 'border-red-500' : 'border-gray-300'
+                      }`}
                       placeholder="Enter last name"
                     />
+                    {errors.lastName && (
+                      <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
+                    )}
                   </div>
                 
                   <div>
@@ -391,10 +521,20 @@ export default function MemberRegistrationModal({
                     </label>
                     <input
                       type="text"
-                      {...register('suffix')}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      {...register('suffix', {
+                        pattern: {
+                          value: /^[A-Za-z\.\s]+$/,
+                          message: 'Suffix can only contain letters, periods, and spaces'
+                        }
+                      })}
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                        errors.suffix ? 'border-red-500' : 'border-gray-300'
+                      }`}
                       placeholder="e.g., Jr., Sr., III"
                     />
+                    {errors.suffix && (
+                      <p className="mt-1 text-sm text-red-600">{errors.suffix.message}</p>
+                    )}
                   </div>
                 
                   <div>
@@ -408,6 +548,10 @@ export default function MemberRegistrationModal({
                         pattern: {
                           value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                           message: 'Invalid email address'
+                        },
+                        minLength: {
+                          value: 5,
+                          message: 'Email address is too short'
                         }
                       })}
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
@@ -429,8 +573,16 @@ export default function MemberRegistrationModal({
                       {...register('phoneNumber', { 
                         required: 'Phone number is required',
                         pattern: {
-                          value: /^[0-9+\-\s()]+$/,
-                          message: 'Invalid phone number format'
+                          value: /^(09|\+639)\d{9}$/, // Philippine mobile format
+                          message: 'Please enter a valid Philippine mobile number (e.g., 09123456789)'
+                        },
+                        minLength: {
+                          value: 10,
+                          message: 'Phone number is too short'
+                        },
+                        maxLength: {
+                          value: 11,
+                          message: 'Phone number is too long'
                         }
                       })}
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
@@ -450,11 +602,36 @@ export default function MemberRegistrationModal({
                     <div className="relative">
                       <input
                         type="date"
-                        {...register('birthdate', { required: 'Birthdate is required' })}
+                        {...register('birthdate', { 
+                          required: 'Birthdate is required',
+                          validate: (value) => {
+                            if (!value) return 'Birthdate is required';
+                            const birthDate = new Date(value);
+                            const today = new Date();
+                            const age = today.getFullYear() - birthDate.getFullYear();
+                                              
+                            if (age < 18) {
+                              return 'Member must be at least 18 years old';
+                            }
+                                              
+                            if (age > 100) {
+                              return 'Please enter a valid birthdate';
+                            }
+                                              
+                            if (birthDate > today) {
+                              return 'Birthdate cannot be in the future';
+                            }
+                                              
+                            return true;
+                          }
+                        })}
                         className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                           errors.birthdate ? 'border-red-500' : 'border-gray-300'
                         }`}
                       />
+                      {errors.birthdate && (
+                        <p className="mt-1 text-sm text-red-500">{errors.birthdate.message}</p>
+                      )}
                       <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                         <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -474,8 +651,8 @@ export default function MemberRegistrationModal({
                       type="number"
                       {...register('age', { 
                         valueAsNumber: true,
-                        min: { value: 0, message: 'Age must be 0 or greater' },
-                        max: { value: 120, message: 'Age must be realistic' }
+                        min: { value: 18, message: 'Member must be at least 18 years old' },
+                        max: { value: 100, message: 'Please enter a valid age' }
                       })}
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                         errors.age ? 'border-red-500' : 'border-gray-300'
@@ -518,8 +695,8 @@ export default function MemberRegistrationModal({
                         <div className="text-sm text-gray-500 mt-1">For jeepney operators</div>
                       </button>
                     </div>
-                    {role === null && (
-                      <p className="mt-1 text-sm text-red-600">Please select a role</p>
+                    {!role && (
+                      <p className="mt-1 text-sm text-red-600">{errors.role?.message || 'Please select a role'}</p>
                     )}
                   </div>
                   
@@ -533,10 +710,21 @@ export default function MemberRegistrationModal({
                         </label>
                         <input
                           type="text"
-                          {...register(role === 'Driver' ? 'driverHouseNumber' : 'operatorHouseNumber')}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          {...register(role === 'Driver' ? 'driverHouseNumber' : 'operatorHouseNumber', { 
+                            required: 'House number is required',
+                            pattern: {
+                              value: /^[A-Za-z0-9\s\-]+$/,
+                              message: 'House number can only contain letters, numbers, spaces, and hyphens'
+                            }
+                          })}
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                            (role === 'Driver' ? errors.driverHouseNumber : errors.operatorHouseNumber) ? 'border-red-500' : 'border-gray-300'
+                          }`}
                           placeholder="Enter house number"
                         />
+                        {(role === 'Driver' ? errors.driverHouseNumber : errors.operatorHouseNumber) && (
+                          <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverHouseNumber : errors.operatorHouseNumber)?.message}</p>
+                        )}
                       </div>
                       
                       <div>
@@ -545,10 +733,21 @@ export default function MemberRegistrationModal({
                         </label>
                         <input
                           type="text"
-                          {...register(role === 'Driver' ? 'driverBlockNumber' : 'operatorBlockNumber')}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          {...register(role === 'Driver' ? 'driverBlockNumber' : 'operatorBlockNumber', { 
+                            required: 'Block number is required',
+                            pattern: {
+                              value: /^[A-Za-z0-9\s\-]+$/,
+                              message: 'Block number can only contain letters, numbers, spaces, and hyphens'
+                            }
+                          })}
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                            (role === 'Driver' ? errors.driverBlockNumber : errors.operatorBlockNumber) ? 'border-red-500' : 'border-gray-300'
+                          }`}
                           placeholder="Enter block number"
                         />
+                        {(role === 'Driver' ? errors.driverBlockNumber : errors.operatorBlockNumber) && (
+                          <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverBlockNumber : errors.operatorBlockNumber)?.message}</p>
+                        )}
                       </div>
                       
                       <div>
@@ -557,10 +756,21 @@ export default function MemberRegistrationModal({
                         </label>
                         <input
                           type="text"
-                          {...register(role === 'Driver' ? 'driverLotNumber' : 'operatorLotNumber')}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          {...register(role === 'Driver' ? 'driverLotNumber' : 'operatorLotNumber', { 
+                            required: 'Lot number is required',
+                            pattern: {
+                              value: /^[A-Za-z0-9\s\-]+$/,
+                              message: 'Lot number can only contain letters, numbers, spaces, and hyphens'
+                            }
+                          })}
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                            (role === 'Driver' ? errors.driverLotNumber : errors.operatorLotNumber) ? 'border-red-500' : 'border-gray-300'
+                          }`}
                           placeholder="Enter lot number"
                         />
+                        {(role === 'Driver' ? errors.driverLotNumber : errors.operatorLotNumber) && (
+                          <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverLotNumber : errors.operatorLotNumber)?.message}</p>
+                        )}
                       </div>
                       
                       <div>
@@ -569,10 +779,21 @@ export default function MemberRegistrationModal({
                         </label>
                         <input
                           type="text"
-                          {...register(role === 'Driver' ? 'driverStreet' : 'operatorStreet')}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          {...register(role === 'Driver' ? 'driverStreet' : 'operatorStreet', { 
+                            required: 'Street is required',
+                            pattern: {
+                              value: /^[A-Za-z0-9\s\-\.,]+$/,
+                              message: 'Street can only contain letters, numbers, spaces, hyphens, periods, and commas'
+                            }
+                          })}
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                            (role === 'Driver' ? errors.driverStreet : errors.operatorStreet) ? 'border-red-500' : 'border-gray-300'
+                          }`}
                           placeholder="Enter street"
                         />
+                        {(role === 'Driver' ? errors.driverStreet : errors.operatorStreet) && (
+                          <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverStreet : errors.operatorStreet)?.message}</p>
+                        )}
                       </div>
                       
                       <div>
@@ -581,10 +802,21 @@ export default function MemberRegistrationModal({
                         </label>
                         <input
                           type="text"
-                          {...register(role === 'Driver' ? 'driverBarangay' : 'operatorBarangay')}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          {...register(role === 'Driver' ? 'driverBarangay' : 'operatorBarangay', { 
+                            required: 'Barangay is required',
+                            pattern: {
+                              value: /^[A-Za-z\s\-]+$/,
+                              message: 'Barangay can only contain letters, spaces, and hyphens'
+                            }
+                          })}
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                            (role === 'Driver' ? errors.driverBarangay : errors.operatorBarangay) ? 'border-red-500' : 'border-gray-300'
+                          }`}
                           placeholder="Enter barangay"
                         />
+                        {(role === 'Driver' ? errors.driverBarangay : errors.operatorBarangay) && (
+                          <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverBarangay : errors.operatorBarangay)?.message}</p>
+                        )}
                       </div>
                       
                       <div>
@@ -593,10 +825,21 @@ export default function MemberRegistrationModal({
                         </label>
                         <input
                           type="text"
-                          {...register(role === 'Driver' ? 'driverCity' : 'operatorCity')}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          {...register(role === 'Driver' ? 'driverCity' : 'operatorCity', { 
+                            required: 'City is required',
+                            pattern: {
+                              value: /^[A-Za-z\s\-]+$/,
+                              message: 'City can only contain letters, spaces, and hyphens'
+                            }
+                          })}
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                            (role === 'Driver' ? errors.driverCity : errors.operatorCity) ? 'border-red-500' : 'border-gray-300'
+                          }`}
                           placeholder="Enter city"
                         />
+                        {(role === 'Driver' ? errors.driverCity : errors.operatorCity) && (
+                          <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverCity : errors.operatorCity)?.message}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -629,7 +872,21 @@ export default function MemberRegistrationModal({
                     </label>
                     <input
                       type="text"
-                      {...register(role === 'Driver' ? 'driverLicenseNumber' : 'operatorLicenseNumber', { required: 'License number is required' })}
+                      {...register(role === 'Driver' ? 'driverLicenseNumber' : 'operatorLicenseNumber', { 
+                        required: 'License number is required',
+                        minLength: {
+                          value: 9,
+                          message: 'License number must be at least 9 characters long (format: NXX-XX-XXXXXX)'
+                        },
+                        maxLength: {
+                          value: 11,
+                          message: 'License number is too long (format: NXX-XX-XXXXXX)'
+                        },
+                        pattern: {
+                          value: /^[A-Za-z]\d{2}-\d{2}-\d{6}$/,
+                          message: 'License number must be in format: NXX-XX-XXXXXX (e.g., A12-34-567890)'
+                        }
+                      })}
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                         role === 'Driver' 
                           ? (errors.driverLicenseNumber ? 'border-red-500' : 'border-gray-300')
@@ -651,7 +908,21 @@ export default function MemberRegistrationModal({
                     </label>
                     <input
                       type="text"
-                      {...register(role === 'Driver' ? 'driverTinId' : 'operatorTinId', { required: 'TIN ID is required' })}
+                      {...register(role === 'Driver' ? 'driverTinId' : 'operatorTinId', { 
+                        required: 'TIN ID is required',
+                        minLength: {
+                          value: 13,
+                          message: 'TIN ID must be at least 13 characters long (format: XXX-XXX-XXX-XXXXX)'
+                        },
+                        maxLength: {
+                          value: 17,
+                          message: 'TIN ID is too long (format: XXX-XXX-XXX-XXXXX)'
+                        },
+                        pattern: {
+                          value: /^\d{3}-\d{3}-\d{3}-\d{5}$/,
+                          message: 'TIN ID must be in the format XXX-XXX-XXX-XXXXX (e.g., 123-456-789-12345)'
+                        }
+                      })}
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                         role === 'Driver' 
                           ? (errors.driverTinId ? 'border-red-500' : 'border-gray-300')
@@ -679,13 +950,21 @@ export default function MemberRegistrationModal({
                           {...register('numberOfJeepneys', { 
                             required: 'Number of jeepneys is required',
                             valueAsNumber: true,
-                            min: 1
+                            min: {
+                              value: 1,
+                              message: 'At least 1 jeepney is required'
+                            },
+                            max: {
+                              value: 50,
+                              message: 'Maximum number of jeepneys exceeded (50 max)'
+                            }
                           })}
                           className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                             errors.numberOfJeepneys ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter number of jeepneys"
                           min="1"
+                          max="50"
                         />
                         {errors.numberOfJeepneys && (
                           <p className="mt-1 text-sm text-red-600">{errors.numberOfJeepneys.message}</p>
@@ -703,11 +982,29 @@ export default function MemberRegistrationModal({
                                 <label className="block text-sm text-gray-600 mb-1">Jeepney {index + 1} Plate Number</label>
                                 <input
                                   type="text"
-                                  value={plateNumbers[index] || ''}
-                                  onChange={(e) => handlePlateNumberChange(index, e.target.value)}
-                                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                  {...register(`plateNumbers.${index}` as keyof FormData, {
+                                    required: 'Plate number is required',
+                                    pattern: {
+                                      value: /^[A-Z0-9\-\s]+$/i,
+                                      message: 'Plate number can only contain letters, numbers, hyphens, and spaces'
+                                    },
+                                    minLength: {
+                                      value: 3,
+                                      message: 'Plate number is too short'
+                                    },
+                                    maxLength: {
+                                      value: 10,
+                                      message: 'Plate number is too long'
+                                    }
+                                  })}
+                                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                                    errors.plateNumbers && errors.plateNumbers[index] ? 'border-red-500' : 'border-gray-300'
+                                  }`}
                                   placeholder={`Enter plate number for jeepney ${index + 1}`}
                                 />
+                                {errors.plateNumbers && errors.plateNumbers[index] && (
+                                  <p className="mt-1 text-sm text-red-600">{errors.plateNumbers[index]?.message}</p>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -747,6 +1044,18 @@ export default function MemberRegistrationModal({
             {currentStep === 3 && (
               <div className="space-y-6">
                 <h3 className="text-lg font-semibold text-gray-800">Confirm Member Information & Payment</h3>
+                
+                {/* Validate all fields before allowing submission */}
+                {Object.keys(errors).length > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-red-700 font-medium">Please complete all required fields to proceed.</p>
+                    <ul className="mt-2 text-red-600 text-sm list-disc pl-5 space-y-1">
+                      {Object.entries(errors).map(([field, error]) => (
+                        <li key={field}>{field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}: {error.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 
                 <div className="bg-gray-50 rounded-lg p-4 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -848,7 +1157,12 @@ export default function MemberRegistrationModal({
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    className={`px-6 py-3 rounded-lg transition-colors ${
+                      Object.keys(errors).length === 0 
+                        ? 'bg-red-600 text-white hover:bg-red-700' 
+                        : 'bg-gray-400 text-white cursor-not-allowed'
+                    }`}
+                    disabled={Object.keys(errors).length > 0}
                   >
                     Confirm & Submit
                   </button>
