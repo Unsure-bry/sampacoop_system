@@ -149,6 +149,7 @@ export default function LoanRequestsTable() {
             }
           }
         } else {
+          
           // Fallback to fetching from users collection
           const userResult = await firestore.getDocument('users', userId);
           if (userResult.success && userResult.data) {

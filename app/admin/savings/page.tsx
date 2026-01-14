@@ -116,34 +116,13 @@ export default function SavingsPage() {
   // Function to fetch total savings for a specific member
   const fetchMemberTotalSavings = async (memberId: string) => {
     try {
-      // Fetch savings transactions from /members/{memberId}/savings collection
-      const result = await firestore.getCollection(`members/${memberId}/savings`);
-      
-      if (result.success && result.data) {
-        // Sort transactions by date (oldest first) to calculate running balance correctly
-        const sortedTransactions = result.data
-          .map((doc: any) => ({
-            id: doc.id,
-            ...doc
-          }))
-          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        
-        // Calculate running balance for each transaction
-        let runningBalance = 0;
-        sortedTransactions.forEach((transaction: any) => {
-          if (transaction.type === 'deposit') {
-            runningBalance += transaction.amount;
-          } else if (transaction.type === 'withdrawal') {
-            runningBalance -= transaction.amount;
-          }
-        });
-        
-        return runningBalance;
-      }
+      // Use the savings service to get the total balance for the member
+      const { getSavingsBalanceForMember } = await import('@/lib/savingsService');
+      return await getSavingsBalanceForMember(memberId);
     } catch (error) {
       console.error(`Error fetching savings for member ${memberId}:`, error);
+      return 0; // Return 0 if there's an error
     }
-    return 0; // Return 0 if there's an error or no data
   };
 
   // Function to fetch all members' savings data

@@ -1,11 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { firestore } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
 import { SavingsTransaction } from '@/lib/types/savings';
 import AddSavingsTransactionModal from '@/components/user/AddSavingsTransactionModal';
+import {
+  getUserSavingsTransactions,
+  addSavingsTransaction,
+  getUserSavingsBalance
+} from '@/lib/savingsService';
 
 export default function UserSavingsPage() {
   const [transactions, setTransactions] = useState<SavingsTransaction[]>([]);
@@ -17,49 +21,30 @@ export default function UserSavingsPage() {
   useEffect(() => {
     if (user) {
       fetchSavingsTransactions();
+    } else {
+      setTransactions([]);
+      setTotalSavings(0);
     }
   }, [user]);
 
   const fetchSavingsTransactions = async () => {
     try {
       setLoading(true);
-      // Fetch savings transactions from /members/{memberId}/savings collection
-      const result = await firestore.getCollection(`members/${user?.uid}/savings`);
+      if (!user) return;
       
-      if (result.success && result.data) {
-        // Sort transactions by date (oldest first) to calculate running balance correctly
-        const sortedTransactions = result.data
-          .map((doc: any) => ({
-            id: doc.id,
-            ...doc
-          }))
-          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        
-        // Calculate running balance for each transaction
-        let runningBalance = 0;
-        const transactionsWithBalance = sortedTransactions.map((transaction: any) => {
-          if (transaction.type === 'deposit') {
-            runningBalance += transaction.amount;
-          } else if (transaction.type === 'withdrawal') {
-            runningBalance -= transaction.amount;
-          }
-          
-          return {
-            ...transaction,
-            balance: runningBalance
-          };
-        });
-        
-        // Sort by date descending for display (newest first)
-        const transactionsData = transactionsWithBalance
-          .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        
-        setTransactions(transactionsData);
-        
-        // Use the balance from the most recent transaction, or 0 if no transactions
-        const latestBalance = transactionsData.length > 0 ? transactionsData[0].balance : 0;
-        setTotalSavings(latestBalance);
-      }
+      // Fetch savings transactions using the new service
+      const userTransactions = await getUserSavingsTransactions(user.uid);
+      
+      // Sort by date descending for display (newest first)
+      const sortedTransactions = userTransactions.sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      
+      setTransactions(sortedTransactions);
+      
+      // Get the current balance
+      const currentBalance = await getUserSavingsBalance(user.uid);
+      setTotalSavings(currentBalance);
     } catch (error) {
       console.error('Error fetching savings transactions:', error);
       toast.error('Failed to load savings transactions');
@@ -75,35 +60,32 @@ export default function UserSavingsPage() {
         return false;
       }
 
-      // Calculate new balance
-      const amount = parseFloat(transactionData.amount.toString());
-      const newBalance = transactionData.type === 'deposit' 
-        ? totalSavings + amount 
-        : totalSavings - amount;
+      // Get the member ID that corresponds to this user
+      const { getMemberIdByUserId } = await import('@/lib/savingsService');
+      const memberId = await getMemberIdByUserId(user.uid);
       
-      // Validate withdrawal doesn't exceed balance
-      if (transactionData.type === 'withdrawal' && amount > totalSavings) {
-        toast.error('Withdrawal amount cannot exceed current balance');
+      if (!memberId) {
+        toast.error('No member found for this user');
         return false;
       }
       
-      // Create transaction object
-      const newTransaction = {
-        memberId: user.uid,
-        memberName: user.email || 'Unknown Member',
+      // Get member name for the transaction
+      const { getMemberInfoByUserId } = await import('@/lib/savingsService');
+      const memberInfo = await getMemberInfoByUserId(user.uid);
+      const memberName = memberInfo 
+        ? `${memberInfo.firstName || ''} ${memberInfo.lastName || ''}`.trim()
+        : user.displayName || user.email || 'Unknown Member';
+      
+      // Add savings transaction using the new service
+      const result = await addSavingsTransaction(user.uid, {
+        memberId: memberId,
+        memberName: memberName,
         date: transactionData.date,
         type: transactionData.type,
-        amount: amount,
-        balance: newBalance,
-        remarks: transactionData.remarks,
-        createdAt: new Date().toISOString()
-      };
-      
-      // Generate a unique ID for the transaction
-      const transactionId = `${transactionData.type}-${Date.now()}`;
-      
-      // Save to Firestore under /members/{memberId}/savings collection
-      const result = await firestore.setDocument(`members/${user.uid}/savings`, transactionId, newTransaction);
+        amount: parseFloat(transactionData.amount.toString()),
+        balance: 0, // Will be calculated by the service
+        remarks: transactionData.remarks
+      });
       
       if (result.success) {
         toast.success(`Savings ${transactionData.type} recorded successfully!`);
@@ -111,7 +93,7 @@ export default function UserSavingsPage() {
         fetchSavingsTransactions();
         return true;
       } else {
-        toast.error('Failed to record savings transaction');
+        toast.error(result.error || 'Failed to record savings transaction');
         return false;
       }
     } catch (error) {

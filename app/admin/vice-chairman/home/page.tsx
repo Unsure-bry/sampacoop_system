@@ -3,6 +3,7 @@
 import { useAuth } from '@/lib/auth';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import OfficerDashboard from '@/components/admin/OfficerDashboard';
 
 export default function ViceChairmanHomePage() {
   const { user, loading } = useAuth();
@@ -25,14 +26,6 @@ export default function ViceChairmanHomePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Vice Chairman Dashboard</h1>
-      </div>
-      
-      <div className="text-center py-12">
-        <p className="text-gray-600">Welcome to your dashboard. Use the sidebar to navigate to different sections.</p>
-      </div>
-    </div>
+    <OfficerDashboard role="vice chairman" />
   );
 }

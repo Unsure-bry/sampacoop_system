@@ -47,6 +47,8 @@ export const sendMemberRegistrationEmail = async (email: string, name: string) =
 
 Thank you for registering with SAMPA Cooperative. Your membership is now active and you can access all member benefits.
 
+Use your email to login with the default password or change your password at:
+
 To access your account, please log in at: http://localhost:3000/login
 
 Best regards,

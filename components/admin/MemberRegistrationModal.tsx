@@ -95,6 +95,7 @@ export default function MemberRegistrationModal({
 }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [role, setRole] = useState<'Driver' | 'Operator' | null>(null);
+  const [licenseNumberValid, setLicenseNumberValid] = useState<boolean | null>(null); // null = not validated yet, true = valid, false = invalid
   const { register, handleSubmit, watch, setValue, formState: { errors }, reset, trigger } = useForm<FormData>();
   
   // Function to validate all required fields for current step
@@ -346,6 +347,7 @@ export default function MemberRegistrationModal({
         operatorInfo,
         fullName: `${data.firstName} ${data.middleName ? data.middleName + ' ' : ''}${data.lastName}${data.suffix ? ' ' + data.suffix : ''}`,
         status: 'Active', // Add default status
+        userId: encodeURIComponent(data.email.toLowerCase()), // Link to user account
         paymentInfo: paymentData,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -371,6 +373,7 @@ export default function MemberRegistrationModal({
         reset();
         setCurrentStep(1);
         setRole(null);
+        setLicenseNumberValid(null); // Reset license number validation state
         onClose();
         onMemberAdded(); // This will trigger the success message in the Membership page
       } else {
@@ -385,6 +388,8 @@ export default function MemberRegistrationModal({
   const handleRoleChange = (selectedRole: 'Driver' | 'Operator') => {
     setRole(selectedRole);
     setValue('role', selectedRole, { shouldValidate: true });
+    // Reset license number validation when role changes
+    setLicenseNumberValid(null);
   };
   
   // We no longer need handlePlateNumberChange since we're using register for plate numbers
@@ -875,30 +880,74 @@ export default function MemberRegistrationModal({
                       {...register(role === 'Driver' ? 'driverLicenseNumber' : 'operatorLicenseNumber', { 
                         required: 'License number is required',
                         minLength: {
-                          value: 9,
-                          message: 'License number must be at least 9 characters long (format: NXX-XX-XXXXXX)'
+                          value: 13,
+                          message: 'License number must be exactly 13 characters long (format: A12-34-567890)'
                         },
                         maxLength: {
-                          value: 11,
-                          message: 'License number is too long (format: NXX-XX-XXXXXX)'
+                          value: 13,
+                          message: 'License number must be exactly 13 characters long (format: A12-34-567890)'
                         },
                         pattern: {
-                          value: /^[A-Za-z]\d{2}-\d{2}-\d{6}$/,
-                          message: 'License number must be in format: NXX-XX-XXXXXX (e.g., A12-34-567890)'
+                          value: /^[A-Z]\d{2}-\d{2}-\d{6}$/,
+                          message: 'Invalid license number format. Use A12-34-567890.'
                         }
                       })}
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                         role === 'Driver' 
-                          ? (errors.driverLicenseNumber ? 'border-red-500' : 'border-gray-300')
-                          : (errors.operatorLicenseNumber ? 'border-red-500' : 'border-gray-300')
+                          ? (errors.driverLicenseNumber ? 'border-red-500' : (licenseNumberValid === false ? 'border-red-500' : 'border-gray-300'))
+                          : (errors.operatorLicenseNumber ? 'border-red-500' : (licenseNumberValid === false ? 'border-red-500' : 'border-gray-300'))
                       }`}
                       placeholder="Enter license number"
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Allow user to type freely but convert to uppercase
+                        let processedValue = value.toUpperCase();
+                        
+                        // Only allow valid characters: uppercase letters, digits, and hyphens
+                        processedValue = processedValue.replace(/[^A-Z0-9-]/g, '');
+                        
+                        // Auto-format by adding hyphens at appropriate positions
+                        // Format: A12-34-567890 (13 characters)
+                        if (processedValue.length >= 3 && processedValue.charAt(3) !== '-' && processedValue.charAt(1) && processedValue.charAt(2)) {
+                          // Add first hyphen after 3rd character if positions 1 and 2 are digits
+                          if (/^\d$/.test(processedValue.charAt(1)) && /^\d$/.test(processedValue.charAt(2))) {
+                            processedValue = processedValue.substring(0, 3) + '-' + processedValue.substring(3);
+                          }
+                        }
+                        if (processedValue.length >= 7 && processedValue.charAt(6) !== '-' && processedValue.charAt(4) && processedValue.charAt(5)) {
+                          // Add second hyphen after 6th character if positions 4 and 5 are digits
+                          if (/^\d$/.test(processedValue.charAt(4)) && /^\d$/.test(processedValue.charAt(5))) {
+                            processedValue = processedValue.substring(0, 6) + '-' + processedValue.substring(6);
+                          }
+                        }
+                        
+                        // Clean up any extra characters beyond 13
+                        processedValue = processedValue.substring(0, 13);
+                        
+                        // Update the form value
+                        setValue(role === 'Driver' ? 'driverLicenseNumber' : 'operatorLicenseNumber', processedValue);
+                        
+                        // Real-time validation
+                        const isValid = /^[A-Z]\d{2}-\d{2}-\d{6}$/.test(processedValue);
+                        // Only set validation status to true/false when we have exactly 13 characters
+                        // Otherwise set to null (not yet validated or too short)
+                        if (processedValue.length === 13) {
+                          setLicenseNumberValid(isValid);
+                        } else {
+                          setLicenseNumberValid(null);
+                        }
+                      }}
                     />
                     {role === 'Driver' && errors.driverLicenseNumber && (
                       <p className="mt-1 text-sm text-red-600">{errors.driverLicenseNumber.message}</p>
                     )}
                     {role === 'Operator' && errors.operatorLicenseNumber && (
                       <p className="mt-1 text-sm text-red-600">{errors.operatorLicenseNumber.message}</p>
+                    )}
+                    {/* Show real-time validation error if the format is invalid */}
+                    {((role === 'Driver' && !errors.driverLicenseNumber && licenseNumberValid === false) || 
+                      (role === 'Operator' && !errors.operatorLicenseNumber && licenseNumberValid === false)) && (
+                      <p className="mt-1 text-sm text-red-600">Invalid license number format. Use A12-34-567890.</p>
                     )}
                   </div>
                   

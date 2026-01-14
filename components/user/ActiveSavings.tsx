@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { firestore } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth';
 import { SavingsTransaction } from '@/lib/types/savings';
 import Card from '@/components/shared/Card';
+import {
+  getUserSavingsTransactions,
+  getUserSavingsBalance
+} from '@/lib/savingsService';
 
 interface ActiveSavingsProps {
   compact?: boolean;
@@ -67,61 +70,19 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
       
       setDataLoading(true);
       
-      // Validate user exists in both users and members collections using UID
-      const userCheck = await firestore.getDocument('users', user.uid);
-      if (!userCheck.success || !userCheck.data) {
-        console.warn(`User not found in users collection: ${user.uid}`);
-        // Still try to fetch savings using the UID as the member ID
-      }
+      // Use the savings service to get user's savings transactions
+      const userTransactions = await getUserSavingsTransactions(user.uid);
       
-      // Also check if user exists in members collection
-      const memberCheck = await firestore.getDocument('members', user.uid);
-      if (!memberCheck.success || !memberCheck.data) {
-        console.warn(`User not found in members collection: ${user.uid}`);
-        // Still try to fetch savings from the expected location
-      }
+      // Sort by date descending for display (newest first)
+      const sortedTransactions = userTransactions.sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
       
-      // Fetch savings transactions from /members/{userId}/savings using authenticated user's UID
-      const result = await firestore.getCollection(`members/${user.uid}/savings`);
+      setTransactions(sortedTransactions);
       
-      if (result.success && result.data) {
-        // Sort transactions by date (oldest first) to calculate running balance correctly
-        const sortedTransactions = result.data
-          .map((doc: any) => ({
-            id: doc.id,
-            ...doc
-          }))
-          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        
-        // Calculate running balance for each transaction
-        let runningBalance = 0;
-        const transactionsWithBalance = sortedTransactions.map((transaction: any) => {
-          if (transaction.type === 'deposit') {
-            runningBalance += transaction.amount;
-          } else if (transaction.type === 'withdrawal') {
-            runningBalance -= transaction.amount;
-          }
-          
-          return {
-            ...transaction,
-            balance: runningBalance
-          };
-        });
-        
-        // Sort by date descending for display (newest first)
-        const transactionsData = transactionsWithBalance
-          .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        
-        setTransactions(transactionsData);
-        
-        // Use the balance from the most recent transaction, or 0 if no transactions
-        const latestBalance = transactionsData.length > 0 ? transactionsData[0].balance : 0;
-        setTotalSavings(latestBalance);
-      } else {
-        // If no savings found, set empty arrays and zero balance
-        setTransactions([]);
-        setTotalSavings(0);
-      }
+      // Get the current balance using the savings service
+      const currentBalance = await getUserSavingsBalance(user.uid);
+      setTotalSavings(currentBalance);
     } catch (error) {
       console.error('Error fetching savings transactions:', error);
       // Set defaults on error

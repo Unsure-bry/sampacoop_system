@@ -21,8 +21,7 @@ export default function SecretaryLoanRequestsPage() {
   // Mock data - in a real app, this would come from Firestore
   useEffect(() => {
     setRequests([
-      { id: 1, member: 'Alice Brown', amount: 25000, date: '2023-05-15', status: 'Pending' },
-      { id: 2, member: 'Michael Davis', amount: 40000, date: '2023-05-18', status: 'Approved' },
+      
     ]);
   }, []);
 
