@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import LoanRequestsTable from '@/components/admin/LoanRequestsTable';
 
 export default function LoanRequestsPage() {

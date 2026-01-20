@@ -1,6 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { firestore } from '@/lib/firebase';
+
+interface SavingsLeaderboardEntry {
+  memberId: string;
+  fullName: string;
+  role: string;
+  totalSavings: number;
+}
 
 interface LeaderboardEntry {
   id: string;
@@ -9,19 +17,83 @@ interface LeaderboardEntry {
   rank: number;
 }
 
+// Calculate total savings for a member
+const calculateMemberSavings = (transactions: any[]): number => {
+  return transactions.reduce((total, transaction) => {
+    if (transaction.type === 'deposit') {
+      return total + (transaction.amount || 0);
+    } else if (transaction.type === 'withdrawal') {
+      return total - (transaction.amount || 0);
+    }
+    return total;
+  }, 0);
+};
+
 export default function SavingsLeaderboard() {
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Mock data - in a real application, this would come from Firestore
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      const mockData: LeaderboardEntry[] = [
-      ];
-      setLeaderboardData(mockData);
-      setLoading(false);
-    }, 800);
+    const fetchData = async () => {
+      try {
+        // Fetch all savings transactions
+        const savingsResult = await firestore.getCollection('savings');
+        
+        if (savingsResult.success && savingsResult.data) {
+          const savingsTransactions = savingsResult.data;
+          
+          // Group transactions by member
+          const memberTransactionsMap: Record<string, any[]> = {};
+          savingsTransactions.forEach((transaction: any) => {
+            if (!memberTransactionsMap[transaction.memberId]) {
+              memberTransactionsMap[transaction.memberId] = [];
+            }
+            memberTransactionsMap[transaction.memberId].push(transaction);
+          });
+
+          // Get members data to join with savings
+          const membersResult = await firestore.getCollection('members');
+          let members: any[] = [];
+          if (membersResult.success && membersResult.data) {
+            members = membersResult.data;
+          }
+
+          // Calculate total savings per member
+          const savingsLeaderboardData = Object.entries(memberTransactionsMap)
+            .map(([memberId, transactions]) => {
+              const member = members.find((m: any) => m.id === memberId);
+              const totalSavings = calculateMemberSavings(transactions);
+              
+              return {
+                memberId,
+                fullName: member ? `${member.firstName} ${member.lastName}` : 'Unknown',
+                role: member?.role || 'Member',
+                totalSavings
+              };
+            })
+            .filter((entry: any) => entry.totalSavings > 0) // Exclude members with zero savings
+            .sort((a: any, b: any) => b.totalSavings - a.totalSavings) // Sort by total savings (descending)
+            .slice(0, 10); // Top 10
+
+          // Convert to the expected format
+          const formattedData: LeaderboardEntry[] = savingsLeaderboardData.map((entry: any, index: number) => ({
+            id: entry.memberId,
+            name: entry.fullName,
+            savingsAmount: entry.totalSavings,
+            rank: index + 1
+          }));
+
+          setLeaderboardData(formattedData);
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching savings leaderboard data:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
   const formatCurrency = (amount: number) => {
@@ -65,16 +137,16 @@ export default function SavingsLeaderboard() {
             key={member.id} 
             className={`flex items-center justify-between p-3 rounded-lg transition-all hover:shadow-sm ${
               member.rank === 1 
-                ? 'bg- gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200' 
+                ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200' 
                 : member.rank === 2 
-                  ? 'bg- gradient-to-r from-gray-50 to-gray-100 border border-gray-200' 
+                  ? 'bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200' 
                   : member.rank === 3 
-                    ? 'bg- gradient-to-r from-amber-50 to-amber-100 border border-amber-200' 
+                    ? 'bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200' 
                     : 'hover:bg-gray-50'
             }`}
           >
             <div className="flex items-center space-x-3">
-              <div className={`flex- shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
+              <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
                 member.rank === 1 
                   ? 'bg-yellow-400 text-yellow-900' 
                   : member.rank === 2 

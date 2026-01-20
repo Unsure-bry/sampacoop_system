@@ -53,24 +53,30 @@ export default function LoanApplicationModal({ isOpen, onClose, loanPlan }: Loan
 
       // Create loan request document with user info
       const loanRequest = {
-        userId: user?.uid,
+        userId: user?.uid || '',
         userName: user?.displayName || '',
         email: user?.email || '',
         planId: loanPlan.id,
         planName: loanPlan.name,
         amount: amountValue,
         term: termValue,
-        status: 'pending',
+        status: 'pending' as const,
         createdAt: new Date().toISOString(),
       };
 
-      // Save to Firestore
+      // Save to Firestore with error handling
       const result = await firestore.setDocument(
         'loanRequests',
         `${user?.uid}-${loanPlan.id}-${Date.now()}`,
         loanRequest
       );
-
+      
+      if (!result.success) {
+        console.error('Error saving loan request:', result.error);
+        toast.error(result.error || 'Failed to submit loan request. Please try again.');
+        return;
+      }
+      
       if (result.success) {
         toast.success('Loan application submitted!');
         // Reset form and close modal

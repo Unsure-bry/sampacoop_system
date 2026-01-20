@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy-loan-indexes": "node scripts/deploy-loan-indexes.js",
+    "validate-loan-manager": "node scripts/validate-loan-manager.js",
+    "fix-user-member-links": "node scripts/fix-user-member-links.js",
+    "setup-firebase": "node scripts/setup-firebase.js",
+    "test-firebase": "node scripts/test-firebase.js"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",

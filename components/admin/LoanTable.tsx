@@ -7,12 +7,26 @@ import { firestore } from '@/lib/firebase';
 // Define the loan request type
 interface LoanRequest {
   id: string;
-  memberId: string;
-  memberName: string;
+  userId: string;
+  memberId?: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  email: string;
+  role?: string;
+  phone?: string;
+  planId?: string;
+  planName?: string;
   amount: number;
-  termDuration: string;
-  dateRequested: string;
+  term: number;
+  description?: string;
   status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  rejectionReason?: string;
+  rejectedAt?: string;
+  rejectedBy?: string;
+  approvedAt?: string;
+  approvedBy?: string;
 }
 
 // Status badge component
@@ -52,29 +66,113 @@ export default function LoanTable({
   const [processing, setProcessing] = useState<string | null>(null);
 
   // Handle loan approval
-  const handleApprove = async (requestId: string, memberId: string) => {
+  const handleApprove = async (requestId: string, userId: string) => {
     setProcessing(requestId);
     try {
       // Update the loan request status to approved
       const result = await firestore.updateDocument('loanRequests', requestId, {
         status: 'approved',
-        dateApproved: new Date().toISOString()
+        approvedAt: new Date().toISOString(),
+        approvedBy: 'current_user_id' // This should be replaced with actual user ID
       });
       
       if (!result.success) {
-        throw new Error('Failed to approve loan request');
+        console.error('Error updating loan request status:', result.error);
+        toast.error(result.error || 'Failed to approve loan request');
+        return;
       }
       
-      // In a real application, you would also:
-      // 1. Create a loan record in the member's loan history
-      // 2. Update the member's account with the loan details
-      // 3. Send notifications to the member
+      // Fetch the loan request data to get all necessary information
+      const requestResult = await firestore.getDocument('loanRequests', requestId);
+      if (!requestResult.success || !requestResult.data) {
+        throw new Error('Failed to fetch loan request data');
+      }
       
-      toast.success('Loan request approved successfully');
+      const requestData = requestResult.data as any;
+      
+      // Use member information from the loan request
+      const fullName = requestData.fullName || `${requestData.firstName || ''} ${requestData.lastName || ''}`.trim() || 'User Not Found';
+      const role = requestData.role || 'N/A';
+      let interestRate = 3; // Default interest rate
+      
+      // Get interest rate from loan plan if available
+      if (requestData.planId) {
+        const planResult = await firestore.getDocument('loanPlans', requestData.planId);
+        if (planResult.success && planResult.data) {
+          const planData = planResult.data as any;
+          interestRate = planData.interestRate || 3;
+        }
+      }
+      
+      // Calculate daily amortization schedule
+      // Convert loan term to days (1 month = 30 days)
+      const totalDays = requestData.term * 30;
+      
+      // Calculate daily interest rate
+      const dailyInterestRate = interestRate / 100 / 365; // Annual interest rate divided by 365 days
+      
+      // Calculate daily payment
+      const dailyPayment = requestData.amount / totalDays;
+      
+      // Generate payment schedule
+      let remainingBalance = requestData.amount;
+      let currentDate = new Date();
+      const paymentSchedule = [];
+      
+      for (let day = 1; day <= totalDays; day++) {
+        // Add one day for each payment date
+        currentDate.setDate(currentDate.getDate() + 1);
+        
+        const interestPayment = remainingBalance * dailyInterestRate;
+        const principalPayment = dailyPayment;
+        remainingBalance -= principalPayment;
+        
+        // Ensure remaining balance doesn't go below 0
+        if (remainingBalance < 0) {
+          remainingBalance = 0;
+        }
+        
+        paymentSchedule.push({
+          day,
+          paymentDate: currentDate.toISOString().split('T')[0],
+          principal: principalPayment,
+          interest: interestPayment,
+          totalPayment: principalPayment + interestPayment,
+          remainingBalance,
+          status: 'pending' // Initial status for payments
+        });
+      }
+      
+      // Create approved loan document in the loans collection with member details
+      const loanData = {
+        userId: userId,
+        fullName: fullName,
+        role: role,
+        amount: requestData.amount,
+        term: requestData.term,
+        planName: requestData.planName || 'General Loan',
+        startDate: new Date().toISOString(),
+        interest: interestRate, // Interest rate from loan plan
+        status: 'active',
+        paymentSchedule: paymentSchedule
+      };
+
+      const loanResult = await firestore.setDocument(
+        'loans',
+        `${userId}-${requestId}`,
+        loanData
+      );
+
+      if (loanResult.success) {
+        toast.success('Loan request approved successfully!');
+      } else {
+        toast.error('Failed to create loan. Please try again.');
+      }
+      
       onAction(); // Refresh the data
     } catch (error) {
       console.error('Error approving loan:', error);
-      toast.error('Failed to approve loan request');
+      toast.error('An error occurred. Please try again.');
     } finally {
       setProcessing(null);
     }
@@ -83,22 +181,35 @@ export default function LoanTable({
   // Handle loan rejection
   const handleReject = async (requestId: string) => {
     setProcessing(requestId);
+    
+    // Prompt for rejection reason
+    const rejectionReason = prompt('Enter rejection reason:');
+    if (!rejectionReason || !rejectionReason.trim()) {
+      toast.error('Rejection reason is required');
+      setProcessing(null);
+      return;
+    }
+    
     try {
       // Update the loan request status to rejected
       const result = await firestore.updateDocument('loanRequests', requestId, {
         status: 'rejected',
-        dateRejected: new Date().toISOString()
+        rejectionReason: rejectionReason.trim(),
+        rejectedAt: new Date().toISOString(),
+        rejectedBy: 'current_user_id' // This should be replaced with actual user ID
       });
       
       if (!result.success) {
-        throw new Error('Failed to reject loan request');
+        console.error('Error updating loan request status:', result.error);
+        toast.error(result.error || 'Failed to reject loan request');
+        return;
       }
       
       toast.success('Loan request rejected');
       onAction(); // Refresh the data
     } catch (error) {
       console.error('Error rejecting loan:', error);
-      toast.error('Failed to reject loan request');
+      toast.error('An error occurred. Please try again.');
     } finally {
       setProcessing(null);
     }
@@ -106,19 +217,21 @@ export default function LoanTable({
 
   // Format currency for display
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-PH', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'PHP',
       minimumFractionDigits: 2,
     }).format(amount);
   };
 
   // Format date for display
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('en-PH', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -158,17 +271,18 @@ export default function LoanTable({
             requests.map((request) => (
               <tr key={request.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{request.memberName}</div>
-                  <div className="text-sm text-gray-500">{request.memberId}</div>
+                  <div className="text-sm font-medium text-gray-900">{request.fullName || `${request.firstName || ''} ${request.lastName || ''}`.trim() || 'User Not Found'}</div>
+                  <div className="text-sm text-gray-500">{request.email}</div>
+                  <div className="text-xs text-gray-400">{request.role || 'N/A'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {formatCurrency(request.amount)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {request.termDuration}
+                  {request.term} month{request.term !== 1 ? 's' : ''}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatDate(request.dateRequested)}
+                  {formatDate(request.createdAt)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <StatusBadge status={request.status} />
@@ -177,7 +291,7 @@ export default function LoanTable({
                   {request.status === 'pending' ? (
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => handleApprove(request.id, request.memberId)}
+                        onClick={() => handleApprove(request.id, request.userId)}
                         disabled={processing === request.id}
                         className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
                       >

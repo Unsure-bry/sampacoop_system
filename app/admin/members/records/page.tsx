@@ -18,6 +18,8 @@ export default function MemberRecordsPage() {
   const [viewingMember, setViewingMember] = useState<Member | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     fetchMembers();
@@ -173,6 +175,8 @@ export default function MemberRecordsPage() {
     });
     
     setFilteredMembers(filtered);
+    // Reset to first page when filtering changes
+    setCurrentPage(1);
   };
 
   const handleEditMember = (member: Member) => {
@@ -285,6 +289,16 @@ export default function MemberRecordsPage() {
     
     return `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}${suffix ? ' ' + suffix : ''}`.trim();
   };
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredMembers.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
+
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+  const nextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  const prevPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
 
   return (
     <div className="space-y-6">
@@ -405,103 +419,199 @@ export default function MemberRecordsPage() {
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Full Name
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact Number
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredMembers.map((member) => (
-                  <tr key={member.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {getFullName(member)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                        {member.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {member.phoneNumber}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {member.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        member.archived 
-                          ? 'bg-gray-100 text-gray-800' 
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {member.archived ? 'Archived' : (member.status || 'Active')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {activeTab === 'active' ? (
-                        <>
-                          <button
-                            onClick={() => handleViewMember(member)}
-                            className="text-blue-600 hover:text-blue-900 mr-3"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleEditMember(member)}
-                            className="text-yellow-600 hover:text-yellow-900 mr-3"
-                            
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleArchiveMember(member.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Archive
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleViewMember(member)}
-                            className="text-blue-600 hover:text-blue-900 mr-3"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleRestoreMember(member.id)}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            Restore
-                          </button>
-                        </>
-                      )}
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Full Name
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Role
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Contact Number
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentItems.map((member) => (
+                    <tr key={member.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {getFullName(member)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                          {member.role}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {member.phoneNumber}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {member.email}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          member.archived 
+                            ? 'bg-gray-100 text-gray-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {member.archived ? 'Archived' : (member.status || 'Active')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        {activeTab === 'active' ? (
+                          <>
+                            <button
+                              onClick={() => handleViewMember(member)}
+                              className="text-blue-600 hover:text-blue-900 mr-3"
+                            >
+                              View
+                            </button>
+                            <button
+                              onClick={() => handleEditMember(member)}
+                              className="text-yellow-600 hover:text-yellow-900 mr-3"
+                              
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleArchiveMember(member.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Archive
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleViewMember(member)}
+                              className="text-blue-600 hover:text-blue-900 mr-3"
+                            >
+                              View
+                            </button>
+                            <button
+                              onClick={() => handleRestoreMember(member.id)}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              Restore
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 sm:px-6">
+                <div className="flex flex-1 justify-between sm:hidden">
+                  <button
+                    onClick={prevPage}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={nextPage}
+                    disabled={currentPage === totalPages}
+                    className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+                <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-gray-700">
+                      Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
+                      <span className="font-medium">{Math.min(indexOfLastItem, filteredMembers.length)}</span> of{' '}
+                      <span className="font-medium">{filteredMembers.length}</span> results
+                    </p>
+                  </div>
+                  <div>
+                    <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                      <button
+                        onClick={prevPage}
+                        disabled={currentPage === 1}
+                        className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="sr-only">Previous</span>
+                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                      
+                      {/* Page numbers */}
+                      {(() => {
+                        const pageNumbers = [];
+                        const maxVisiblePages = Math.min(5, totalPages);
+                        
+                        if (totalPages <= 5) {
+                          for (let i = 1; i <= totalPages; i++) {
+                            pageNumbers.push(i);
+                          }
+                        } else if (currentPage <= 3) {
+                          for (let i = 1; i <= 5; i++) {
+                            pageNumbers.push(i);
+                          }
+                        } else if (currentPage >= totalPages - 2) {
+                          for (let i = totalPages - 4; i <= totalPages; i++) {
+                            pageNumbers.push(i);
+                          }
+                        } else {
+                          for (let i = currentPage - 2; i <= currentPage + 2; i++) {
+                            pageNumbers.push(i);
+                          }
+                        }
+                        
+                        return pageNumbers.map(pageNum => (
+                          <button
+                            key={pageNum}
+                            onClick={() => paginate(pageNum)}
+                            className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                              pageNum === currentPage 
+                                ? 'z-10 bg-red-600 text-white focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-red-600' 
+                                : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        ));
+                      })()}
+                      
+                      <button
+                        onClick={nextPage}
+                        disabled={currentPage === totalPages}
+                        className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="sr-only">Next</span>
+                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </nav>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 

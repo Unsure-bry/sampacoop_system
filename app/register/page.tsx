@@ -43,7 +43,9 @@ const ROLES = [
   'Vice Chairman',
   'Manager',
   'Treasurer',
-  'Board of Directors'
+  'Board of Directors',
+  'Driver',
+  'Operator',
 ];
 
 export default function RegisterPage() {

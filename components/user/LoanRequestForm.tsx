@@ -38,58 +38,87 @@ export default function LoanRequestForm({ onLoanSubmitted }: LoanRequestFormProp
       }
 
       // Fetch user's member information from members collection
-      const memberResult = await firestore.getDocument('members', user?.uid || '');
       let memberInfo = {};
       
-      if (memberResult.success && memberResult.data) {
-        const memberData = memberResult.data;
+      try {
+        const memberResult = await firestore.getDocument('members', user?.uid || '');
         
-        // Create full name from member data
-        const firstName = memberData.firstName || '';
-        const middleName = memberData.middleName || '';
-        const lastName = memberData.lastName || '';
-        const suffix = memberData.suffix || '';
-        
-        const fullName = `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}${suffix ? ' ' + suffix : ''}`.trim();
-        
+        if (memberResult.success && memberResult.data) {
+          const memberData = memberResult.data;
+          
+          // Create full name from member data
+          const firstName = memberData.firstName || '';
+          const middleName = memberData.middleName || '';
+          const lastName = memberData.lastName || '';
+          const suffix = memberData.suffix || '';
+          
+          const fullName = `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}${suffix ? ' ' + suffix : ''}`.trim();
+          
+          memberInfo = {
+            memberId: memberData.id || user?.uid,
+            firstName,
+            lastName,
+            middleName,
+            suffix,
+            fullName,
+            email: memberData.email || user?.email || '',
+            role: memberData.role || user?.role || '',
+            phone: memberData.phoneNumber || memberData.phone || '',
+          };
+        } else {
+          // Fallback to user data if member info not found
+          memberInfo = {
+            memberId: user?.uid || '',
+            firstName: '',
+            lastName: '',
+            middleName: '',
+            suffix: '',
+            fullName: user?.displayName || '',
+            email: user?.email || '',
+            role: user?.role || '',
+            phone: '',
+          };
+        }
+      } catch (error) {
+        console.error('Error fetching member information:', error);
+        // Fallback to user data if member info fetch fails
         memberInfo = {
-          memberId: memberData.id || user?.uid,
-          firstName,
-          lastName,
-          middleName,
-          suffix,
-          fullName,
-          email: memberData.email || user?.email,
-          role: memberData.role || user?.role,
-          phone: memberData.phoneNumber,
-        };
-      } else {
-        // Fallback to user data if member info not found
-        memberInfo = {
-          memberId: user?.uid,
-          email: user?.email,
-          role: user?.role,
+          memberId: user?.uid || '',
+          firstName: '',
+          lastName: '',
+          middleName: '',
+          suffix: '',
+          fullName: user?.displayName || '',
+          email: user?.email || '',
+          role: user?.role || '',
+          phone: '',
         };
       }
 
       // Create loan request document
       const loanRequest = {
-        userId: user?.uid,
+        userId: user?.uid || '',
         ...memberInfo, // Include member information
         planName: 'General Loan', // Default plan name
         amount: amountValue,
         term: termValue,
         description: description || '',
-        status: 'pending',
-        createdAt: new Date().toISOString(), // Changed from timestamp to createdAt
+        status: 'pending' as const,
+        createdAt: new Date().toISOString(),
       };
 
-      // Save to Firestore
+      // Save to Firestore with error handling
       const result = await firestore.setDocument(
         'loanRequests',
         `${user?.uid}-${Date.now()}`,
         loanRequest
       );
+      
+      if (!result.success) {
+        console.error('Error saving loan request:', result.error);
+        toast.error(result.error || 'Failed to submit loan request. Please try again.');
+        return;
+      }
 
       if (result.success) {
         toast.success('Loan request submitted successfully!');

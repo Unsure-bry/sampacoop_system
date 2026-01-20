@@ -6,6 +6,7 @@ import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { Member } from '@/lib/types/member';
 import { sendMemberRegistrationEmail } from '@/lib/emailService';
+import { createLinkedUserMember } from '@/lib/userMemberService';
 
 interface PersonalInfo {
   firstName: string;
@@ -314,53 +315,22 @@ export default function MemberRegistrationModal({
         };
       }
       
-      // First, create the user account in the users collection for login
-      const userResult = await firestore.setDocument(
-        'users',
-        encodeURIComponent(data.email.toLowerCase()),
-        {
-          email: data.email,
-          displayName: `${data.firstName} ${data.lastName}`,
-          role: data.role.toLowerCase(),
-          createdAt: new Date().toISOString(),
-          isPasswordSet: false, // Keep as false since password will be created by member during first login
-        }
-      );
-
-      if (!userResult.success) {
-        toast.error('Failed to create user account. Please try again.');
-        return;
-      }
-
-      // Prepare member data for Firestore (members collection)
-      const memberData = {
+      // Use the new user-member service to create linked records
+      const { success, error } = await createLinkedUserMember({
+        email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,
         middleName: data.middleName,
         suffix: data.suffix,
-        birthdate: data.birthdate,
-        age: data.age,
         role: data.role,
-        email: data.email,
         phoneNumber: data.phoneNumber,
+        birthdate: data.birthdate,
         driverInfo,
         operatorInfo,
-        fullName: `${data.firstName} ${data.middleName ? data.middleName + ' ' : ''}${data.lastName}${data.suffix ? ' ' + data.suffix : ''}`,
-        status: 'Active', // Add default status
-        userId: encodeURIComponent(data.email.toLowerCase()), // Link to user account
-        paymentInfo: paymentData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+        paymentInfo: paymentData
+      });
 
-      // Save to members collection
-      const memberResult = await firestore.setDocument(
-        'members',
-        `${data.firstName}-${data.lastName}-${Date.now()}`.toLowerCase().replace(/\s+/g, '-'),
-        memberData
-      );
-
-      if (memberResult.success) {
+      if (success) {
         // Send welcome email
         const emailSent = await sendMemberRegistrationEmail(data.email, `${data.firstName} ${data.lastName}`);
         

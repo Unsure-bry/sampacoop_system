@@ -1,5 +1,6 @@
 import { adminFirestore } from "@/lib/firebaseAdmin";
 import { NextResponse } from 'next/server';
+import { validateAndHealUserMemberLink } from '@/lib/userMemberService';
 
 // Timing-safe string comparison utility
 function timingSafeEqual(a: string, b: string): boolean {
@@ -200,6 +201,24 @@ export async function POST(req: Request) {
     };
 
     console.log("Login successful for user:", user.email, "with role:", user.role);
+
+    // Validate and heal user-member linkage
+    try {
+      console.log("Validating user-member linkage for user:", user.uid);
+      const validation = await validateAndHealUserMemberLink(user.uid);
+      
+      if (!validation.isValid) {
+        console.warn("User-member linkage validation failed:", validation.error);
+        // Don't fail login, but log the issue
+      } else if (validation.healed) {
+        console.log("User-member linkage healed successfully for user:", user.uid);
+      } else {
+        console.log("User-member linkage is valid for user:", user.uid);
+      }
+    } catch (validationError: any) {
+      console.error("Failed to validate user-member linkage:", validationError);
+      // Don't fail the login if validation fails
+    }
 
     // Update last login timestamp
     try {

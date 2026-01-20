@@ -121,6 +121,7 @@ export const firestore = {
     }
     
     try {
+      
       // Validate inputs
       if (!collectionName || !docId) {
         throw new Error('Collection name and document ID are required');

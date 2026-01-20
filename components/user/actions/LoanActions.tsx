@@ -52,24 +52,39 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
       }
 
       // Fetch user's member information from members collection
-      const memberResult = await firestore.getDocument('members', user?.uid || '');
       let memberInfo = {};
       
-      if (memberResult.success && memberResult.data) {
-        const memberData = memberResult.data;
-        const fullName = `${memberData.firstName || ''} ${memberData.middleName ? memberData.middleName + ' ' : ''}${memberData.lastName || ''}${memberData.suffix ? ' ' + memberData.suffix : ''}`.trim();
+      try {
+        const memberResult = await firestore.getDocument('members', user?.uid || '');
         
-        memberInfo = {
-          firstName: memberData.firstName || '',
-          lastName: memberData.lastName || '',
-          middleName: memberData.middleName || '',
-          suffix: memberData.suffix || '',
-          fullName: fullName || user?.displayName || '',
-          role: memberData.role || user?.role || '',
-          phone: memberData.phone || memberData.phoneNumber || '',
-        };
-      } else {
-        // Fallback to user data if member record doesn't exist
+        if (memberResult.success && memberResult.data) {
+          const memberData = memberResult.data;
+          const fullName = `${memberData.firstName || ''} ${memberData.middleName ? memberData.middleName + ' ' : ''}${memberData.lastName || ''}${memberData.suffix ? ' ' + memberData.suffix : ''}`.trim();
+          
+          memberInfo = {
+            firstName: memberData.firstName || '',
+            lastName: memberData.lastName || '',
+            middleName: memberData.middleName || '',
+            suffix: memberData.suffix || '',
+            fullName: fullName || user?.displayName || '',
+            role: memberData.role || user?.role || '',
+            phone: memberData.phone || memberData.phoneNumber || '',
+          };
+        } else {
+          // Fallback to user data if member record doesn't exist
+          memberInfo = {
+            firstName: '',
+            lastName: '',
+            middleName: '',
+            suffix: '',
+            fullName: user?.displayName || '',
+            role: user?.role || '',
+            phone: '',
+          };
+        }
+      } catch (error) {
+        console.error('Error fetching member information:', error);
+        // Fallback to user data if member info fetch fails
         memberInfo = {
           firstName: '',
           lastName: '',
@@ -83,25 +98,31 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
       
       // Create loan request document with user info
       const loanRequest = {
-        userId: user?.uid,
+        userId: user?.uid || '',
         email: user?.email || '',
         planId: selectedPlan.id,
         planName: selectedPlan.name,
         amount: amountValue,
         term: termValue,
-        status: 'pending',
+        status: 'pending' as const,
         createdAt: new Date().toISOString(),
         // Include member information for admin visibility
         ...memberInfo,
       };
 
-      // Save to Firestore
+      // Save to Firestore with error handling
       const result = await firestore.setDocument(
         'loanRequests',
         `${user?.uid}-${selectedPlan.id}-${Date.now()}`,
         loanRequest
       );
-
+      
+      if (!result.success) {
+        console.error('Error saving loan request:', result.error);
+        toast.error(result.error || 'Failed to submit loan request. Please try again.');
+        return;
+      }
+      
       if (result.success) {
         toast.success('Loan application submitted!');
         // Reset form
