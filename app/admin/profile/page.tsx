@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
+import { handleAdminLogout } from '@/lib/logoutUtils';
 
 export default function AdminProfilePage() {
   const { user, loading, logout } = useAuth();

@@ -21,7 +21,9 @@ import {
   FileText, 
   DollarSign, 
   BarChart3, 
-  User 
+  User,
+  Settings,
+  Activity 
 } from 'lucide-react';
 
 // Define sidebar configuration for each role
@@ -64,6 +66,15 @@ export const roleSidebarConfig: RoleSidebarConfig = {
       title: 'System Setup',
       items: [
         { name: 'Initialize Dashboard Data', path: '/admin/dashboard-data', icon: FileText },
+      ],
+    },
+    {
+      title: 'Profile',
+      items: [
+        { name: 'My Account', path: '/admin/profile', icon: User },
+        { name: 'Account Settings', path: '/admin/profile/edit', icon: Settings },
+        { name: 'Security', path: '/admin/profile/security', icon: Settings },
+        { name: 'Activity Log', path: '/admin/profile/activity', icon: Activity },
       ],
     },
   ],

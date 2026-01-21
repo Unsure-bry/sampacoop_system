@@ -13,6 +13,7 @@ export interface SavingsTransaction {
 export interface MemberSavings {
   memberId: string;
   memberName: string;
+  role: string;
   totalSavings: number;
   status: string;
   lastUpdated: string;

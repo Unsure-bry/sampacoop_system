@@ -15,7 +15,8 @@ interface Member {
   role: string;
   status: string;
   createdAt: string;
-  [key: string]: any;
+  uid?: string;
+  [key: string]: unknown;
 }
 
 interface LoanRequest {
@@ -32,7 +33,7 @@ interface LoanRequest {
 
 interface Loan {
   id: string;
-  status: 'active' | 'completed' | 'rejected';
+  status: 'active' | 'completed' | 'rejected' | 'approved';
   amount: number;
   term: number;
   userId: string;
@@ -165,95 +166,134 @@ export default function DynamicAdminDashboard() {
       try {
         setLoading(true);
         
-        // Fetch all required data in parallel
+        // Fetch all required data in parallel with better error handling
         const [
           membersResult,
           loanRequestsResult,
           loansResult,
-          approvedLoansResult,
           savingsResult
         ] = await Promise.all([
-          // Total Members: Count only members with active status
-          firestore.queryDocuments('members', [
-            { field: 'status', operator: '==', value: 'active' }
-          ]),
+          // Total Members: First try query, fallback to get all members
+          (async () => {
+            try {
+              const result = await firestore.queryDocuments('members', [
+                { field: 'status', operator: '==', value: 'active' }
+              ]);
+              if (result.success && result.data) {
+                return result;
+              }
+              // Fallback: get all members and filter client-side
+              const allMembers = await firestore.getCollection('members');
+              if (allMembers.success && allMembers.data) {
+                return {
+                  ...allMembers,
+                  data: allMembers.data.filter((member: any) => member.status === 'active')
+                };
+              }
+              return allMembers;
+            } catch (error) {
+              console.error('Error in members query:', error);
+              // Final fallback
+              const allMembers = await firestore.getCollection('members');
+              if (allMembers.success && allMembers.data) {
+                return {
+                  ...allMembers,
+                  data: allMembers.data.filter((member: any) => member.status === 'active')
+                };
+              }
+              return { success: false, data: [], error: 'Failed to fetch members' };
+            }
+          })(),
           
-          // Pending Loan Requests: Count records with status = "pending"
-          firestore.queryDocuments('loanRequests', [
-            { field: 'status', operator: '==', value: 'pending' }
-          ]),
+          // Pending Loan Requests: First try query, fallback to get all
+          (async () => {
+            try {
+              const result = await firestore.queryDocuments('loanRequests', [
+                { field: 'status', operator: '==', value: 'pending' }
+              ]);
+              if (result.success && result.data) {
+                return result;
+              }
+              // Fallback: get all loan requests and filter client-side
+              const allRequests = await firestore.getCollection('loanRequests');
+              if (allRequests.success && allRequests.data) {
+                return {
+                  ...allRequests,
+                  data: allRequests.data.filter((request: any) => request.status === 'pending')
+                };
+              }
+              return allRequests;
+            } catch (error) {
+              console.error('Error in loan requests query:', error);
+              // Final fallback
+              const allRequests = await firestore.getCollection('loanRequests');
+              if (allRequests.success && allRequests.data) {
+                return {
+                  ...allRequests,
+                  data: allRequests.data.filter((request: any) => request.status === 'pending')
+                };
+              }
+              return { success: false, data: [], error: 'Failed to fetch loan requests' };
+            }
+          })(),
           
-          // Active Loans: Count loans where status = "active"
-          firestore.queryDocuments('loans', [
-            { field: 'status', operator: '==', value: 'active' }
-          ]),
-          
-          // Approved Loans: Count loans where status = "approved"
-          firestore.queryDocuments('loans', [
-            { field: 'status', operator: '==', value: 'approved' }
-          ]),
+          // Loans data: Get all loans once and filter for both active and approved
+          (async () => {
+            try {
+              return await firestore.getCollection('loans');
+            } catch (error) {
+              console.error('Error fetching loans:', error);
+              return { success: false, data: [], error: 'Failed to fetch loans' };
+            }
+          })(),
           
           // All savings transactions
-          firestore.getCollection('savings')
+          (async () => {
+            try {
+              return await firestore.getCollection('savings');
+            } catch (error) {
+              console.error('Error fetching savings:', error);
+              return { success: false, data: [], error: 'Failed to fetch savings' };
+            }
+          })()
         ]);
 
-        // Process members data
+        // Process members data with comprehensive error handling
         let totalMembers = 0;
         if (membersResult.success && membersResult.data) {
           totalMembers = membersResult.data.length;
         } else {
-          console.error('Error fetching members:', membersResult.error);
-          // Try fetching all members if the query fails
-          const allMembersResult = await firestore.getCollection('members');
-          if (allMembersResult.success && allMembersResult.data) {
-            // Filter active members client-side
-            totalMembers = allMembersResult.data.filter((member: any) => member.status === 'active').length;
-          }
+          console.error('Failed to fetch members data:', membersResult.error);
+          // Set to 0 if we can't fetch reliable data
+          totalMembers = 0;
         }
 
-        // Process pending loan requests
+        // Process pending loan requests with comprehensive error handling
         let pendingRequests = 0;
         if (loanRequestsResult.success && loanRequestsResult.data) {
           pendingRequests = loanRequestsResult.data.length;
         } else {
-          console.error('Error fetching loan requests:', loanRequestsResult.error);
-          // Try fetching all loan requests if the query fails
-          const allLoanRequestsResult = await firestore.getCollection('loanRequests');
-          if (allLoanRequestsResult.success && allLoanRequestsResult.data) {
-            // Filter pending requests client-side
-            pendingRequests = allLoanRequestsResult.data.filter((req: any) => req.status === 'pending').length;
-          }
+          console.error('Failed to fetch loan requests data:', loanRequestsResult.error);
+          // Set to 0 if we can't fetch reliable data
+          pendingRequests = 0;
         }
 
-        // Process active loans
+        // Process loans for both active and approved counts
         let activeLoans = 0;
-        if (loansResult.success && loansResult.data) {
-          activeLoans = loansResult.data.length;
-        } else {
-          console.error('Error fetching loans:', loansResult.error);
-          // Try fetching all loans if the query fails
-          const allLoansResult = await firestore.getCollection('loans');
-          if (allLoansResult.success && allLoansResult.data) {
-            // Filter active loans client-side
-            activeLoans = allLoansResult.data.filter((loan: any) => loan.status === 'active').length;
-          }
-        }
-
-        // Process approved loans
         let totalApprovedLoans = 0;
-        if (approvedLoansResult.success && approvedLoansResult.data) {
-          totalApprovedLoans = approvedLoansResult.data.length;
+        
+        if (loansResult.success && loansResult.data) {
+          const loans = loansResult.data as Loan[];
+          activeLoans = loans.filter(loan => loan.status === 'active').length;
+          totalApprovedLoans = loans.filter(loan => loan.status === 'approved').length;
         } else {
-          console.error('Error fetching approved loans:', approvedLoansResult.error);
-          // Try fetching all loans if the query fails
-          const allLoansResult = await firestore.getCollection('loans');
-          if (allLoansResult.success && allLoansResult.data) {
-            // Filter approved loans client-side
-            totalApprovedLoans = allLoansResult.data.filter((loan: any) => loan.status === 'approved').length;
-          }
+          console.error('Failed to fetch loans data:', loansResult.error);
+          // Set to 0 if we can't fetch reliable data
+          activeLoans = 0;
+          totalApprovedLoans = 0;
         }
 
-        // Process savings leaderboard
+        // Process savings leaderboard with enhanced error handling
         let savingsLeaderboardData: SavingsLeaderboardEntry[] = [];
         let totalSavings = 0;
         
@@ -263,7 +303,8 @@ export default function DynamicAdminDashboard() {
           // Group transactions by member
           const memberTransactionsMap: Record<string, SavingsTransaction[]> = {};
           savingsTransactions.forEach(transaction => {
-            if (transaction.memberId) {
+            // Validate transaction data
+            if (transaction.memberId && typeof transaction.memberId === 'string') {
               if (!memberTransactionsMap[transaction.memberId]) {
                 memberTransactionsMap[transaction.memberId] = [];
               }
@@ -271,42 +312,61 @@ export default function DynamicAdminDashboard() {
             }
           });
 
-          // Get members data to join with savings
+          // Get ALL members data to ensure every account is included
           let members: Member[] = [];
           try {
             const membersResultAll = await firestore.getCollection('members');
             if (membersResultAll.success && membersResultAll.data) {
               members = membersResultAll.data as Member[];
             } else {
-              console.error('Error fetching members for savings join:', membersResultAll.error);
-              // Try to get members with active status
+              console.error('Error fetching members for savings leaderboard:', membersResultAll.error);
+              // Try alternative approach
               const activeMembersResult = await firestore.queryDocuments('members', [
                 { field: 'status', operator: '==', value: 'active' }
               ]);
               if (activeMembersResult.success && activeMembersResult.data) {
                 members = activeMembersResult.data as Member[];
+              } else {
+                // Last resort: return empty array to prevent crash
+                members = [];
+                console.error('Could not fetch any members data for savings leaderboard');
               }
             }
           } catch (error) {
-            console.error('Error fetching members for savings join:', error);
+            console.error('Critical error fetching members for savings leaderboard:', error);
+            members = []; // Prevent crash
           }
 
-          // Calculate total savings per member
+          // Calculate total savings for ALL members (including those with zero savings)
           savingsLeaderboardData = members
             .map(member => {
-              const memberTransactions = memberTransactionsMap[member.id] || [];
+              const memberId = member.id || member.uid || ''; // Handle both id and uid fields
+              if (!memberId) return null; // Skip members without valid IDs
+              const memberTransactions = memberTransactionsMap[memberId] || [];
               const totalSavingsForMember = calculateMemberSavings(memberTransactions);
               
               return {
-                memberId: member.id,
-                fullName: `${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Unknown',
+                memberId: memberId,
+                fullName: `${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Unknown User',
                 role: member.role || 'Member',
                 totalSavings: totalSavingsForMember
               };
             })
-            .sort((a, b) => b.totalSavings - a.totalSavings); // Sort by total savings (descending)
+            .filter((entry): entry is SavingsLeaderboardEntry => {
+              // Include all valid members, exclude null entries
+              return entry !== null && entry.memberId !== '' && entry.fullName !== 'Unknown User';
+            })
+            .sort((a, b) => {
+              // Sort by total savings (descending), then by name for ties
+              if (b.totalSavings !== a.totalSavings) {
+                return b.totalSavings - a.totalSavings;
+              }
+              return a.fullName.localeCompare(b.fullName);
+            }); // Sort by total savings (descending)
         } else {
-          console.error('Error fetching savings:', savingsResult.error);
+          console.error('Error fetching savings data:', savingsResult.error);
+          // Return empty array instead of crashing
+          savingsLeaderboardData = [];
         }
 
         // Calculate total savings across all members
@@ -354,11 +414,17 @@ export default function DynamicAdminDashboard() {
   if (loading || authLoading) {
     return (
       <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Admin Dashboard</h1>
+          <p className="text-gray-600">Loading dashboard data from Firestore...</p>
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
               <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
               <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+              <div className="mt-2 h-3 bg-gray-100 rounded w-2/3"></div>
             </div>
           ))}
         </div>
@@ -367,11 +433,29 @@ export default function DynamicAdminDashboard() {
           <div className="bg-white rounded-lg shadow p-6 animate-pulse">
             <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
             <div className="h-64 bg-gray-200 rounded"></div>
+            <div className="mt-4 h-4 bg-gray-100 rounded w-1/2"></div>
           </div>
           <div className="bg-white rounded-lg shadow p-6 animate-pulse">
             <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="h-64 bg-gray-200 rounded"></div>
+            <div className="space-y-3">
+              {[...Array(5)].map((_, j) => (
+                <div key={j} className="flex items-center justify-between p-2">
+                  <div className="flex items-center">
+                    <div className="h-4 bg-gray-200 rounded w-6 mr-3"></div>
+                    <div>
+                      <div className="h-4 bg-gray-200 rounded w-24 mb-1"></div>
+                      <div className="h-3 bg-gray-100 rounded w-16"></div>
+                    </div>
+                  </div>
+                  <div className="h-4 bg-gray-200 rounded w-16"></div>
+                </div>
+              ))}
+            </div>
           </div>
+        </div>
+        
+        <div className="text-center text-sm text-gray-500 mt-4">
+          Fetching real-time data from Firestore database...
         </div>
       </div>
     );

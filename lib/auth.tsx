@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { clearAllAuthData } from '@/lib/logoutUtils';
+import { trackLogin, trackLogout, trackProfileUpdate } from '@/lib/userActionTracker';
 
 // User shape for this app (stored in Firestore)
 export interface AppUser {
@@ -323,6 +324,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Set user in state
       setUser(user);
       console.log('User state set');
+      
+      // Track the login action
+      trackLogin(user);
 
       // Automatically redirect user to their correct dashboard based on role
       // Use setTimeout to ensure state is properly set before redirecting
@@ -615,6 +619,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    // Track the logout action before clearing user state
+    if (user) {
+      await trackLogout(user);
+    }
+    
     // Clear user state immediately to prevent UI flickering
     setUser(null);
     
@@ -647,6 +656,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.success) {
         // Update local user state
         setUser(prev => prev ? { ...prev, ...updatedData } : null);
+        
+        // Track the profile update action
+        if (user) {
+          trackProfileUpdate(user);
+        }
+        
         return { success: true };
       } else {
         return { success: false, error: 'Failed to update user data in Firestore' };
