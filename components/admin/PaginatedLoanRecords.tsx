@@ -37,10 +37,23 @@ export default function PaginatedLoanRecords() {
   
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Column filter states
+  const [amountFilter, setAmountFilter] = useState<string>('all');
+  const [termFilter, setTermFilter] = useState<string>('all');
+  const [interestFilter, setInterestFilter] = useState<string>('all');
+  const [startDateFilter, setStartDateFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchLoanRecords();
   }, []);
+  
+  // Effect to handle column filtering
+  useEffect(() => {
+    // Reset to first page when filters change
+    setCurrentPage(1);
+  }, [amountFilter, termFilter, interestFilter, startDateFilter, statusFilter]);
 
   const fetchLoanRecords = async () => {
     try {
@@ -135,24 +148,81 @@ export default function PaginatedLoanRecords() {
     setIsModalOpen(true);
   };
 
-  // Filter loans based on search term
+  // Filter loans based on search term and column filters
   const filterLoans = (loansList: Loan[]) => {
-    if (!searchTerm.trim()) return loansList;
-    
-    const term = searchTerm.toLowerCase().trim();
-    return loansList.filter(loan => {
-      const fullName = getFullName(loan, users[loan.userId]);
-      const user = users[loan.userId];
-      const email = user?.email || '';
+    let filtered = [...loansList];
       
-      return (
-        fullName.toLowerCase().includes(term) ||
-        email.toLowerCase().includes(term) ||
-        loan.id.toLowerCase().includes(term) ||
-        (loan.role && loan.role.toLowerCase().includes(term)) ||
-        loan.status.toLowerCase().includes(term)
-      );
-    });
+    // Apply search term filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(loan => {
+        const fullName = getFullName(loan, users[loan.userId]);
+        const user = users[loan.userId];
+        const email = user?.email || '';
+          
+        return (
+          fullName.toLowerCase().includes(term) ||
+          email.toLowerCase().includes(term) ||
+          loan.id.toLowerCase().includes(term) ||
+          (loan.role && loan.role.toLowerCase().includes(term)) ||
+          loan.status.toLowerCase().includes(term)
+        );
+      });
+    }
+      
+    // Apply amount filter
+    if (amountFilter !== 'all') {
+      filtered = filtered.filter(loan => {
+        if (amountFilter === 'low') return loan.amount < 10000;
+        if (amountFilter === 'medium') return loan.amount >= 10000 && loan.amount < 50000;
+        if (amountFilter === 'high') return loan.amount >= 50000;
+        return true;
+      });
+    }
+      
+    // Apply term filter
+    if (termFilter !== 'all') {
+      filtered = filtered.filter(loan => {
+        if (termFilter === 'short') return loan.term <= 6;
+        if (termFilter === 'medium') return loan.term > 6 && loan.term <= 12;
+        if (termFilter === 'long') return loan.term > 12;
+        return true;
+      });
+    }
+      
+    // Apply interest filter
+    if (interestFilter !== 'all') {
+      filtered = filtered.filter(loan => {
+        if (interestFilter === 'low') return loan.interest < 5;
+        if (interestFilter === 'medium') return loan.interest >= 5 && loan.interest < 10;
+        if (interestFilter === 'high') return loan.interest >= 10;
+        return true;
+      });
+    }
+      
+    // Apply start date filter
+    if (startDateFilter !== 'all') {
+      filtered = filtered.filter(loan => {
+        const loanDate = new Date(loan.startDate);
+        const today = new Date();
+        const diffTime = Math.abs(today.getTime() - loanDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+        if (startDateFilter === 'last-week') return diffDays <= 7;
+        if (startDateFilter === 'last-month') return diffDays <= 30;
+        if (startDateFilter === 'last-year') return diffDays <= 365;
+        return true;
+      });
+    }
+      
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(loan => {
+        return loan.status.toLowerCase() === statusFilter.toLowerCase();
+      });
+    }
+      
+    return filtered;
   };
 
   // Get current page data
@@ -213,19 +283,79 @@ export default function PaginatedLoanRecords() {
                   User
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
+                  <div className="flex flex-col gap-2">
+                    <span>Amount</span>
+                    <select
+                      value={amountFilter}
+                      onChange={(e) => setAmountFilter(e.target.value)}
+                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                    >
+                      <option value="all">All Amounts</option>
+                      <option value="low">Low (&lt; ₱10,000)</option>
+                      <option value="medium">Medium (₱10,000 - ₱49,999)</option>
+                      <option value="high">High (&#8805; &#8369;50,000)</option>
+                    </select>
+                  </div>
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Term
+                  <div className="flex flex-col gap-2">
+                    <span>Term</span>
+                    <select
+                      value={termFilter}
+                      onChange={(e) => setTermFilter(e.target.value)}
+                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                    >
+                      <option value="all">All Terms</option>
+                      <option value="short">Short (≤ 6 months)</option>
+                      <option value="medium">Medium (7-12 months)</option>
+                      <option value="long">Long (&gt; 12 months)</option>
+                    </select>
+                  </div>
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Interest
+                  <div className="flex flex-col gap-2">
+                    <span>Interest</span>
+                    <select
+                      value={interestFilter}
+                      onChange={(e) => setInterestFilter(e.target.value)}
+                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                    >
+                      <option value="all">All Rates</option>
+                      <option value="low">Low (&lt; 5%)</option>
+                      <option value="medium">Medium (5% - 9.99%)</option>
+                      <option value="high">High (≥ 10%)</option>
+                    </select>
+                  </div>
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Start Date
+                  <div className="flex flex-col gap-2">
+                    <span>Start Date</span>
+                    <select
+                      value={startDateFilter}
+                      onChange={(e) => setStartDateFilter(e.target.value)}
+                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                    >
+                      <option value="all">All Dates</option>
+                      <option value="last-week">Last Week</option>
+                      <option value="last-month">Last Month</option>
+                      <option value="last-year">Last Year</option>
+                    </select>
+                  </div>
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  <div className="flex flex-col gap-2">
+                    <span>Status</span>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="active">Active</option>
+                      <option value="completed">Completed</option>
+                      <option value="pending">Pending</option>
+                    </select>
+                  </div>
                 </th>
               </tr>
             </thead>

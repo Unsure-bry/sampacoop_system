@@ -15,6 +15,12 @@ export default function SavingsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  // Column filters
+  const [nameFilter, setNameFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [minSavingsFilter, setMinSavingsFilter] = useState('');
+  const [maxSavingsFilter, setMaxSavingsFilter] = useState('');
   const itemsPerPage = 10;
   const router = useRouter();
 
@@ -24,9 +30,9 @@ export default function SavingsPage() {
 
   useEffect(() => {
     filterMembers();
-    // Reset to first page when search changes
+    // Reset to first page when any filter changes
     setCurrentPage(1);
-  }, [searchTerm, members]);
+  }, [searchTerm, nameFilter, roleFilter, statusFilter, minSavingsFilter, maxSavingsFilter, members]);
 
   const fetchMembers = async () => {
     try {
@@ -161,14 +167,11 @@ export default function SavingsPage() {
     
     let membersWithSavings: MemberSavings[] = [];
     
-    if (!searchTerm) {
-      // Fetch all members with their savings data
-      membersWithSavings = await fetchAllMembersSavings();
-    } else {
-      // Filter members first
-      const term = searchTerm.toLowerCase();
-      const filtered = members.filter(member => {
-        // Safely handle potentially undefined fields
+    // Apply all filters
+    const filteredMembers = members.filter(member => {
+      // Global search term filter
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
         const firstName = member.firstName || '';
         const lastName = member.lastName || '';
         const email = member.email || '';
@@ -176,7 +179,7 @@ export default function SavingsPage() {
         const middleName = member.middleName || '';
         const suffix = member.suffix || '';
         
-        return (
+        const matchesGlobalSearch = (
           firstName.toLowerCase().includes(term) ||
           lastName.toLowerCase().includes(term) ||
           email.toLowerCase().includes(term) ||
@@ -184,23 +187,54 @@ export default function SavingsPage() {
           middleName.toLowerCase().includes(term) ||
           suffix.toLowerCase().includes(term)
         );
-      });
+        
+        if (!matchesGlobalSearch) return false;
+      }
       
-      // Fetch savings data for filtered members
-      membersWithSavings = await Promise.all(
-        filtered.map(async (member) => {
-          const totalSavings = await fetchMemberTotalSavings(member.id);
-          return {
-            memberId: member.id,
-            memberName: `${member.firstName || ''} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName || ''}${member.suffix ? ' ' + member.suffix : ''}`.trim(),
-            role: member.role || 'Member',
-            totalSavings,
-            status: member.status || 'Active',
-            lastUpdated: member.createdAt || new Date().toISOString()
-          };
-        })
-      );
-    }
+      // Column-specific filters
+      if (nameFilter) {
+        const fullName = `${member.firstName || ''} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName || ''}${member.suffix ? ' ' + member.suffix : ''}`.trim().toLowerCase();
+        if (!fullName.includes(nameFilter.toLowerCase())) return false;
+      }
+      
+      if (roleFilter && member.role) {
+        if (member.role.toLowerCase() !== roleFilter.toLowerCase()) return false;
+      }
+      
+      if (statusFilter && member.status) {
+        if (member.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
+      }
+      
+      return true;
+    });
+    
+    // Fetch savings data for filtered members
+    const rawMembersWithSavings = await Promise.all(
+      filteredMembers.map(async (member) => {
+        const totalSavings = await fetchMemberTotalSavings(member.id);
+        
+        // Apply savings amount filters
+        if (minSavingsFilter && totalSavings < parseFloat(minSavingsFilter)) {
+          return null; // Will be filtered out
+        }
+        
+        if (maxSavingsFilter && totalSavings > parseFloat(maxSavingsFilter)) {
+          return null; // Will be filtered out
+        }
+        
+        return {
+          memberId: member.id,
+          memberName: `${member.firstName || ''} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName || ''}${member.suffix ? ' ' + member.suffix : ''}`.trim(),
+          role: member.role || 'Member',
+          totalSavings,
+          status: member.status || 'Active',
+          lastUpdated: member.createdAt || new Date().toISOString()
+        };
+      })
+    );
+    
+    // Remove null entries and apply final savings filters
+    membersWithSavings = rawMembersWithSavings.filter(item => item !== null) as MemberSavings[];
     
     setFilteredMembers(membersWithSavings);
   };
@@ -293,6 +327,14 @@ export default function SavingsPage() {
     }
   };
 
+  const resetFilters = () => {
+    setNameFilter('');
+    setRoleFilter('');
+    setStatusFilter('');
+    setMinSavingsFilter('');
+    setMaxSavingsFilter('');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
@@ -309,6 +351,15 @@ export default function SavingsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
             </svg>
             Print Report
+          </button>
+          <button
+            onClick={resetFilters}
+            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center"
+          >
+            <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Reset Filters
           </button>
           <div className="relative w-full sm:w-64">
             <input
@@ -341,16 +392,66 @@ export default function SavingsPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Member Name
+                      <div>
+                        <div>Member Name</div>
+                        <input
+                          type="text"
+                          placeholder="Filter names..."
+                          className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                          value={nameFilter}
+                          onChange={(e) => setNameFilter(e.target.value)}
+                        />
+                      </div>
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
+                      <div>
+                        <div>Role</div>
+                        <select
+                          className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                          value={roleFilter}
+                          onChange={(e) => setRoleFilter(e.target.value)}
+                        >
+                          <option value="">All Roles</option>
+                          <option value="Member">Member</option>
+                          <option value="Driver">Driver</option>
+                          <option value="Operator">Operator</option>
+                        </select>
+                      </div>
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total Savings
+                      <div>
+                        <div>Total Savings</div>
+                        <div className="flex space-x-1 mt-1">
+                          <input
+                            type="number"
+                            placeholder="Min"
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                            value={minSavingsFilter}
+                            onChange={(e) => setMinSavingsFilter(e.target.value)}
+                          />
+                          <input
+                            type="number"
+                            placeholder="Max"
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                            value={maxSavingsFilter}
+                            onChange={(e) => setMaxSavingsFilter(e.target.value)}
+                          />
+                        </div>
+                      </div>
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
+                      <div>
+                        <div>Status</div>
+                        <select
+                          className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                        >
+                          <option value="">All Status</option>
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                        </select>
+                      </div>
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Last Updated

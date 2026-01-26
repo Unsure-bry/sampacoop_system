@@ -85,14 +85,19 @@ export default function MemberSavingsPage() {
           .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
         setTransactions(transactionsData);
-        
-        // Use the savings service to get the current total balance
-        const currentBalance = await getSavingsBalanceForMember(memberId);
-        setTotalSavings(currentBalance);
+      } else {
+        // If no transactions found, set an empty array
+        setTransactions([]);
       }
+      
+      // Use the savings service to get the current total balance regardless of transaction data
+      const currentBalance = await getSavingsBalanceForMember(memberId);
+      setTotalSavings(currentBalance);
     } catch (error) {
       console.error('Error fetching savings transactions:', error);
       toast.error('Failed to load savings transactions');
+      // Set total savings to 0 in case of error to ensure something is displayed
+      setTotalSavings(0);
     } finally {
       setLoading(false);
     }
