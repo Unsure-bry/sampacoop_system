@@ -53,7 +53,7 @@ export const roleSidebarConfig: RoleSidebarConfig = {
     {
       title: 'Savings Manager',
       items: [
-        { name: 'Savings Record', path: '/admin/savings', icon: DollarSign },
+        { name: 'Savings Record', path: '/admin/savings', icon: FileText },
       ],
     },
     {
@@ -65,7 +65,7 @@ export const roleSidebarConfig: RoleSidebarConfig = {
     {
       title: 'System Setup',
       items: [
-        { name: 'Initialize Dashboard Data', path: '/admin/dashboard-data', icon: FileText },
+        { name: 'Event and Reminder Generator', path: '/admin/dashboard-data', icon: FileText },
       ],
     },
     {

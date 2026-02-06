@@ -11,7 +11,7 @@ export default function AdminChangePasswordPage() {
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -104,6 +104,7 @@ export default function AdminChangePasswordPage() {
           <h1 className="text-2xl font-bold text-gray-800">Change Password</h1>
           <p className="text-gray-600 mt-1">Update your account password for enhanced security</p>
         </div>
+        
       
       <form onSubmit={handleSubmit}>
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
@@ -111,7 +112,9 @@ export default function AdminChangePasswordPage() {
             <div>
               <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
                 Current Password
+                
               </label>
+              
               <input
                 type="password"
                 id="currentPassword"
@@ -119,11 +122,12 @@ export default function AdminChangePasswordPage() {
                 value={formData.currentPassword}
                 onChange={handleInputChange}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" />
+            
             </div>
             
             <div>
+
               <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
                 New Password
               </label>
