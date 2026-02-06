@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 
@@ -8,9 +8,10 @@ interface AddLoanPlanModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPlanAdded: () => void;
+  editingPlan?: any;
 }
 
-export default function AddLoanPlanModal({ isOpen, onClose, onPlanAdded }: AddLoanPlanModalProps) {
+export default function AddLoanPlanModal({ isOpen, onClose, onPlanAdded, editingPlan }: AddLoanPlanModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -18,6 +19,28 @@ export default function AddLoanPlanModal({ isOpen, onClose, onPlanAdded }: AddLo
     interestRate: '',
     termOptions: ''
   });
+
+  // Populate form with editing plan data when it changes
+  useEffect(() => {
+    if (editingPlan) {
+      setFormData({
+        name: editingPlan.name || '',
+        description: editingPlan.description || '',
+        maxAmount: editingPlan.maxAmount?.toString() || '',
+        interestRate: editingPlan.interestRate?.toString() || '',
+        termOptions: editingPlan.termOptions?.join(', ') || ''
+      });
+    } else {
+      // Reset form when not editing
+      setFormData({
+        name: '',
+        description: '',
+        maxAmount: '',
+        interestRate: '',
+        termOptions: ''
+      });
+    }
+  }, [editingPlan, isOpen]);
   const [loading, setLoading] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -53,17 +76,24 @@ export default function AddLoanPlanModal({ isOpen, onClose, onPlanAdded }: AddLo
         maxAmount: parseFloat(formData.maxAmount),
         interestRate: parseFloat(formData.interestRate),
         termOptions,
-        createdAt: new Date().toISOString()
+        ...(editingPlan ? {} : { createdAt: new Date().toISOString() }),
+        updatedAt: new Date().toISOString()
       };
       
-      // Generate a slug for the document ID
-      const slug = formData.name.toLowerCase().replace(/\s+/g, '-');
+      let result;
       
-      // Save to Firestore
-      const result = await firestore.setDocument('loanPlans', slug, loanPlanData);
+      if (editingPlan) {
+        // Update existing plan
+        result = await firestore.updateDocument('loanPlans', editingPlan.id, loanPlanData);
+      } else {
+        // Create new plan
+        // Generate a slug for the document ID
+        const slug = formData.name.toLowerCase().replace(/\s+/g, '-');
+        result = await firestore.setDocument('loanPlans', slug, loanPlanData);
+      }
       
       if (result.success) {
-        toast.success('Loan plan added successfully!');
+        toast.success(editingPlan ? 'Loan plan updated successfully!' : 'Loan plan added successfully!');
         // Reset form
         setFormData({
           name: '',
@@ -76,11 +106,11 @@ export default function AddLoanPlanModal({ isOpen, onClose, onPlanAdded }: AddLo
         onPlanAdded();
         onClose();
       } else {
-        toast.error('Failed to add loan plan');
+        toast.error(editingPlan ? 'Failed to update loan plan' : 'Failed to add loan plan');
       }
     } catch (error) {
-      console.error('Error adding loan plan:', error);
-      toast.error('Failed to add loan plan');
+      console.error(editingPlan ? 'Error updating loan plan:' : 'Error adding loan plan:', error);
+      toast.error(editingPlan ? 'Failed to update loan plan' : 'Failed to add loan plan');
     } finally {
       setLoading(false);
     }
@@ -93,7 +123,9 @@ export default function AddLoanPlanModal({ isOpen, onClose, onPlanAdded }: AddLo
       <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Add New Loan Plan</h2>
+            <h2 className="text-2xl font-bold text-gray-800">
+              {editingPlan ? 'Edit Loan Plan' : 'Add New Loan Plan'}
+            </h2>
             <button 
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700"
@@ -199,7 +231,9 @@ export default function AddLoanPlanModal({ isOpen, onClose, onPlanAdded }: AddLo
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                 )}
-                {loading ? 'Adding...' : 'Add Plan'}
+                {loading 
+                  ? (editingPlan ? 'Updating...' : 'Adding...') 
+                  : (editingPlan ? 'Update Plan' : 'Add Plan')}
               </button>
             </div>
           </form>

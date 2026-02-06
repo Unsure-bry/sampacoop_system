@@ -14,11 +14,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [memberData, setMemberData] = useState<any>(null);
   const [loadingMember, setLoadingMember] = useState(true);
-  const [savingsData, setSavingsData] = useState({
-    totalSavings: '₱0.00',
-    totalLoans: '₱0.00',
-    pendingPayments: '₱0.00',
-  });
+
 
   // Remove the redirect effect - middleware handles authentication
   // useEffect(() => {
@@ -124,10 +120,7 @@ export default function ProfilePage() {
           }
         });
         
-        setSavingsData(prev => ({
-          ...prev,
-          totalSavings: `₱${runningBalance.toFixed(2)}`
-        }));
+
       }
     } catch (error) {
       console.error('Error fetching savings data:', error);
@@ -208,65 +201,7 @@ export default function ProfilePage() {
     }
   };
 
-  const handleDownloadAccountData = () => {
-    if (!memberData) {
-      toast.error('No member data available to download');
-      return;
-    }
-    
-    // Create a JSON representation of the user's personal information
-    const accountData = {
-      personalInformation: {
-        id: memberData.id,
-        firstName: memberData.firstName,
-        lastName: memberData.lastName,
-        middleName: memberData.middleName,
-        suffix: memberData.suffix,
-        fullName: getFullName(),
-        email: memberData.email || user?.email || 'N/A',
-        phoneNumber: memberData.phoneNumber || 'N/A',
-        birthdate: memberData.birthdate || 'N/A',
-        role: memberData.role || user?.role || 'N/A',
-        status: memberData.status || 'N/A',
-        createdAt: memberData.createdAt || 'N/A',
-        memberSince: getMemberSince(),
-        address: getAddress(),
-        licenseInfo: getLicenseInfo(),
-      },
-      savingsData: {
-        totalSavings: savingsData.totalSavings,
-        totalLoans: savingsData.totalLoans,
-        pendingPayments: savingsData.pendingPayments,
-      },
-      metadata: {
-        downloadedAt: new Date().toISOString(),
-        userId: user?.uid,
-      }
-    };
-    
-    // Convert to JSON string with proper formatting
-    const jsonString = JSON.stringify(accountData, null, 2);
-    
-    // Create a blob and download link
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    
-    // Set filename with timestamp
-    const fileName = `account-data-${user?.uid}-${new Date().toISOString().split('T')[0]}.json`;
-    link.href = url;
-    link.download = fileName;
-    
-    // Trigger download
-    document.body.appendChild(link);
-    link.click();
-    
-    // Clean up
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    toast.success('Account data downloaded successfully!');
-  };
+
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -340,17 +275,7 @@ export default function ProfilePage() {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card title="Total Savings" className="text-center">
-          <p className="text-3xl font-bold text-green-600 mt-2">{savingsData.totalSavings}</p>
-        </Card>
-        <Card title="Active Loans" className="text-center">
-          <p className="text-3xl font-bold text-red-600 mt-2">{savingsData.totalLoans}</p>
-        </Card>
-        <Card title="Pending Payments" className="text-center">
-          <p className="text-3xl font-bold text-yellow-600 mt-2">{savingsData.pendingPayments}</p>
-        </Card>
-      </div>
+
       
       {/* Account Settings using the new ProfileActions component */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -358,27 +283,7 @@ export default function ProfilePage() {
         <ProfileActions />
       </div>
       
-      {/* Account Data Section */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Account Data</h2>
-          <button 
-            onClick={handleDownloadAccountData}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-          >
-            <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Download Personal Data
-          </button>
-        </div>
-        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-          <p className="text-gray-700">
-            You can view your personal information in the sections above and download all your account data using the button.
-            This includes personal details, contact information, membership status, and financial data.
-          </p>
-        </div>
-      </div>
+
     </div>
   );
 }

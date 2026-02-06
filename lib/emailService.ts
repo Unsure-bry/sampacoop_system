@@ -39,15 +39,48 @@ export const sendEmail = async (templateId: string, emailData: EmailData): Promi
 
 // Specific email templates
 export const sendMemberRegistrationEmail = async (email: string, name: string) => {
+  // Generate a temporary password reset link
+  const resetLink = `http://localhost:3000/setup-password?email=${encodeURIComponent(email)}`;
+  
   const emailData = {
     to_name: name,
     email: email,  // This should match the variable name in your EmailJS template
-    subject: 'Welcome to SAMPA Cooperative',
+    reset_link: resetLink,  // Include the reset link in the email data
+    subject: 'Welcome to SAMPA Cooperative - Set Your Password',
     message: `Dear ${name},
 
-Thank you for registering with SAMPA Cooperative. Your membership is now active and you can access all member benefits.
+Welcome to SAMPA Cooperative! Your membership has been successfully created.
 
-Use your email to login with the default password or change your password at:
+To activate your account and set your login credentials, please click the link below:
+
+SET UP YOUR PASSWORD: ${resetLink}
+
+For security reasons, this link should be used within 24 hours. After setting your password, you can log in to the system using your email address.
+
+To access your account after setting up your password, please visit: http://localhost:3000/login
+
+Best regards,
+SAMPA Cooperative Team`
+  };
+
+  return sendEmail(EMAILJS_TEMPLATE_ID, emailData);
+};
+
+// Send email with auto-generated password (alternative approach)
+export const sendAutoCredentialsEmail = async (email: string, name: string, tempPassword: string) => {
+  const emailData = {
+    to_name: name,
+    email: email,
+    temp_password: tempPassword,  // Include temporary password in the email data
+    subject: 'Your SAMPA Cooperative Login Credentials',
+    message: `Dear ${name},
+
+Welcome to SAMPA Cooperative! Your account has been created with the following login credentials:
+
+Email: ${email}
+Temporary Password: ${tempPassword}
+
+For security, please change your password immediately after your first login.
 
 To access your account, please log in at: http://localhost:3000/login
 

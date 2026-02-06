@@ -126,25 +126,7 @@ export default function PrivacySettingsPage() {
         </div>
       </Card>
       
-      <Card title="Account Data" className="mt-6">
-        <div className="space-y-4">
-          <div className="p-4 border border-gray-200 rounded-lg">
-            <h3 className="font-medium text-gray-800 mb-2">Download Your Data</h3>
-            <p className="text-sm text-gray-600 mb-3">Download a copy of your personal data stored in our system</p>
-            <button className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
-              Download Data
-            </button>
-          </div>
-          
-          <div className="p-4 border border-gray-200 rounded-lg">
-            <h3 className="font-medium text-gray-800 mb-2">Delete Account</h3>
-            <p className="text-sm text-gray-600 mb-3">Permanently delete your account and all associated data</p>
-            <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
-              Delete Account
-            </button>
-          </div>
-        </div>
-      </Card>
+
     </div>
   );
 }

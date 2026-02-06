@@ -247,10 +247,55 @@ export default function DynamicAdminDashboard() {
             }
           })(),
           
-          // All savings transactions
+          // All savings transactions with enhanced error handling
           (async () => {
             try {
-              return await firestore.getCollection('savings');
+              // First, try to get savings from the main savings collection
+              const mainSavingsResult = await firestore.getCollection('savings');
+              
+              // Also get all members to check their individual savings subcollections
+              const membersResult = await firestore.getCollection('members');
+              
+              let allSavingsTransactions: any[] = [];
+              
+              // Process main savings collection
+              if (mainSavingsResult.success && mainSavingsResult.data) {
+                console.log('Main savings collection data:', mainSavingsResult.data.length, 'transactions');
+                allSavingsTransactions = [...mainSavingsResult.data];
+              }
+              
+              // Process individual member savings subcollections
+              if (membersResult.success && membersResult.data) {
+                console.log('Processing', membersResult.data.length, 'members for individual savings');
+                
+                // Process each member's savings subcollection
+                for (const member of membersResult.data) {
+                  const memberId = member.id;
+                  if (memberId) {
+                    try {
+                      const memberSavingsResult = await firestore.getCollection(`members/${memberId}/savings`);
+                      if (memberSavingsResult.success && memberSavingsResult.data) {
+                        console.log(`Member ${memberId} has`, memberSavingsResult.data.length, 'savings transactions');
+                        
+                        // Add member ID to each transaction for proper linking
+                        const transactionsWithMemberId = memberSavingsResult.data.map((transaction: any) => ({
+                          ...transaction,
+                          memberId: memberId
+                        }));
+                        
+                        allSavingsTransactions = [...allSavingsTransactions, ...transactionsWithMemberId];
+                      }
+                    } catch (memberError) {
+                      console.warn(`Error fetching savings for member ${memberId}:`, memberError);
+                    }
+                  }
+                }
+              }
+              
+              console.log('Total savings transactions collected:', allSavingsTransactions.length);
+              console.log('Sample transactions:', allSavingsTransactions.slice(0, 3));
+              
+              return { success: true, data: allSavingsTransactions };
             } catch (error) {
               console.error('Error fetching savings:', error);
               return { success: false, data: [], error: 'Failed to fetch savings' };
@@ -302,15 +347,42 @@ export default function DynamicAdminDashboard() {
           
           // Group transactions by member
           const memberTransactionsMap: Record<string, SavingsTransaction[]> = {};
-          savingsTransactions.forEach(transaction => {
-            // Validate transaction data
-            if (transaction.memberId && typeof transaction.memberId === 'string') {
-              if (!memberTransactionsMap[transaction.memberId]) {
-                memberTransactionsMap[transaction.memberId] = [];
+          
+          console.log('Processing', savingsTransactions.length, 'savings transactions');
+          
+          savingsTransactions.forEach((transaction, index) => {
+            // Log first few transactions for debugging
+            if (index < 3) {
+              console.log(`Transaction ${index + 1}:`, {
+                id: transaction.id,
+                memberId: transaction.memberId,
+                amount: transaction.amount,
+                type: transaction.type,
+                createdAt: transaction.createdAt
+              });
+            }
+            
+            // Validate transaction data - handle multiple possible ID fields
+            let memberId = transaction.memberId || transaction.userId || transaction.uid;
+            
+            if (memberId && typeof memberId === 'string') {
+              // Normalize the member ID
+              memberId = memberId.trim();
+              
+              if (!memberTransactionsMap[memberId]) {
+                memberTransactionsMap[memberId] = [];
               }
-              memberTransactionsMap[transaction.memberId].push(transaction);
+              memberTransactionsMap[memberId].push({
+                ...transaction,
+                memberId: memberId // Ensure memberId is set
+              });
+            } else {
+              console.warn('Transaction missing valid member ID:', transaction);
             }
           });
+          
+          console.log('Grouped transactions by', Object.keys(memberTransactionsMap).length, 'members');
+          console.log('Members with transactions:', Object.keys(memberTransactionsMap));
 
           // Get ALL members data to ensure every account is included
           let members: Member[] = [];
@@ -318,6 +390,16 @@ export default function DynamicAdminDashboard() {
             const membersResultAll = await firestore.getCollection('members');
             if (membersResultAll.success && membersResultAll.data) {
               members = membersResultAll.data as Member[];
+              console.log('Fetched', members.length, 'members for savings leaderboard');
+              
+              // Log sample members for debugging
+              console.log('Sample members:', members.slice(0, 3).map(m => ({
+                id: m.id,
+                firstName: m.firstName,
+                lastName: m.lastName,
+                email: m.email,
+                role: m.role
+              })));
             } else {
               console.error('Error fetching members for savings leaderboard:', membersResultAll.error);
               // Try alternative approach
@@ -326,6 +408,7 @@ export default function DynamicAdminDashboard() {
               ]);
               if (activeMembersResult.success && activeMembersResult.data) {
                 members = activeMembersResult.data as Member[];
+                console.log('Fetched', members.length, 'active members as fallback');
               } else {
                 // Last resort: return empty array to prevent crash
                 members = [];
@@ -341,20 +424,63 @@ export default function DynamicAdminDashboard() {
           savingsLeaderboardData = members
             .map(member => {
               const memberId = member.id || member.uid || ''; // Handle both id and uid fields
-              if (!memberId) return null; // Skip members without valid IDs
-              const memberTransactions = memberTransactionsMap[memberId] || [];
+              if (!memberId) {
+                console.warn('Skipping member without valid ID:', member);
+                return null; // Skip members without valid IDs
+              }
+              
+              // Try multiple ways to find transactions for this member
+              let memberTransactions = memberTransactionsMap[memberId] || [];
+              
+              // If no transactions found by direct ID match, try alternative matching
+              if (memberTransactions.length === 0) {
+                // Try matching by email if available
+                if (member.email) {
+                  const emailMatches = Object.entries(memberTransactionsMap)
+                    .filter(([transMemberId]) => {
+                      // Try to find a member with matching email
+                      const transMember = members.find(m => m.id === transMemberId);
+                      return transMember && transMember.email === member.email;
+                    });
+                  
+                  if (emailMatches.length > 0) {
+                    memberTransactions = emailMatches[0][1];
+                    console.log(`Found transactions for member ${memberId} by email match (${member.email})`);
+                  }
+                }
+              }
+              
               const totalSavingsForMember = calculateMemberSavings(memberTransactions);
+              
+              // Validate member name
+              const firstName = member.firstName || '';
+              const lastName = member.lastName || '';
+              const fullName = `${firstName} ${lastName}`.trim() || 'Unknown User';
+              
+              if (fullName === 'Unknown User') {
+                console.warn('Member with invalid name data:', member);
+                return null;
+              }
+              
+              // Log members with savings for debugging
+              if (totalSavingsForMember > 0) {
+                console.log(`${fullName} (${memberId}): ${totalSavingsForMember} PHP from ${memberTransactions.length} transactions`);
+              }
               
               return {
                 memberId: memberId,
-                fullName: `${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Unknown User',
+                fullName: fullName,
                 role: member.role || 'Member',
                 totalSavings: totalSavingsForMember
               };
             })
             .filter((entry): entry is SavingsLeaderboardEntry => {
               // Include all valid members, exclude null entries
-              return entry !== null && entry.memberId !== '' && entry.fullName !== 'Unknown User';
+              return entry !== null && 
+                     entry.memberId !== '' && 
+                     entry.fullName !== 'Unknown User' &&
+                     typeof entry.totalSavings === 'number' &&
+                     !isNaN(entry.totalSavings);
             })
             .sort((a, b) => {
               // Sort by total savings (descending), then by name for ties
@@ -362,7 +488,13 @@ export default function DynamicAdminDashboard() {
                 return b.totalSavings - a.totalSavings;
               }
               return a.fullName.localeCompare(b.fullName);
-            }); // Sort by total savings (descending)
+            });
+          
+          // Log the final leaderboard for debugging
+          console.log('Final savings leaderboard (' + savingsLeaderboardData.length + ' members):');
+          savingsLeaderboardData.slice(0, 10).forEach((entry, index) => {
+            console.log(`${index + 1}. ${entry.fullName}: ${entry.totalSavings} PHP`);
+          });
         } else {
           console.error('Error fetching savings data:', savingsResult.error);
           // Return empty array instead of crashing
@@ -577,39 +709,89 @@ export default function DynamicAdminDashboard() {
           </div>
         </div>
       
-        {/* All Members Savings */}
+        {/* Member Savings Leaderboard */}
         <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-medium text-gray-800">Member Savings</h2>
-            <select 
-              value={savingsFilter}
-              onChange={(e) => setSavingsFilter(e.target.value as any)}
-              className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-red-500"
-            >
-              <option value="all">All Time</option>
-              <option value="daily">Daily</option>
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">Savings Leaderboard</h2>
+              <p className="text-sm text-gray-600 mt-1">Top members by total savings</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">Filter:</span>
+              <select 
+                value={savingsFilter}
+                onChange={(e) => setSavingsFilter(e.target.value as any)}
+                className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="all">All Time</option>
+                <option value="daily">Daily</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
           </div>
-          <div className="space-y-4 max-h-80 overflow-y-auto">
+          
+          <div className="space-y-3 max-h-80 overflow-y-auto">
             {filteredSavings && filteredSavings.length > 0 ? (
               filteredSavings.map((entry, index) => (
-                <div key={entry.memberId || index} className="flex items-center justify-between p-3 border-b border-gray-100">
+                <div 
+                  key={entry.memberId || index} 
+                  className={`flex items-center justify-between p-4 rounded-lg transition-all duration-200 ${
+                    index === 0 ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 shadow-sm' : 
+                    index === 1 ? 'bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200' : 
+                    index === 2 ? 'bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200' : 
+                    'bg-gray-50 hover:bg-gray-100 border border-gray-100'
+                  }`}
+                >
                   <div className="flex items-center">
-                    <span className="text-sm font-medium text-gray-500 w-6">{index + 1}.</span>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-900">{entry.fullName}</p>
-                      <p className="text-xs text-gray-500">{entry.role}</p>
+                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                      index === 0 ? 'bg-yellow-500 text-white' : 
+                      index === 1 ? 'bg-gray-400 text-white' : 
+                      index === 2 ? 'bg-amber-600 text-white' : 
+                      'bg-gray-300 text-gray-700'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <div className="ml-4">
+                      <p className="font-semibold text-gray-900">{entry.fullName}</p>
+                      <p className="text-sm text-gray-600">{entry.role}</p>
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-gray-900">{formatCurrency(entry.totalSavings)}</span>
+                  <div className="text-right">
+                    <p className="font-bold text-lg text-gray-900">{formatCurrency(entry.totalSavings)}</p>
+                    <p className="text-xs text-gray-500">
+                      {entry.totalSavings > 0 
+                        ? `${((entry.totalSavings / (filteredSavings[0]?.totalSavings || 1)) * 100).toFixed(1)}% of leader` 
+                        : 'No savings yet'}
+                    </p>
+                  </div>
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-center py-4">No savings data available</p>
+              <div className="text-center py-12">
+                <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
+                  <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">No Savings Data</h3>
+                <p className="text-gray-500">No savings transactions found in the database</p>
+              </div>
             )}
           </div>
+          
+          {filteredSavings && filteredSavings.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>Total Members: {filteredSavings.length}</span>
+                <span>
+                  Total Savings: {formatCurrency(
+                    filteredSavings.reduce((sum, entry) => sum + entry.totalSavings, 0)
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

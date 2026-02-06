@@ -75,7 +75,14 @@ export default function MemberRecordsPage() {
               ...doc
             }));
           
-          setMembers(memberData);
+          // Sort members by creation date in descending order (newest first)
+          const sortedMembers = memberData.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+            return dateB - dateA; // Descending order
+          });
+          
+          setMembers(sortedMembers);
           return;
         }
       }
@@ -114,7 +121,14 @@ export default function MemberRecordsPage() {
           };
         });
         
-        setMembers(membersData);
+        // Sort members by creation date in descending order (newest first)
+        const sortedMembers = membersData.sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0).getTime();
+          const dateB = new Date(b.createdAt || 0).getTime();
+          return dateB - dateA; // Descending order
+        });
+        
+        setMembers(sortedMembers);
       } else {
         // If both collections fail, show an error
         const errorMessage = 'Failed to fetch members from both collections. Please check your database connection.';

@@ -10,6 +10,7 @@ export default function LoanPlansPage() {
   const [loanPlans, setLoanPlans] = useState<LoanPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<LoanPlan | null>(null);
 
   useEffect(() => {
     fetchLoanPlans();
@@ -46,6 +47,17 @@ export default function LoanPlansPage() {
   const handlePlanAdded = () => {
     // Refresh loan plans after a new plan is added
     fetchLoanPlans();
+    setEditingPlan(null);
+  };
+
+  const handleEditPlan = (plan: LoanPlan) => {
+    setEditingPlan(plan);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingPlan(null);
   };
 
   if (loading) {
@@ -73,7 +85,10 @@ export default function LoanPlansPage() {
           <p className="text-gray-600">Manage available loan plans</p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setEditingPlan(null);
+            setIsModalOpen(true);
+          }}
           className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center"
         >
           <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -105,7 +120,10 @@ export default function LoanPlansPage() {
             </div>
             
             <div className="mt-6">
-              <button className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+              <button 
+                onClick={() => handleEditPlan(plan)}
+                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
                 Edit Plan
               </button>
             </div>
@@ -115,8 +133,9 @@ export default function LoanPlansPage() {
       
       <AddLoanPlanModal 
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+        onClose={handleCloseModal} 
         onPlanAdded={handlePlanAdded} 
+        editingPlan={editingPlan}
       />
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Member } from '@/lib/types/member';
+import { getMemberCertificate } from '@/lib/certificateService';
 
 export default function MemberDetailsModal({ 
   member, 
@@ -13,6 +14,7 @@ export default function MemberDetailsModal({
   onClose: () => void; 
 }) {
   const [isClient, setIsClient] = useState(false);
+  const [showCertificate, setShowCertificate] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -192,6 +194,63 @@ export default function MemberDetailsModal({
                       })()}
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Certificate Section */}
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Membership Certificate</h3>
+              <button
+                onClick={async () => {
+                  // Toggle the certificate view
+                  setShowCertificate(!showCertificate);
+                }}
+                className={`px-4 py-2 rounded-lg hover:transition-colors ${
+                  member.certificateGenerated 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'bg-gray-400 text-white cursor-not-allowed'
+                }`}
+                disabled={!member.certificateGenerated}
+              >
+                {showCertificate ? 'Hide Certificate' : 'View Certificate'}
+              </button>
+            </div>
+            
+            {showCertificate && (
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-300">
+                <div className="flex justify-center mb-4">
+                  <iframe
+                    src={`/api/certificate/${encodeURIComponent(member.id)}`}
+                    width="100%"
+                    height="500px"
+                    title="Membership Certificate"
+                    className="border border-gray-300 rounded"
+                  ></iframe>
+                </div>
+                <div className="flex justify-center space-x-4">
+                  <button
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = `/api/certificate/${encodeURIComponent(member.id)}`;
+                      link.download = `membership-certificate-${member.id}.pdf`;
+                      link.click();
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Download Certificate
+                  </button>
+                  <button
+                    onClick={() => {
+                      const win = window.open(`/api/certificate/${encodeURIComponent(member.id)}`, '_blank');
+                      if (win) win.focus();
+                    }}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    Open in New Tab
+                  </button>
                 </div>
               </div>
             )}

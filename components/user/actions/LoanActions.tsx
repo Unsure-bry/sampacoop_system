@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
@@ -18,12 +18,15 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
   const [term, setTerm] = useState('');
   const [showVerification, setShowVerification] = useState(false);
   const [amortizationSchedule, setAmortizationSchedule] = useState<Array<{
-    month: number;
+    period: number;
+    date: string;
     payment: number;
     principal: number;
     interest: number;
     remainingBalance: number;
   }>>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
 
   const handleApplyClick = (plan: LoanPlan) => {
@@ -32,30 +35,35 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
     setTerm(plan.termOptions[0]?.toString() || '1');
   };
 
-  // Calculate amortization schedule
+  // Calculate daily amortization schedule
   const calculateAmortization = (principal: number, annualInterestRate: number, termMonths: number) => {
-    const monthlyInterestRate = annualInterestRate / 100 / 12;
-    const numberOfPayments = termMonths;
+    const dailyInterestRate = annualInterestRate / 100 / 365;
+    const totalDays = termMonths * 30; // Approximate 30 days per month
     
-    // Calculate monthly payment using standard loan formula
-    const monthlyPayment = principal * 
-      (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, numberOfPayments)) / 
-      (Math.pow(1 + monthlyInterestRate, numberOfPayments) - 1);
+    // Calculate daily payment using standard loan formula adjusted for daily payments
+    const dailyPayment = principal * 
+      (dailyInterestRate * Math.pow(1 + dailyInterestRate, totalDays)) / 
+      (Math.pow(1 + dailyInterestRate, totalDays) - 1);
     
     const schedule = [];
     let remainingBalance = principal;
+    const startDate = new Date();
     
-    for (let month = 1; month <= termMonths; month++) {
-      const interestPayment = remainingBalance * monthlyInterestRate;
-      const principalPayment = monthlyPayment - interestPayment;
+    for (let day = 1; day <= totalDays; day++) {
+      const paymentDate = new Date(startDate);
+      paymentDate.setDate(startDate.getDate() + day);
+      
+      const interestPayment = remainingBalance * dailyInterestRate;
+      const principalPayment = dailyPayment - interestPayment;
       remainingBalance -= principalPayment;
       
       // Ensure remaining balance doesn't go negative due to rounding
       if (remainingBalance < 0) remainingBalance = 0;
       
       schedule.push({
-        month,
-        payment: monthlyPayment,
+        period: day,
+        date: paymentDate.toISOString().split('T')[0],
+        payment: dailyPayment,
         principal: principalPayment,
         interest: interestPayment,
         remainingBalance: remainingBalance
@@ -90,6 +98,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
     // Calculate and show amortization schedule
     const schedule = calculateAmortization(amountValue, selectedPlan.interestRate, termValue);
     setAmortizationSchedule(schedule);
+    setCurrentPage(1); // Reset to first page
     setShowVerification(true);
   };
 
@@ -220,6 +229,29 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
       currency: 'PHP',
       minimumFractionDigits: 2
     }).format(amount);
+  };
+
+  // Pagination logic
+  const totalPages = Math.ceil(amortizationSchedule.length / itemsPerPage);
+  
+  const currentPayments = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return amortizationSchedule.slice(startIndex, endIndex);
+  }, [amortizationSchedule, currentPage, itemsPerPage]);
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-PH', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   return (
@@ -402,7 +434,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
                     </div>
                     <div className="border-t border-gray-200 pt-2 mt-2">
                       <div className="flex justify-between">
-                        <span className="text-gray-600 font-medium">Monthly Payment:</span>
+                        <span className="text-gray-600 font-medium">Daily Payment:</span>
                         <span className="font-bold text-lg text-red-600">
                           {formatCurrency(amortizationSchedule[0]?.payment || 0)}
                         </span>
@@ -423,18 +455,26 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
                           )}
                         </span>
                       </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Total Days:</span>
+                        <span className="font-medium">{amortizationSchedule.length} days</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Amortization Schedule Summary */}
+                {/* Amortization Schedule Summary with Pagination */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-800 mb-3">Payment Schedule Overview</h3>
+                  <div className="mb-3 text-sm text-gray-600">
+                    Showing {currentPayments.length} of {amortizationSchedule.length} daily payments
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-200">
-                          <th className="text-left py-2 px-2 font-medium text-gray-700">Month</th>
+                          <th className="text-left py-2 px-2 font-medium text-gray-700">Day</th>
+                          <th className="text-left py-2 px-2 font-medium text-gray-700">Date</th>
                           <th className="text-right py-2 px-2 font-medium text-gray-700">Payment</th>
                           <th className="text-right py-2 px-2 font-medium text-gray-700">Principal</th>
                           <th className="text-right py-2 px-2 font-medium text-gray-700">Interest</th>
@@ -442,9 +482,10 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
                         </tr>
                       </thead>
                       <tbody>
-                        {amortizationSchedule.slice(0, 5).map((payment) => (
-                          <tr key={payment.month} className="border-b border-gray-100 hover:bg-gray-100">
-                            <td className="py-2 px-2">{payment.month}</td>
+                        {currentPayments.map((payment) => (
+                          <tr key={payment.period} className="border-b border-gray-100 hover:bg-gray-100">
+                            <td className="py-2 px-2">{payment.period}</td>
+                            <td className="py-2 px-2">{formatDate(payment.date)}</td>
                             <td className="py-2 px-2 text-right font-medium">
                               {formatCurrency(payment.payment)}
                             </td>
@@ -459,16 +500,69 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
                             </td>
                           </tr>
                         ))}
-                        {amortizationSchedule.length > 5 && (
-                          <tr>
-                            <td colSpan={5} className="py-2 px-2 text-center text-gray-500 italic">
-                              ... and {amortizationSchedule.length - 5} more payments
-                            </td>
-                          </tr>
-                        )}
                       </tbody>
                     </table>
                   </div>
+                  
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="text-sm text-gray-600">
+                        Page {currentPage} of {totalPages}
+                      </div>
+                      <div className="flex space-x-1">
+                        <button
+                          onClick={() => goToPage(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        >
+                          Previous
+                        </button>
+                        
+                        {/* Page numbers */}
+                        {[...Array(totalPages)].map((_, index) => {
+                          const pageNumber = index + 1;
+                          // Show first, last, current, and nearby pages
+                          if (
+                            pageNumber === 1 ||
+                            pageNumber === totalPages ||
+                            (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                          ) {
+                            return (
+                              <button
+                                key={pageNumber}
+                                onClick={() => goToPage(pageNumber)}
+                                className={`px-3 py-1 text-sm border rounded-md ${
+                                  currentPage === pageNumber 
+                                    ? 'bg-red-600 text-white border-red-600' 
+                                    : 'border-gray-300 hover:bg-gray-50'
+                                }`}
+                              >
+                                {pageNumber}
+                              </button>
+                            );
+                          }
+                          // Show ellipsis for gaps
+                          if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
+                            return (
+                              <span key={pageNumber} className="px-2 py-1 text-sm text-gray-500">
+                                ...
+                              </span>
+                            );
+                          }
+                          return null;
+                        })}
+                        
+                        <button
+                          onClick={() => goToPage(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

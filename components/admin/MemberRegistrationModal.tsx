@@ -6,7 +6,7 @@ import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { Member } from '@/lib/types/member';
 import { sendMemberRegistrationEmail } from '@/lib/emailService';
-import { createLinkedUserMember } from '@/lib/userMemberService';
+import { createLinkedUserMember, checkEmailExists } from '@/lib/userMemberService';
 
 interface PersonalInfo {
   firstName: string;
@@ -97,6 +97,7 @@ export default function MemberRegistrationModal({
   const [currentStep, setCurrentStep] = useState(1);
   const [role, setRole] = useState<'Driver' | 'Operator' | null>(null);
   const [licenseNumberValid, setLicenseNumberValid] = useState<boolean | null>(null); // null = not validated yet, true = valid, false = invalid
+  const [isSubmitting, setIsSubmitting] = useState(false); // New state for loading
   const { register, handleSubmit, watch, setValue, formState: { errors }, reset, trigger } = useForm<FormData>();
   
   // Function to validate all required fields for current step
@@ -106,15 +107,13 @@ export default function MemberRegistrationModal({
         'firstName', 'middleName', 'lastName', 'email', 'phoneNumber', 'birthdate', 'role'
       ];
       
-      // Add address fields validation
+      // Add address fields validation - only required fields (street, barangay, city)
       if (role === 'Driver') {
         personalInfoFields.push(
-          'driverHouseNumber', 'driverBlockNumber', 'driverLotNumber', 
           'driverStreet', 'driverBarangay', 'driverCity'
         );
       } else if (role === 'Operator') {
         personalInfoFields.push(
-          'operatorHouseNumber', 'operatorBlockNumber', 'operatorLotNumber', 
           'operatorStreet', 'operatorBarangay', 'operatorCity'
         );
       }
@@ -166,7 +165,7 @@ export default function MemberRegistrationModal({
         
         // Ensure age is not negative
         if (age >= 0) {
-          setValue('age', age);
+          setValue('age', age); 
         }
       }
     }
@@ -212,44 +211,55 @@ export default function MemberRegistrationModal({
   };
 
   const onSubmit = async (data: FormData) => {
-    // Final validation before submission
-    const personalInfoFields = [
-      'firstName', 'middleName', 'lastName', 'email', 'phoneNumber', 'birthdate', 'role'
-    ];
-    
-    // Add address fields based on role
-    if (data.role === 'Driver') {
-      personalInfoFields.push(
-        'driverHouseNumber', 'driverBlockNumber', 'driverLotNumber', 
-        'driverStreet', 'driverBarangay', 'driverCity'
-      );
-    } else if (data.role === 'Operator') {
-      personalInfoFields.push(
-        'operatorHouseNumber', 'operatorBlockNumber', 'operatorLotNumber', 
-        'operatorStreet', 'operatorBarangay', 'operatorCity'
-      );
-    }
-    
-    // Add role-specific fields
-    if (data.role === 'Driver') {
-      personalInfoFields.push('driverLicenseNumber', 'driverTinId');
-    } else if (data.role === 'Operator' && data.numberOfJeepneys && data.numberOfJeepneys > 0) {
-      personalInfoFields.push('operatorLicenseNumber', 'operatorTinId', 'numberOfJeepneys');
-      
-      // Add validation for each plate number
-      for (let i = 0; i < data.numberOfJeepneys; i++) {
-        personalInfoFields.push(`plateNumbers.${i}` as keyof FormData);
-      }
-    }
-    
-    const allValid = await trigger(personalInfoFields as (keyof FormData)[]);
-    
-    if (!allValid || Object.keys(errors).length > 0) {
-      toast.error('Please complete all required fields to proceed.');
-      return;
-    }
+    // Set submitting state
+    setIsSubmitting(true);
     
     try {
+      // Final validation before submission
+      const personalInfoFields = [
+        'firstName', 'middleName', 'lastName', 'email', 'phoneNumber', 'birthdate', 'role'
+      ];
+      
+      // Add address fields based on role - only required fields (street, barangay, city)
+      if (data.role === 'Driver') {
+        personalInfoFields.push(
+          'driverStreet', 'driverBarangay', 'driverCity'
+        );
+      } else if (data.role === 'Operator') {
+        personalInfoFields.push(
+          'operatorStreet', 'operatorBarangay', 'operatorCity'
+        );
+      }
+      
+      // Add role-specific fields
+      if (data.role === 'Driver') {
+        personalInfoFields.push('driverLicenseNumber', 'driverTinId');
+      } else if (data.role === 'Operator' && data.numberOfJeepneys && data.numberOfJeepneys > 0) {
+        personalInfoFields.push('operatorLicenseNumber', 'operatorTinId', 'numberOfJeepneys');
+        
+        // Add validation for each plate number
+        for (let i = 0; i < data.numberOfJeepneys; i++) {
+          personalInfoFields.push(`plateNumbers.${i}` as keyof FormData);
+        }
+      }
+      
+      const allValid = await trigger(personalInfoFields as (keyof FormData)[]);
+      
+      if (!allValid || Object.keys(errors).length > 0) {
+        toast.error('Please complete all required fields to proceed.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Additional check for email uniqueness before proceeding
+      const normalizedEmail = data.email.toLowerCase();
+      const emailExists = await checkEmailExists(normalizedEmail);
+      if (emailExists) {
+        toast.error('This email address is already registered. Please use a different email.');
+        setIsSubmitting(false);
+        return;
+      }
+      
       // Add payment information
       const paymentData: PaymentInfo = {
         membershipFee: 1500,
@@ -317,7 +327,7 @@ export default function MemberRegistrationModal({
       
       // Use the new user-member service to create linked records
       const { success, error } = await createLinkedUserMember({
-        email: data.email,
+        email: normalizedEmail, // Use normalized email
         firstName: data.firstName,
         lastName: data.lastName,
         middleName: data.middleName,
@@ -332,12 +342,12 @@ export default function MemberRegistrationModal({
 
       if (success) {
         // Send welcome email
-        const emailSent = await sendMemberRegistrationEmail(data.email, `${data.firstName} ${data.lastName}`);
+        const emailSent = await sendMemberRegistrationEmail(normalizedEmail, `${data.firstName} ${data.lastName}`); // Use normalized email
         
         if (emailSent) {
-          toast.success('Member registered successfully! Welcome email sent.');
+          toast.success('Registration successful! A confirmation email has been sent.');
         } else {
-          toast.success('Member registered successfully! Payment confirmed. (Email delivery failed)');
+          toast.success('Registration successful! A confirmation email has been sent.');
         }
         
         reset();
@@ -352,6 +362,9 @@ export default function MemberRegistrationModal({
     } catch (error) {
       console.error('Error registering member:', error);
       toast.error('An error occurred. Please try again.');
+    } finally {
+      // Always clear submitting state
+      setIsSubmitting(false);
     }
   };
 
@@ -368,7 +381,7 @@ export default function MemberRegistrationModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
@@ -376,6 +389,7 @@ export default function MemberRegistrationModal({
             <button 
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700"
+              disabled={isSubmitting}
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -438,12 +452,11 @@ export default function MemberRegistrationModal({
                 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Middle Name <span className="text-red-500">*</span>
+                      Middle Name
                     </label>
                     <input
                       type="text"
                       {...register('middleName', { 
-                        required: 'Middle name is required',
                         minLength: {
                           value: 2,
                           message: 'Middle name must be at least 2 characters long'
@@ -457,6 +470,7 @@ export default function MemberRegistrationModal({
                         errors.middleName ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter middle name"
+                      disabled={isSubmitting}
                     />
                     {errors.middleName && (
                       <p className="mt-1 text-sm text-red-600">{errors.middleName.message}</p>
@@ -465,7 +479,7 @@ export default function MemberRegistrationModal({
                 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name
+                      Last Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -484,6 +498,7 @@ export default function MemberRegistrationModal({
                         errors.lastName ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter last name"
+                      disabled={isSubmitting}
                     />
                     {errors.lastName && (
                       <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
@@ -527,12 +542,21 @@ export default function MemberRegistrationModal({
                         minLength: {
                           value: 5,
                           message: 'Email address is too short'
+                        },
+                        validate: async (value) => {
+                          const normalizedEmail = value.toLowerCase();
+                          const exists = await checkEmailExists(normalizedEmail);
+                          if (exists) {
+                            return 'This email address is already registered. Please use a different email.';
+                          }
+                          return true;
                         }
                       })}
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                         errors.email ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter email address"
+                      disabled={isSubmitting}
                     />
                     {errors.email && (
                       <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
@@ -564,6 +588,8 @@ export default function MemberRegistrationModal({
                         errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter phone number"
+                      disabled={isSubmitting}
+                      maxLength={11}
                     />
                     {errors.phoneNumber && (
                       <p className="mt-1 text-sm text-red-600">{errors.phoneNumber.message}</p>
@@ -685,17 +711,12 @@ export default function MemberRegistrationModal({
                         </label>
                         <input
                           type="text"
-                          {...register(role === 'Driver' ? 'driverHouseNumber' : 'operatorHouseNumber', { 
-                            required: 'House number is required',
-                            pattern: {
-                              value: /^[A-Za-z0-9\s\-]+$/,
-                              message: 'House number can only contain letters, numbers, spaces, and hyphens'
-                            }
-                          })}
+                          {...register(role === 'Driver' ? 'driverHouseNumber' : 'operatorHouseNumber')}
                           className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                             (role === 'Driver' ? errors.driverHouseNumber : errors.operatorHouseNumber) ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter house number"
+                          disabled={isSubmitting}
                         />
                         {(role === 'Driver' ? errors.driverHouseNumber : errors.operatorHouseNumber) && (
                           <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverHouseNumber : errors.operatorHouseNumber)?.message}</p>
@@ -708,17 +729,12 @@ export default function MemberRegistrationModal({
                         </label>
                         <input
                           type="text"
-                          {...register(role === 'Driver' ? 'driverBlockNumber' : 'operatorBlockNumber', { 
-                            required: 'Block number is required',
-                            pattern: {
-                              value: /^[A-Za-z0-9\s\-]+$/,
-                              message: 'Block number can only contain letters, numbers, spaces, and hyphens'
-                            }
-                          })}
+                          {...register(role === 'Driver' ? 'driverBlockNumber' : 'operatorBlockNumber')}
                           className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                             (role === 'Driver' ? errors.driverBlockNumber : errors.operatorBlockNumber) ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter block number"
+                          disabled={isSubmitting}
                         />
                         {(role === 'Driver' ? errors.driverBlockNumber : errors.operatorBlockNumber) && (
                           <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverBlockNumber : errors.operatorBlockNumber)?.message}</p>
@@ -731,17 +747,12 @@ export default function MemberRegistrationModal({
                         </label>
                         <input
                           type="text"
-                          {...register(role === 'Driver' ? 'driverLotNumber' : 'operatorLotNumber', { 
-                            required: 'Lot number is required',
-                            pattern: {
-                              value: /^[A-Za-z0-9\s\-]+$/,
-                              message: 'Lot number can only contain letters, numbers, spaces, and hyphens'
-                            }
-                          })}
+                          {...register(role === 'Driver' ? 'driverLotNumber' : 'operatorLotNumber')}
                           className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                             (role === 'Driver' ? errors.driverLotNumber : errors.operatorLotNumber) ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter lot number"
+                          disabled={isSubmitting}
                         />
                         {(role === 'Driver' ? errors.driverLotNumber : errors.operatorLotNumber) && (
                           <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverLotNumber : errors.operatorLotNumber)?.message}</p>
@@ -765,6 +776,7 @@ export default function MemberRegistrationModal({
                             (role === 'Driver' ? errors.driverStreet : errors.operatorStreet) ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter street"
+                          disabled={isSubmitting}
                         />
                         {(role === 'Driver' ? errors.driverStreet : errors.operatorStreet) && (
                           <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverStreet : errors.operatorStreet)?.message}</p>
@@ -788,6 +800,7 @@ export default function MemberRegistrationModal({
                             (role === 'Driver' ? errors.driverBarangay : errors.operatorBarangay) ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter barangay"
+                          disabled={isSubmitting}
                         />
                         {(role === 'Driver' ? errors.driverBarangay : errors.operatorBarangay) && (
                           <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverBarangay : errors.operatorBarangay)?.message}</p>
@@ -811,6 +824,7 @@ export default function MemberRegistrationModal({
                             (role === 'Driver' ? errors.driverCity : errors.operatorCity) ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter city"
+                          disabled={isSubmitting}
                         />
                         {(role === 'Driver' ? errors.driverCity : errors.operatorCity) && (
                           <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverCity : errors.operatorCity)?.message}</p>
@@ -824,7 +838,7 @@ export default function MemberRegistrationModal({
                   <button
                     type="button"
                     onClick={nextStep}
-                    disabled={!role}
+                    disabled={!role || isSubmitting}
                     className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                   >
                     Next: Role Details
@@ -872,10 +886,10 @@ export default function MemberRegistrationModal({
                         const value = e.target.value;
                         // Allow user to type freely but convert to uppercase
                         let processedValue = value.toUpperCase();
-                        
+                                              
                         // Only allow valid characters: uppercase letters, digits, and hyphens
                         processedValue = processedValue.replace(/[^A-Z0-9-]/g, '');
-                        
+                                              
                         // Auto-format by adding hyphens at appropriate positions
                         // Format: A12-34-567890 (13 characters)
                         if (processedValue.length >= 3 && processedValue.charAt(3) !== '-' && processedValue.charAt(1) && processedValue.charAt(2)) {
@@ -890,13 +904,13 @@ export default function MemberRegistrationModal({
                             processedValue = processedValue.substring(0, 6) + '-' + processedValue.substring(6);
                           }
                         }
-                        
+                                              
                         // Clean up any extra characters beyond 13
                         processedValue = processedValue.substring(0, 13);
-                        
+                                              
                         // Update the form value
                         setValue(role === 'Driver' ? 'driverLicenseNumber' : 'operatorLicenseNumber', processedValue);
-                        
+                                              
                         // Real-time validation
                         const isValid = /^[A-Z]\d{2}-\d{2}-\d{6}$/.test(processedValue);
                         // Only set validation status to true/false when we have exactly 13 characters
@@ -907,6 +921,8 @@ export default function MemberRegistrationModal({
                           setLicenseNumberValid(null);
                         }
                       }}
+                      disabled={isSubmitting}
+                      maxLength={13}
                     />
                     {role === 'Driver' && errors.driverLicenseNumber && (
                       <p className="mt-1 text-sm text-red-600">{errors.driverLicenseNumber.message}</p>
@@ -948,6 +964,30 @@ export default function MemberRegistrationModal({
                           : (errors.operatorTinId ? 'border-red-500' : 'border-gray-300')
                       }`}
                       placeholder="Enter TIN ID"
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Allow only digits and hyphens
+                        let processedValue = value.replace(/[^0-9-]/g, '');
+                                              
+                        // Auto-format with hyphens: XXX-XXX-XXX-XXXXX
+                        if (processedValue.length >= 3 && processedValue.charAt(3) !== '-') {
+                          processedValue = processedValue.substring(0, 3) + '-' + processedValue.substring(3);
+                        }
+                        if (processedValue.length >= 7 && processedValue.charAt(7) !== '-') {
+                          processedValue = processedValue.substring(0, 7) + '-' + processedValue.substring(7);
+                        }
+                        if (processedValue.length >= 11 && processedValue.charAt(11) !== '-') {
+                          processedValue = processedValue.substring(0, 11) + '-' + processedValue.substring(11);
+                        }
+                                              
+                        // Prevent overflow beyond maximum length (17 characters)
+                        processedValue = processedValue.substring(0, 17);
+                                              
+                        // Update the form value
+                        setValue(role === 'Driver' ? 'driverTinId' : 'operatorTinId', processedValue);
+                      }}
+                      disabled={isSubmitting}
+                      maxLength={17}
                     />
                     {role === 'Driver' && errors.driverTinId && (
                       <p className="mt-1 text-sm text-red-600">{errors.driverTinId.message}</p>
@@ -1045,6 +1085,7 @@ export default function MemberRegistrationModal({
                     type="button"
                     onClick={prevStep}
                     className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    disabled={isSubmitting}
                   >
                     Back
                   </button>
@@ -1052,6 +1093,7 @@ export default function MemberRegistrationModal({
                     type="button"
                     onClick={nextStep}
                     className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    disabled={isSubmitting}
                   >
                     Next: Confirmation
                   </button>
@@ -1171,19 +1213,28 @@ export default function MemberRegistrationModal({
                     type="button"
                     onClick={prevStep}
                     className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    disabled={isSubmitting}
                   >
                     Back
                   </button>
                   <button
                     type="submit"
-                    className={`px-6 py-3 rounded-lg transition-colors ${
-                      Object.keys(errors).length === 0 
+                    className={`px-6 py-3 rounded-lg transition-colors flex items-center ${
+                      Object.keys(errors).length === 0 && !isSubmitting
                         ? 'bg-red-600 text-white hover:bg-red-700' 
                         : 'bg-gray-400 text-white cursor-not-allowed'
                     }`}
-                    disabled={Object.keys(errors).length > 0}
+                    disabled={Object.keys(errors).length > 0 || isSubmitting}
                   >
-                    Confirm & Submit
+                    {isSubmitting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Processing...
+                      </>
+                    ) : 'Confirm & Submit'}
                   </button>
                 </div>
               </div>

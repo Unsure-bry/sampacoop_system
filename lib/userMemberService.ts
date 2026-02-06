@@ -221,6 +221,23 @@ export async function getMemberByUserId(userId: string): Promise<any | null> {
 }
 
 /**
+ * Checks if an email already exists in the users collection
+ * @param email - Email to check for existence
+ * @returns Promise with boolean indicating if email exists
+ */
+export async function checkEmailExists(email: string): Promise<boolean> {
+  try {
+    const userId = generateUserId(email);
+    const userResult = await firestore.getDocument('users', userId);
+    
+    return userResult.success && userResult.data !== null;
+  } catch (error) {
+    console.error('Error checking email existence:', error);
+    return false; // If there's an error, assume email doesn't exist to avoid blocking registration
+  }
+}
+
+/**
  * Updates both user and member records consistently
  * @param userId - User ID to update
  * @param updateData - Data to update in both collections

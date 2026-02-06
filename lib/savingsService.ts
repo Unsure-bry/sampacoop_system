@@ -20,6 +20,8 @@ interface MemberInfo {
  */
 export async function getMemberIdByUserId(userId: string): Promise<string | null> {
   try {
+    // Log the user lookup attempt
+    console.log(`Looking up member for user ID: ${userId}`);
     // First, try to find member by the userId field in the member document
     // This is the most direct way if the member document stores the user ID
     let membersResult = await firestore.queryDocuments('members', [
@@ -27,14 +29,17 @@ export async function getMemberIdByUserId(userId: string): Promise<string | null
     ]);
 
     if (membersResult.success && membersResult.data && membersResult.data.length > 0) {
+      const foundMemberId = membersResult.data[0].id;
+      console.log(`Found member by userId field: ${foundMemberId} for user: ${userId}`);
       // Return the ID of the first matching member
-      return membersResult.data[0].id;
+      return foundMemberId;
     }
     
     // If no match found by userId field in member document, try alternative methods
     // First, check if the userId itself might be a member ID directly
     const directMemberResult = await firestore.getDocument('members', userId);
     if (directMemberResult.success && directMemberResult.data) {
+      console.log(`Found direct member document for ID: ${userId}`);
       // Check if this member document has a matching email with the user
       const userResult = await firestore.getDocument('users', userId);
       if (userResult.success && userResult.data) {
@@ -56,7 +61,7 @@ export async function getMemberIdByUserId(userId: string): Promise<string | null
     // Try to get user info from users collection
     const userResult = await firestore.getDocument('users', userId);
     if (!userResult.success || !userResult.data) {
-      console.error('User not found in users collection:', userId);
+      console.error(`User not found in users collection for ID: ${userId}`);
       
       // As a last resort, try to find a member with an email that might match the userId
       // This handles cases where userId was encoded email
@@ -67,10 +72,12 @@ export async function getMemberIdByUserId(userId: string): Promise<string | null
         ]);
         
         if (fallbackResult.success && fallbackResult.data && fallbackResult.data.length > 0) {
+          console.warn(`Found member by decoded email fallback for user ID: ${userId}`);
           return fallbackResult.data[0].id;
         }
       } catch (e) {
         // If decoding fails, ignore and continue
+        console.warn(`Failed to decode email from user ID ${userId}:`, e);
       }
       
       return null;
@@ -81,13 +88,16 @@ export async function getMemberIdByUserId(userId: string): Promise<string | null
     
     if (userEmail) {
       // Search for the member document with matching email
+      console.log(`Searching for member by email: ${userEmail} for user: ${userId}`);
       membersResult = await firestore.queryDocuments('members', [
         { field: 'email', operator: '==', value: userEmail }
       ]);
 
       if (membersResult.success && membersResult.data && membersResult.data.length > 0) {
+        const foundMemberId = membersResult.data[0].id;
+        console.log(`Found member by email: ${foundMemberId} for user: ${userId} (email: ${userEmail})`);
         // Return the ID of the first matching member
-        return membersResult.data[0].id;
+        return foundMemberId;
       }
     }
     
@@ -107,12 +117,21 @@ export async function getMemberIdByUserId(userId: string): Promise<string | null
       }
     }
 
-    console.error('No member found for user ID:', userId);
+    // Try to get user details for better error reporting
+    const userInfoResult = await firestore.getDocument('users', userId);
+    const userDisplayName = userInfoResult.success && userInfoResult.data 
+      ? (userInfoResult.data as any).displayName || (userInfoResult.data as any).email || userId
+      : userId;
+    
+    console.error(`No member found for user: ${userDisplayName} (ID: ${userId})`);
+    console.error('Searched by email:', userEmail);
+    console.error('Searched by name:', userData.firstName, userData.lastName);
     return null;
   } catch (error) {
     console.error('Error finding member ID by user ID:', error);
     return null;
   }
+
 }
 
 /**
@@ -223,7 +242,16 @@ export async function addSavingsTransaction(
     // Get the member ID that corresponds to this user
     const memberId = await getMemberIdByUserId(userId);
     if (!memberId) {
-      return { success: false, error: 'Member not found for this user' };
+      // Try to get user details for better error reporting
+      const userInfoResult = await firestore.getDocument('users', userId);
+      const userDisplayName = userInfoResult.success && userInfoResult.data 
+        ? (userInfoResult.data as any).displayName || (userInfoResult.data as any).email || userId
+        : userId;
+        
+      return { 
+        success: false, 
+        error: `Member record not found for user: ${userDisplayName} (ID: ${userId})` 
+      };
     }
 
     // Create transaction object
@@ -321,7 +349,13 @@ export async function getUserSavingsTransactions(userId: string): Promise<Saving
     // Get the member ID that corresponds to this user
     const memberId = await getMemberIdByUserId(userId);
     if (!memberId) {
-      console.error('Member not found for user:', userId);
+      // Try to get user details for better error reporting
+      const userInfoResult = await firestore.getDocument('users', userId);
+      const userDisplayName = userInfoResult.success && userInfoResult.data 
+        ? (userInfoResult.data as any).displayName || (userInfoResult.data as any).email || userId
+        : userId;
+        
+      console.error(`Member not found for user: ${userDisplayName} (ID: ${userId})`);
       return [];
     }
 
@@ -350,7 +384,13 @@ export async function getUserSavingsBalance(userId: string): Promise<number> {
     // Get the member ID that corresponds to this user
     const memberId = await getMemberIdByUserId(userId);
     if (!memberId) {
-      console.error('Member not found for user:', userId);
+      // Try to get user details for better error reporting
+      const userInfoResult = await firestore.getDocument('users', userId);
+      const userDisplayName = userInfoResult.success && userInfoResult.data 
+        ? (userInfoResult.data as any).displayName || (userInfoResult.data as any).email || userId
+        : userId;
+        
+      console.error(`Member not found for user: ${userDisplayName} (ID: ${userId})`);
       return 0;
     }
 

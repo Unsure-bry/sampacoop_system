@@ -24,6 +24,15 @@ export interface OperatorInfo {
   [key: string]: any;
 }
 
+export interface CertificateData {
+  memberId: string;
+  fullName: string;
+  role: string;
+  registrationDate: string;
+  certificateUrl: string;
+  createdAt: string;
+}
+
 export interface Member {
   id: string;
   firstName: string;
@@ -40,5 +49,8 @@ export interface Member {
   archived?: boolean;
   driverInfo: DriverInfo | null;
   operatorInfo: OperatorInfo | null;
+  certificate?: CertificateData;
+  certificateGenerated?: boolean;
+  certificateGeneratedAt?: string;
   [key: string]: any;
 }
