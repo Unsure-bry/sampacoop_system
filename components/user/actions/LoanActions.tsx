@@ -35,9 +35,8 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
     setTerm(plan.termOptions[0]?.toString() || '1');
   };
 
-  // Calculate daily amortization schedule
-  const calculateAmortization = (principal: number, annualInterestRate: number, termMonths: number) => {
-    const dailyInterestRate = annualInterestRate / 100 / 365;
+  const calculateAmortization = (principal: number, monthlyInterestRate: number, termMonths: number) => {
+    const dailyInterestRate = monthlyInterestRate / 100 / 30;
     const totalDays = termMonths * 30; // Approximate 30 days per month
     
     // Calculate daily payment using standard loan formula adjusted for daily payments
@@ -95,7 +94,6 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
       return;
     }
     
-    // Calculate and show amortization schedule
     const schedule = calculateAmortization(amountValue, selectedPlan.interestRate, termValue);
     setAmortizationSchedule(schedule);
     setCurrentPage(1); // Reset to first page
@@ -430,7 +428,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Interest Rate:</span>
-                      <span className="font-medium">{selectedPlan.interestRate}% annually</span>
+                      <span className="font-medium">{selectedPlan.interestRate}% monthly</span>
                     </div>
                     <div className="border-t border-gray-200 pt-2 mt-2">
                       <div className="flex justify-between">
