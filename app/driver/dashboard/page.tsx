@@ -2,20 +2,17 @@
 
 import { useAuth } from '@/lib/auth';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Card from '@/components/shared/Card';
 import { ActiveSavings } from '@/components';
+import DynamicDashboard from '@/components/user/DynamicDashboard';
+import { Bell } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { firestore } from '@/lib/firebase';
-import { toast } from 'react-hot-toast';
-import DynamicDashboard, { type Reminder, type Event } from '@/components/user/DynamicDashboard';
 
 export default function DriverDashboardPage() {
   const { user, loading } = useAuth();
-
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
   const router = useRouter();
+  const [hasNewNotifications, setHasNewNotifications] = useState(false);
+  const isDriver = (user?.role || '').toLowerCase() === 'driver';
 
   useEffect(() => {
     const checkNotifications = async () => {
