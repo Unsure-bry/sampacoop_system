@@ -12,7 +12,20 @@ export default function DriverDashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [hasNewNotifications, setHasNewNotifications] = useState(false);
-  const isDriver = (user?.role || '').toLowerCase() === 'driver';
+  const role = (user?.role ?? '').trim().toLowerCase();
+  const roleReady = role.length > 0;
+  const isDriver = role === 'driver';
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<Array<{
+    id?: string;
+    title?: string;
+    message?: string;
+    type?: string;
+    status?: string;
+    createdAt?: string;
+    userId?: string;
+    userRole?: string;
+  }>>([]);
 
   useEffect(() => {
     const checkNotifications = async () => {
@@ -38,7 +51,48 @@ export default function DriverDashboardPage() {
     }
   }, [user, loading]);
 
-  if (loading) {
+  const loadNotifications = async () => {
+    try {
+      const res = await firestore.getCollection('notifications');
+      if (res.success && res.data) {
+        const docs = res.data as Array<{
+          id?: string;
+          title?: string;
+          message?: string;
+          type?: string;
+          status?: string;
+          createdAt?: string;
+          userId?: string;
+          userRole?: string;
+        }>;
+        const relevant = docs
+          .filter((doc) => {
+            const targeted =
+              doc.userId === user?.uid ||
+              doc.userRole === 'all' ||
+              doc.userRole?.toLowerCase() === user?.role?.toLowerCase();
+            const t = (doc.type || '').toLowerCase();
+            const matchesType =
+              t.includes('loan') || t.includes('savings');
+            return targeted && matchesType;
+          })
+          .sort((a, b) => {
+            const da = new Date(a.createdAt || '').getTime();
+            const db = new Date(b.createdAt || '').getTime();
+            return db - da;
+          });
+        setNotifications(relevant);
+        setHasNewNotifications(
+          relevant.some((d) => d.status === 'unread' || d.status === 'new')
+        );
+      }
+    } catch {}
+  };
+
+  const formatDateTime = (d?: string) =>
+    new Date(d || new Date().toISOString()).toLocaleString();
+
+  if (loading || !user || !roleReady) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
@@ -60,7 +114,13 @@ export default function DriverDashboardPage() {
         <div className="w-full">
           <div className="relative">
             <button
-              onClick={() => router.push('/profile/notifications')}
+              onClick={async () => {
+                const next = !showNotifications;
+                setShowNotifications(next);
+                if (next) {
+                  await loadNotifications();
+                }
+              }}
               className="absolute top-2 right-2 p-2 rounded-full hover:bg-gray-100"
               aria-label="Notifications"
             >
@@ -72,6 +132,37 @@ export default function DriverDashboardPage() {
                 </>
               )}
             </button>
+            {showNotifications && (
+              <div className="absolute top-12 right-2 w-80 bg-white shadow-lg border border-gray-200 rounded-lg z-10">
+                <div className="px-3 py-2 font-semibold text-gray-800">Notifications</div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length > 0 ? (
+                    notifications.map((n) => (
+                      <div key={n.id || `${n.type}-${n.createdAt}`} className="px-3 py-2 border-t border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-800">{n.title || (n.type || '').toUpperCase()}</span>
+                          {(n.status === 'unread' || n.status === 'new') && (
+                            <span className="inline-flex h-2 w-2 rounded-full bg-red-600"></span>
+                          )}
+                        </div>
+                        {n.message && <div className="text-xs text-gray-600 mt-1">{n.message}</div>}
+                        <div className="text-xs text-gray-500 mt-1">{formatDateTime(n.createdAt)}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-4 text-sm text-gray-500">No notifications</div>
+                  )}
+                </div>
+                <div className="px-3 py-2 text-right">
+                  <button
+                    onClick={() => router.push('/profile/notifications')}
+                    className="text-sm text-red-600 hover:underline"
+                  >
+                    View all
+                  </button>
+                </div>
+              </div>
+            )}
             <ActiveSavings compact={true} />
           </div>
         </div>
