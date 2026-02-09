@@ -142,7 +142,7 @@ export default function DashboardPage() {
                 <div className="max-h-96 overflow-y-auto">
                   {notifications.length > 0 ? (
                     notifications.map((n) => (
-                      <div key={n.id || `${n.type}-${n.createdAt}`} className="px-3 py-2 border-t border-gray-100">
+                      <div key={n.id || `${n.type}-${n.createdAt}`} className="px-3 py-2 border-t border-gray-100 hover:bg-gray-50">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-800">{n.title || (n.type || '').toUpperCase()}</span>
                           {(n.status === 'unread' || n.status === 'new') && (

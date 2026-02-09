@@ -75,7 +75,7 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
       
       // Sort by date descending for display (newest first)
       const sortedTransactions = userTransactions.sort((a, b) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
+        new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime()
       );
       
       setTransactions(sortedTransactions);
@@ -101,12 +101,17 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-PH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString('en-PH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return 'N/A';
+    }
   };
 
   // Don't render anything while auth is loading
@@ -231,7 +236,7 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
                 {transactions.slice(0, 5).map((transaction) => (
                   <tr key={transaction.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(transaction.date)}
+                      {formatDate(transaction.createdAt || transaction.date)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -248,7 +253,7 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
                       {transaction.type === 'deposit' ? '+' : '-'}{formatCurrency(transaction.amount)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {formatCurrency(transaction.balance)}
+                      {formatCurrency(transaction.balance || 0)}
                     </td>
                   </tr>
                 ))}

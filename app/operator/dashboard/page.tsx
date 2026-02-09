@@ -92,7 +92,7 @@ export default function OperatorDashboardPage() {
   const formatDateTime = (d?: string) =>
     new Date(d || new Date().toISOString()).toLocaleString();
 
-  if (loading || !user || !roleReady) {
+  if (loading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
@@ -100,7 +100,7 @@ export default function OperatorDashboardPage() {
     );
   }
 
-  if (!isOperator) {
+  if (roleReady && !isOperator) {
     return null;
   }
 
