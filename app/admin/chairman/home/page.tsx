@@ -3,7 +3,7 @@
 import { useAuth } from '@/lib/auth';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import OfficerDashboard from '@/components/admin/OfficerDashboard';
+import ExecutiveDashboard from '@/components/admin/ExecutiveDashboard';
 
 export default function ChairmanHomePage() {
   const { user, loading } = useAuth();
@@ -26,6 +26,8 @@ export default function ChairmanHomePage() {
   }
 
   return (
-    <OfficerDashboard role="chairman" />
+    <div className="space-y-6">
+      <ExecutiveDashboard />
+    </div>
   );
 }

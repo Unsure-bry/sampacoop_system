@@ -547,8 +547,8 @@ export default function DynamicAdminDashboard() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Loading dashboard data from Firestore...</p>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2"></h1>
+          <p className="text-gray-600"></p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

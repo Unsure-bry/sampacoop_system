@@ -5,7 +5,7 @@ import { useState } from 'react';
 interface AddSavingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddSavings: (data: { type: 'deposit' | 'withdrawal', amount: number, date: string, remarks: string }) => Promise<boolean>;
+  onAddSavings: (data: { type: 'deposit' | 'withdrawal', amount: number, remarks: string }) => Promise<boolean>;
   currentBalance: number;
 }
 
@@ -13,7 +13,6 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
   const [formData, setFormData] = useState({
     type: 'deposit' as 'deposit' | 'withdrawal',
     amount: '',
-    date: new Date().toISOString().split('T')[0],
     remarks: ''
   });
   const [loading, setLoading] = useState(false);
@@ -36,9 +35,7 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
       }
     }
     
-    if (!formData.date) {
-      newErrors.date = 'Date is required';
-    }
+
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -73,7 +70,6 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
     const success = await onAddSavings({
       type: formData.type,
       amount: parseFloat(formData.amount),
-      date: formData.date,
       remarks: formData.remarks
     });
     
@@ -84,7 +80,6 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
       setFormData({
         type: 'deposit',
         amount: '',
-        date: new Date().toISOString().split('T')[0],
         remarks: ''
       });
       onClose();
@@ -151,22 +146,7 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
                 </p>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  name="date"
-                  value={formData.date}
-                  onChange={handleInputChange}
-                  className={`w-full p-2 border rounded-md focus:ring-red-500 focus:border-red-500 ${
-                    errors.date ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  disabled={loading}
-                />
-                {errors.date && (
-                  <p className="mt-1 text-sm text-red-600">{errors.date}</p>
-                )}
-              </div>
+
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>

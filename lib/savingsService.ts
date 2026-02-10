@@ -334,6 +334,35 @@ export async function addSavingsTransaction(
       }
     }
 
+    // Create notification for the savings transaction
+    try {
+      const notificationId = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const memberResultForNotif = await firestore.getDocument('members', memberId);
+      const memberDataForNotif = memberResultForNotif.success && memberResultForNotif.data 
+        ? memberResultForNotif.data as any 
+        : {};
+      
+      await firestore.setDocument('notifications', notificationId, {
+        userId: userId,
+        userRole: memberDataForNotif.role || 'member',
+        title: 'Savings Transaction',
+        message: `A ${newTransaction.type} of ₱${newTransaction.amount.toFixed(2)} has been processed to your savings account. Your new balance is ₱${runningBalance.toFixed(2)}.`,
+        type: 'savings_transaction',
+        status: 'unread',
+        createdAt: new Date().toISOString(),
+        metadata: {
+          transactionId: newTransaction.id,
+          transactionType: newTransaction.type,
+          amount: newTransaction.amount,
+          balance: runningBalance,
+          remarks: newTransaction.remarks || ''
+        }
+      });
+    } catch (notifError) {
+      console.error('Error creating savings notification:', notifError);
+      // Don't fail the transaction if notification creation fails
+    }
+
     return { success: true, transactionId: newTransaction.id };
   } catch (error) {
     console.error('Error adding savings transaction:', error);
@@ -363,10 +392,15 @@ export async function getUserSavingsTransactions(userId: string): Promise<Saving
     const result = await firestore.getCollection(`members/${memberId}/savings`);
 
     if (result.success && result.data) {
-      return result.data.map((doc: any) => ({
+      const transactions = result.data.map((doc: any) => ({
         id: doc.id,
         ...doc
       }));
+      
+      // Sort by date descending (newest first) to ensure new transactions appear at the top
+      return transactions.sort((a, b) => 
+        new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime()
+      );
     }
 
     return [];

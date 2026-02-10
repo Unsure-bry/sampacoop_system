@@ -8,6 +8,7 @@ export interface SavingsTransaction {
   balance: number;
   remarks: string;
   createdAt: string;
+  depositControlNumber?: string;
 }
 
 export interface MemberSavings {

@@ -165,6 +165,28 @@ export default function LoanTable({
 
       if (loanResult.success) {
         toast.success('Loan request approved successfully!');
+        
+        // Create approval notification for the user
+        try {
+          const notificationId = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          await firestore.setDocument('notifications', notificationId, {
+            userId: userId,
+            userRole: requestData.role || 'member',
+            title: 'Loan Approved',
+            message: `Your loan application for ${requestData.planName || 'General Loan'} amounting to ${formatCurrency(requestData.amount)} has been approved. The loan is now active with a ${requestData.term}-month term.`,
+            type: 'loan_approval',
+            status: 'unread',
+            createdAt: new Date().toISOString(),
+            metadata: {
+              loanId: `${userId}-${requestId}`,
+              amount: requestData.amount,
+              planName: requestData.planName || 'General Loan',
+              term: requestData.term
+            }
+          });
+        } catch (notifError) {
+          console.error('Error creating approval notification:', notifError);
+        }
       } else {
         toast.error('Failed to create loan. Please try again.');
       }
@@ -206,6 +228,31 @@ export default function LoanTable({
       }
       
       toast.success('Loan request rejected');
+      
+      // Create rejection notification for the user
+      try {
+        const notificationId = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const requestResult = await firestore.getDocument('loanRequests', requestId);
+        const requestData = requestResult.success && requestResult.data ? requestResult.data as any : {};
+        await firestore.setDocument('notifications', notificationId, {
+          userId: requestData.userId,
+          userRole: requestData.role || 'member',
+          title: 'Loan Rejected',
+          message: `Your loan application has been rejected. Reason: ${rejectionReason}`,
+          type: 'loan_rejection',
+          status: 'unread',
+          createdAt: new Date().toISOString(),
+          metadata: {
+            loanId: requestId,
+            reason: rejectionReason,
+            planName: requestData.planName || 'General Loan',
+            amount: requestData.amount || 0
+          }
+        });
+      } catch (notifError) {
+        console.error('Error creating rejection notification:', notifError);
+      }
+      
       onAction(); // Refresh the data
     } catch (error) {
       console.error('Error rejecting loan:', error);

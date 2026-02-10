@@ -19,6 +19,20 @@ export default function MemberSavingsPage() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [totalSavings, setTotalSavings] = useState(0);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  // Filter state
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  
+  // Function to generate deposit control number in SMP-0000-000 format
+  const generateDepositControlNumber = (index: number) => {
+    const timestamp = Date.now();
+    const sequential = (timestamp % 10000).toString().padStart(4, '0');
+    const idx = index.toString().padStart(3, '0');
+    return `SMP-${sequential}-${idx}`;
+  };
   const params = useParams();
   const router = useRouter();
   const memberId = params.id as string;
@@ -67,7 +81,7 @@ export default function MemberSavingsPage() {
         
         // Calculate running balance for each transaction
         let runningBalance = 0;
-        const transactionsWithBalance = sortedTransactions.map((transaction: any) => {
+        const transactionsWithBalance = sortedTransactions.map((transaction: any, index) => {
           if (transaction.type === 'deposit') {
             runningBalance += transaction.amount;
           } else if (transaction.type === 'withdrawal') {
@@ -76,7 +90,8 @@ export default function MemberSavingsPage() {
           
           return {
             ...transaction,
-            balance: runningBalance
+            balance: runningBalance,
+            depositControlNumber: generateDepositControlNumber(index + 1)
           };
         });
         
@@ -93,6 +108,9 @@ export default function MemberSavingsPage() {
       // Use the savings service to get the current total balance regardless of transaction data
       const currentBalance = await getSavingsBalanceForMember(memberId);
       setTotalSavings(currentBalance);
+      
+      // Reset to first page when data changes
+      setCurrentPage(1);
     } catch (error) {
       console.error('Error fetching savings transactions:', error);
       toast.error('Failed to load savings transactions');
@@ -103,7 +121,7 @@ export default function MemberSavingsPage() {
     }
   };
 
-  const handleAddSavings = async (transactionData: { type: 'deposit' | 'withdrawal', amount: number, date: string, remarks: string }) => {
+  const handleAddSavings = async (transactionData: { type: 'deposit' | 'withdrawal', amount: number, remarks: string }) => {
     try {
       if (!member) {
         toast.error('Member not found');
@@ -122,7 +140,7 @@ export default function MemberSavingsPage() {
       const result = await addSavingsTransaction(effectiveUserId, {
         memberId: memberId,
         memberName: member ? `${member.firstName} ${member.lastName}` : 'Unknown',
-        date: transactionData.date,
+        date: new Date().toISOString().split('T')[0], // Use current date automatically
         type: transactionData.type,
         amount: parseFloat(transactionData.amount.toString()),
         balance: 0, // Will be calculated by the service
@@ -151,7 +169,52 @@ export default function MemberSavingsPage() {
     return `${member.firstName} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName}${member.suffix ? ' ' + member.suffix : ''}`;
   };
 
+  // Filter transactions based on date range
+  const getFilteredTransactions = () => {
+    if (!dateFrom && !dateTo) {
+      return transactions;
+    }
+    
+    return transactions.filter(transaction => {
+      const transactionDate = new Date(transaction.date);
+      const fromDate = dateFrom ? new Date(dateFrom) : null;
+      const toDate = dateTo ? new Date(dateTo) : null;
+      
+      if (fromDate && transactionDate < fromDate) return false;
+      if (toDate && transactionDate > toDate) return false;
+      
+      return true;
+    });
+  };
+  
+  // Calculate filtered balance
+  const getFilteredBalance = () => {
+    const filtered = getFilteredTransactions();
+    if (filtered.length === 0) return 0;
+    
+    // Get the latest balance from filtered transactions
+    const latest = filtered.reduce((latest, current) => 
+      new Date(current.date) > new Date(latest.date) ? current : latest
+    );
+    
+    return latest.balance;
+  };
+  
+  // Get current page transactions
+  const getCurrentPageTransactions = () => {
+    const filtered = getFilteredTransactions();
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    return filtered.slice(indexOfFirstItem, indexOfLastItem);
+  };
+  
+  // Calculate total pages
+  const totalPages = Math.ceil(getFilteredTransactions().length / itemsPerPage);
+  
   const handlePrint = () => {
+    const filteredTransactions = getFilteredTransactions();
+    const filteredBalance = getFilteredBalance();
+    
     // Create a new window with printable content
     const printWindow = window.open('', '_blank');
     if (printWindow) {
@@ -211,6 +274,12 @@ export default function MemberSavingsPage() {
                 font-size: 12px;
                 color: #666;
               }
+              .filter-info {
+                background-color: #f0f0f0;
+                padding: 10px;
+                margin-bottom: 20px;
+                border-radius: 5px;
+              }
             </style>
           </head>
           <body>
@@ -235,33 +304,57 @@ export default function MemberSavingsPage() {
                   <span class="info-label">Current Balance:</span><br/>
                   <strong>₱${totalSavings.toFixed(2)}</strong>
                 </div>
+                ${dateFrom || dateTo ? `
+                <div class="info-item">
+                  <span class="info-label">Filtered Balance:</span><br/>
+                  <strong>₱${filteredBalance.toFixed(2)}</strong>
+                </div>
+                ` : ''}
               </div>
             </div>
+            
+            ${(dateFrom || dateTo) ? `
+            <div class="filter-info">
+              <strong>Filter Applied:</strong><br/>
+              ${dateFrom ? `From: ${new Date(dateFrom).toLocaleDateString()}<br/>` : ''}
+              ${dateTo ? `To: ${new Date(dateTo).toLocaleDateString()}<br/>` : ''}
+            </div>
+            ` : ''}
             
             <h2>Savings Transaction History</h2>
             <table>
               <thead>
                 <tr>
-                  <th>Date</th>
+                  <th>Deposit Control No.</th>
                   <th>Transaction Type</th>
                   <th>Amount</th>
                   <th>Running Balance</th>
+                  <th>Process Date</th>
                   <th>Remarks</th>
                 </tr>
               </thead>
               <tbody>
-                ${transactions.map(transaction => `
+                ${filteredTransactions.map(transaction => `
                   <tr>
-                    <td>${new Date(transaction.date).toLocaleDateString()}</td>
+                    <td>${transaction.depositControlNumber || 'N/A'}</td>
                     <td>${transaction.type === 'deposit' ? '<span style="color: green;">Deposit</span>' : '<span style="color: red;">Withdrawal</span>'}</td>
                     <td class="${transaction.type}">${transaction.type === 'deposit' ? '+' : '-'}₱${transaction.amount.toFixed(2)}</td>
                     <td>₱${transaction.balance.toFixed(2)}</td>
+                    <td>${transaction.createdAt ? new Date(transaction.createdAt).toLocaleString('en-PH', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit'
+                    }) : 'N/A'}</td>
                     <td>${transaction.remarks || '-'}</td>
                   </tr>
                 `).join('')}
                 <tr class="balance-row">
-                  <td colspan="3"><strong>CURRENT BALANCE</strong></td>
-                  <td><strong>₱${totalSavings.toFixed(2)}</strong></td>
+                  <td colspan="2"><strong>CURRENT BALANCE</strong></td>
+                  <td><strong>₱${filteredBalance.toFixed(2)}</strong></td>
+                  <td></td>
                   <td></td>
                 </tr>
               </tbody>
@@ -363,13 +456,56 @@ export default function MemberSavingsPage() {
       
       {/* Savings History */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <h3 className="text-lg font-semibold text-gray-800">Savings History</h3>
+          
+          {/* Date Range Filters */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setDateFrom(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => {
+                  setDateTo(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              />
+            </div>
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                  setCurrentPage(1);
+                }}
+                className="self-end px-3 py-2 text-sm text-red-600 hover:text-red-800 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
         </div>
         
-        {transactions.length === 0 ? (
+        {getFilteredTransactions().length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-500">No savings transactions found for this member.</p>
+            {(dateFrom || dateTo) && (
+              <p className="text-gray-500 text-sm mt-2">Try adjusting your date filters.</p>
+            )}
             <button
               onClick={() => setShowAddModal(true)}
               className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
@@ -378,56 +514,115 @@ export default function MemberSavingsPage() {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Transaction Type
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Running Balance
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Remarks
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {transactions.map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(transaction.date).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        transaction.type === 'deposit' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {transaction.type === 'deposit' ? 'Deposit' : 'Withdrawal'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {transaction.type === 'deposit' ? '+' : '-'}₱{transaction.amount.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ₱{transaction.balance.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {transaction.remarks || '-'}
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Deposit Control No.
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Transaction Type
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Running Balance
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Process Date
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Remarks
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {getCurrentPageTransactions().map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {transaction.depositControlNumber || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          transaction.type === 'deposit' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {transaction.type === 'deposit' ? 'Deposit' : 'Withdrawal'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {transaction.type === 'deposit' ? '+' : '-'}₱{transaction.amount.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        ₱{transaction.balance.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {transaction.createdAt ? new Date(transaction.createdAt).toLocaleString('en-PH', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        }) : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {transaction.remarks || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 bg-gray-50">
+                <div className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{Math.min((currentPage - 1) * itemsPerPage + 1, getFilteredTransactions().length)}</span> to{' '}
+                  <span className="font-medium">{Math.min(currentPage * itemsPerPage, getFilteredTransactions().length)}</span>{' '}
+                  of <span className="font-medium">{getFilteredTransactions().length}</span> transactions
+                  {(dateFrom || dateTo) && (
+                    <span className="ml-2 text-gray-500">(filtered)</span>
+                  )}
+                </div>
+                
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                      currentPage === 1
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  
+                  <span className="px-3 py-1 text-sm font-medium text-gray-700">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                      currentPage === totalPages
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
       

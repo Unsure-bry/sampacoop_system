@@ -31,7 +31,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
 
   const handleApplyClick = (plan: LoanPlan) => {
     setSelectedPlan(plan);
-    setAmount(plan.maxAmount.toString());
+    setAmount('5000'); // Default to 5000 PHP
     setTerm(plan.termOptions[0]?.toString() || '1');
   };
 
@@ -200,10 +200,33 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
       
       if (result.success) {
         toast.success('Loan application submitted successfully!');
+        
+        // Create pending loan notification for the user
+        try {
+          const notificationId = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          await firestore.setDocument('notifications', notificationId, {
+            userId: user?.uid,
+            userRole: user?.role || 'member',
+            title: 'Loan Application Pending',
+            message: `Your loan application for ${selectedPlan.name} amounting to ${formatCurrency(amountValue)} is now pending approval. You will be notified once it is reviewed.`,
+            type: 'loan_pending',
+            status: 'unread',
+            createdAt: new Date().toISOString(),
+            metadata: {
+              loanId: `${user?.uid}-${selectedPlan.id}-${Date.now()}`,
+              amount: amountValue,
+              planName: selectedPlan.name,
+              term: termValue
+            }
+          });
+        } catch (notifError) {
+          console.error('Error creating pending loan notification:', notifError);
+        }
+        
         // Reset all forms and close modals
         setSelectedPlan(null);
-        setAmount('');
-        setTerm('');
+        setAmount('5000'); // Reset to default amount
+        setTerm(selectedPlan.termOptions[0]?.toString() || '1'); // Reset to default term
         setShowVerification(false);
         setAmortizationSchedule([]);
         // Notify parent component if needed
@@ -325,28 +348,31 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
               </div>
 
               <form onSubmit={handleSubmitApplication}>
-                <div className="mb-4">
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="amount">
+                <div className="mb-6">
+                  <label className="block text-gray-700 text-sm font-bold mb-3" htmlFor="amount">
                     Loan Amount (PHP)
                   </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
-                      ₱
-                    </span>
-                    <input
-                      id="amount"
-                      type="number"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="pl-8 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                      placeholder="Enter loan amount"
-                      min="1"
-                      max={selectedPlan.maxAmount}
-                      step="1"
-                      required
-                    />
-                    <div className="text-xs text-gray-500 mt-1">
-                      Max: {formatCurrency(selectedPlan.maxAmount)}
+                  <div className="grid grid-cols-5 gap-2">
+                    {[1000, 2000, 3000, 4000, 5000].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setAmount(value.toString())}
+                        className={`p-3 rounded-lg border-2 transition-all duration-200 text-center font-medium ${amount === value.toString() 
+                          ? 'border-red-600 bg-red-50 text-red-700 shadow-sm' 
+                          : 'border-gray-300 hover:border-gray-400 text-gray-700 hover:bg-gray-50'}
+                        `}
+                      >
+                        ₱{value.toLocaleString()}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-3 p-2 bg-red-50 rounded-lg border border-red-100">
+                    <div className="text-center">
+                      <span className="text-sm text-gray-600">Selected Amount: </span>
+                      <span className="font-bold text-red-700">
+                        {formatCurrency(parseFloat(amount) || 0)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -355,20 +381,31 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
                   <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="term">
                     Loan Term
                   </label>
-                  <select
-                    id="term"
-                    value={term}
-                    onChange={(e) => setTerm(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                    required
-                  >
-                    <option value="">Select term</option>
-                    {selectedPlan.termOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option} month{option !== 1 ? 's' : ''}
-                      </option>
-                    ))}
-                  </select>
+                  {selectedPlan.termOptions.length > 1 ? (
+                    <select
+                      id="term"
+                      value={term}
+                      onChange={(e) => setTerm(e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      required
+                    >
+                      <option value="">Select term</option>
+                      {selectedPlan.termOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option} month{option !== 1 ? 's' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Selected Term:</span>
+                        <span className="font-semibold text-gray-800">
+                          {term} month{parseInt(term) !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end space-x-3">

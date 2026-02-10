@@ -48,9 +48,18 @@ const LogoutIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Navigation items with icons
-const navigationItems = [
+// Base navigation items with icons
+const baseNavigationItems = [
   { name: 'Dashboard', path: '/dashboard', icon: HomeIcon },
+  { name: 'Loan', path: '/loan', icon: CreditCardIcon },
+  { name: 'Savings', path: '/savings', icon: PiggyBankIcon },
+  { name: 'Profile', path: '/profile', icon: UserIcon },
+  { name: 'About', path: '/about', icon: InfoIcon },
+];
+
+// Driver/Operator specific navigation items
+const driverOperatorNavItems = [
+  { name: 'Dashboard', path: '/driver/dashboard', icon: HomeIcon },
   { name: 'Loan', path: '/loan', icon: CreditCardIcon },
   { name: 'Savings', path: '/savings', icon: PiggyBankIcon },
   { name: 'Profile', path: '/profile', icon: UserIcon },
@@ -79,7 +88,21 @@ export default function CollapsibleSidebar({
   onToggle: () => void; 
 }) {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  
+  // Determine which navigation items to use based on user role
+  const role = user?.role?.toLowerCase().trim() || '';
+  const isDriverOrOperator = role === 'driver' || role === 'operator';
+  
+  // Use driver/operator specific paths if applicable
+  const navigationItems = isDriverOrOperator 
+    ? driverOperatorNavItems.map(item => ({
+        ...item,
+        path: role === 'operator' && item.path === '/driver/dashboard' 
+          ? '/operator/dashboard' 
+          : item.path
+      }))
+    : baseNavigationItems;
 
   // Handle user logout
   const handleLogout = () => {
@@ -121,13 +144,13 @@ export default function CollapsibleSidebar({
                 <li key={item.path}>
                   <Link
                     href={item.path}
-                    className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
+                    className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                       pathname === item.path
-                        ? 'bg-red-600 text-white font-medium'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        ? 'bg-red-600 text-white font-semibold shadow-md border-l-4 border-red-800'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-red-600'
                     }`}
                   >
-                    <Icon className="h-5 w-5" />
+                    <Icon className={`h-5 w-5 ${pathname === item.path ? 'text-white' : ''}`} />
                     {!collapsed && (
                       <span className="ml-3">{item.name}</span>
                     )}

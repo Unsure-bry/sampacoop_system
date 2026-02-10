@@ -9,59 +9,142 @@ interface DashboardStats {
   totalMembers: number;
   activeLoans: number;
   loanRequests: number;
+  totalSavings: number;
+  totalLoans: number;
+  approvedLoans: number;
+  rejectedLoans: number;
+  completedLoans: number;
 }
 
 export default function OfficerDashboard({ role }: { role: string }) {
   const [stats, setStats] = useState<DashboardStats>({
     totalMembers: 0,
     activeLoans: 0,
-    loanRequests: 0
+    loanRequests: 0,
+    totalSavings: 0,
+    totalLoans: 0,
+    approvedLoans: 0,
+    rejectedLoans: 0,
+    completedLoans: 0
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        
         // Fetch total members from members collection
         const membersResult = await firestore.getCollection('members');
-        const totalMembers = membersResult.success && membersResult.data ? membersResult.data.length : 0;
+        if (!membersResult.success) {
+          throw new Error(`Failed to fetch members: ${membersResult.error || 'Unknown error'}`);
+        }
+        const totalMembers = membersResult.data ? membersResult.data.length : 0;
 
         // Fetch active loans from loans collection where status is "active"
         const activeLoansResult = await firestore.queryDocuments(
           'loans',
           [{ field: 'status', operator: '==', value: 'active' }]
         );
-        const activeLoans = activeLoansResult.success && activeLoansResult.data ? activeLoansResult.data.length : 0;
+        if (!activeLoansResult.success) {
+          throw new Error(`Failed to fetch active loans: ${activeLoansResult.error || 'Unknown error'}`);
+        }
+        const activeLoans = activeLoansResult.data ? activeLoansResult.data.length : 0;
 
         // Fetch pending loan requests from loanRequests collection where status is "pending"
         const loanRequestsResult = await firestore.queryDocuments(
           'loanRequests',
           [{ field: 'status', operator: '==', value: 'pending' }]
         );
-        const loanRequests = loanRequestsResult.success && loanRequestsResult.data ? loanRequestsResult.data.length : 0;
+        if (!loanRequestsResult.success) {
+          throw new Error(`Failed to fetch loan requests: ${loanRequestsResult.error || 'Unknown error'}`);
+        }
+        const loanRequests = loanRequestsResult.data ? loanRequestsResult.data.length : 0;
 
         // Check loans collection for pending status as well, and combine with loanRequests if needed
         const pendingLoansResult = await firestore.queryDocuments(
           'loans',
           [{ field: 'status', operator: '==', value: 'pending' }]
         );
-        const pendingLoans = pendingLoansResult.success && pendingLoansResult.data ? pendingLoansResult.data.length : 0;
+        if (!pendingLoansResult.success) {
+          throw new Error(`Failed to fetch pending loans: ${pendingLoansResult.error || 'Unknown error'}`);
+        }
+        const pendingLoans = pendingLoansResult.data ? pendingLoansResult.data.length : 0;
         
         // Use the sum of loan requests and pending loans
         const totalLoanRequests = loanRequests + pendingLoans;
         
+        // Fetch additional stats
+        const totalLoansResult = await firestore.getCollection('loans');
+        if (!totalLoansResult.success) {
+          throw new Error(`Failed to fetch total loans: ${totalLoansResult.error || 'Unknown error'}`);
+        }
+        const totalLoans = totalLoansResult.data ? totalLoansResult.data.length : 0;
+        
+        const approvedLoansResult = await firestore.queryDocuments(
+          'loans',
+          [{ field: 'status', operator: '==', value: 'approved' }]
+        );
+        if (!approvedLoansResult.success) {
+          throw new Error(`Failed to fetch approved loans: ${approvedLoansResult.error || 'Unknown error'}`);
+        }
+        const approvedLoans = approvedLoansResult.data ? approvedLoansResult.data.length : 0;
+        
+        const rejectedLoansResult = await firestore.queryDocuments(
+          'loans',
+          [{ field: 'status', operator: '==', value: 'rejected' }]
+        );
+        if (!rejectedLoansResult.success) {
+          throw new Error(`Failed to fetch rejected loans: ${rejectedLoansResult.error || 'Unknown error'}`);
+        }
+        const rejectedLoans = rejectedLoansResult.data ? rejectedLoansResult.data.length : 0;
+        
+        const completedLoansResult = await firestore.queryDocuments(
+          'loans',
+          [{ field: 'status', operator: '==', value: 'completed' }]
+        );
+        if (!completedLoansResult.success) {
+          throw new Error(`Failed to fetch completed loans: ${completedLoansResult.error || 'Unknown error'}`);
+        }
+        const completedLoans = completedLoansResult.data ? completedLoansResult.data.length : 0;
+        
+        // Fetch total savings by calculating from members' savings data
+        const membersResultForSavings = await firestore.getCollection('members');
+        let totalSavings = 0;
+        
+        if (membersResultForSavings.success && membersResultForSavings.data) {
+          for (const member of membersResultForSavings.data) {
+            // Assuming members have a savings property or we calculate from their transactions
+            const memberSavings = (member as any).savings?.total || 0;
+            totalSavings += memberSavings;
+          }
+        }
+        
         setStats({
           totalMembers,
           activeLoans,
-          loanRequests: totalLoanRequests
+          loanRequests: totalLoanRequests,
+          totalSavings,
+          totalLoans,
+          approvedLoans,
+          rejectedLoans,
+          completedLoans
         });
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
         // Set default values in case of error
         setStats({
           totalMembers: 0,
           activeLoans: 0,
-          loanRequests: 0
+          loanRequests: 0,
+          totalSavings: 0,
+          totalLoans: 0,
+          approvedLoans: 0,
+          rejectedLoans: 0,
+          completedLoans: 0
         });
       } finally {
         setLoading(false);
@@ -85,13 +168,54 @@ export default function OfficerDashboard({ role }: { role: string }) {
           <h1 className="text-3xl font-bold text-gray-900">{capitalizeRole(role)} Dashboard</h1>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[...Array(3)].map((_, idx) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, idx) => (
             <div key={idx} className="bg-white rounded-lg shadow p-6 animate-pulse">
               <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
               <div className="h-8 bg-gray-200 rounded w-1/2"></div>
             </div>
           ))}
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-lg shadow p-6 animate-pulse">
+            <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="space-y-4">
+              {[...Array(3)].map((_, idx) => (
+                <div key={idx} className="h-4 bg-gray-200 rounded w-full"></div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-6 animate-pulse">
+            <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="grid grid-cols-2 gap-4">
+              {[...Array(4)].map((_, idx) => (
+                <div key={idx} className="h-16 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-gray-900">{capitalizeRole(role)} Dashboard</h1>
+        </div>
+        
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <h3 className="text-lg font-medium text-red-800 mb-2">Error Loading Dashboard Data</h3>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -103,7 +227,7 @@ export default function OfficerDashboard({ role }: { role: string }) {
         <h1 className="text-3xl font-bold text-gray-900">{capitalizeRole(role)} Dashboard</h1>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card>
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
             <h3 className="text-sm font-medium text-gray-800">Total Members</h3>
@@ -128,12 +252,67 @@ export default function OfficerDashboard({ role }: { role: string }) {
 
         <Card>
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="text-sm font-medium text-gray-800">Loan Requests</h3>
+            <h3 className="text-sm font-medium text-gray-800">Pending Requests</h3>
             <FileText className="h-4 w-4 text-gray-500" />
           </div>
           <div className="p-6">
             <div className="text-2xl font-bold">{stats.loanRequests}</div>
             <p className="text-xs text-gray-500">Pending loan applications</p>
+          </div>
+        </Card>
+        
+        <Card>
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <h3 className="text-sm font-medium text-gray-800">Total Loans</h3>
+            <DollarSign className="h-4 w-4 text-gray-500" />
+          </div>
+          <div className="p-6">
+            <div className="text-2xl font-bold">{stats.totalLoans}</div>
+            <p className="text-xs text-gray-500">Total loan applications</p>
+          </div>
+        </Card>
+        
+        <Card>
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <h3 className="text-sm font-medium text-gray-800">Approved Loans</h3>
+            <FileText className="h-4 w-4 text-gray-500" />
+          </div>
+          <div className="p-6">
+            <div className="text-2xl font-bold">{stats.approvedLoans}</div>
+            <p className="text-xs text-gray-500">Approved loan applications</p>
+          </div>
+        </Card>
+        
+        <Card>
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <h3 className="text-sm font-medium text-gray-800">Rejected Loans</h3>
+            <FileText className="h-4 w-4 text-gray-500" />
+          </div>
+          <div className="p-6">
+            <div className="text-2xl font-bold">{stats.rejectedLoans}</div>
+            <p className="text-xs text-gray-500">Rejected loan applications</p>
+          </div>
+        </Card>
+        
+        <Card>
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <h3 className="text-sm font-medium text-gray-800">Completed Loans</h3>
+            <DollarSign className="h-4 w-4 text-gray-500" />
+          </div>
+          <div className="p-6">
+            <div className="text-2xl font-bold">{stats.completedLoans}</div>
+            <p className="text-xs text-gray-500">Completed loan agreements</p>
+          </div>
+        </Card>
+        
+        <Card>
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <h3 className="text-sm font-medium text-gray-800">Total Savings</h3>
+            <DollarSign className="h-4 w-4 text-gray-500" />
+          </div>
+          <div className="p-6">
+            <div className="text-2xl font-bold">₱{stats.totalSavings.toLocaleString()}</div>
+            <p className="text-xs text-gray-500">Total savings in the system</p>
           </div>
         </Card>
       </div>

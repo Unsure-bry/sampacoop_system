@@ -8,6 +8,8 @@ import {
   getUserSavingsTransactions,
   getUserSavingsBalance
 } from '@/lib/savingsService';
+import { firestore } from '@/lib/firebase';
+import { getMemberByUserId } from '@/lib/userMemberService';
 
 interface ActiveSavingsProps {
   compact?: boolean;
@@ -17,7 +19,50 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
   const { user, loading: authLoading } = useAuth();
   const [transactions, setTransactions] = useState<SavingsTransaction[]>([]);
   const [totalSavings, setTotalSavings] = useState(0);
+  const [memberSavingsCredit, setMemberSavingsCredit] = useState<number>(0);
   const [dataLoading, setDataLoading] = useState(true);
+
+  // Fetch savings transactions function
+  const fetchSavingsTransactions = async () => {
+    try {
+      if (!user) return;
+      
+      setDataLoading(true);
+      
+      // Use the savings service to get user's savings transactions
+      const userTransactions = await getUserSavingsTransactions(user.uid);
+      
+      // Sort by date descending for display (newest first)
+      const sortedTransactions = userTransactions.sort((a, b) => 
+        new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime()
+      );
+      
+      setTransactions(sortedTransactions);
+      
+      // Get the current balance using the savings service
+      const currentBalance = await getUserSavingsBalance(user.uid);
+      setTotalSavings(currentBalance);
+      
+      // Fetch member data to get savings credit
+      const memberData = await getMemberByUserId(user.uid);
+      if (memberData && memberData.paymentInfo && memberData.paymentInfo.savingsCredit) {
+        setMemberSavingsCredit(memberData.paymentInfo.savingsCredit);
+      } else {
+        setMemberSavingsCredit(0);
+      }
+    } catch (error) {
+      console.error('Error fetching savings transactions:', error);
+      // Set defaults on error
+      setTransactions([]);
+      setTotalSavings(0);
+      setMemberSavingsCredit(0);
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
+  // Track previous transactions to detect new ones
+  const [previousTransactionIds, setPreviousTransactionIds] = useState<Set<string>>(new Set());
 
   // Function to refresh data
   const refreshData = async () => {
@@ -51,6 +96,24 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
     }
   }, [user]);
 
+  // Effect to handle new transactions and create notifications
+  useEffect(() => {
+    if (transactions.length > 0 && user) {
+      // Identify new transactions that weren't seen before
+      const newTransactions = transactions.filter(transaction => {
+        const transactionId = transaction.id || `${transaction.amount}-${transaction.createdAt || transaction.date}`;
+        return !previousTransactionIds.has(transactionId);
+      });
+      
+      // Create notifications for new transactions
+      newTransactions.forEach(async (transaction) => {
+        const transactionId = transaction.id || `${transaction.amount}-${transaction.createdAt || transaction.date}`;
+        setPreviousTransactionIds(prev => new Set(prev).add(transactionId));
+        await createSavingsNotification(user.uid, transaction);
+      });
+    }
+  }, [transactions, user, previousTransactionIds]);
+
   // Expose refresh function to parent components if needed
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -64,32 +127,28 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
     };
   }, [refreshData]);
 
-  const fetchSavingsTransactions = async () => {
+  // Function to create notifications for savings transactions
+  const createSavingsNotification = async (userId: string, transaction: SavingsTransaction) => {
     try {
-      if (!user) return;
+      const notificationData = {
+        userId: userId,
+        userRole: user?.role || 'member',
+        title: 'Savings Transaction',
+        message: `A ${transaction.type} of ${formatCurrency(transaction.amount)} has been processed to your savings account.`,
+        type: 'savings',
+        status: 'unread',
+        createdAt: new Date().toISOString(),
+        relatedEntity: {
+          type: 'savings_transaction',
+          id: transaction.id
+        }
+      };
       
-      setDataLoading(true);
-      
-      // Use the savings service to get user's savings transactions
-      const userTransactions = await getUserSavingsTransactions(user.uid);
-      
-      // Sort by date descending for display (newest first)
-      const sortedTransactions = userTransactions.sort((a, b) => 
-        new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime()
-      );
-      
-      setTransactions(sortedTransactions);
-      
-      // Get the current balance using the savings service
-      const currentBalance = await getUserSavingsBalance(user.uid);
-      setTotalSavings(currentBalance);
+      // Generate a unique ID for the notification
+      const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      await firestore.setDocument('notifications', notificationId, notificationData);
     } catch (error) {
-      console.error('Error fetching savings transactions:', error);
-      // Set defaults on error
-      setTransactions([]);
-      setTotalSavings(0);
-    } finally {
-      setDataLoading(false);
+      console.error('Error creating savings notification:', error);
     }
   };
 
@@ -157,7 +216,18 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
           <div className="text-4xl font-bold text-gray-800 mb-2">
             {dataLoading ? '...' : formatCurrency(totalSavings)}
           </div>
-          <p className="text-gray-600 mb-4">Current Savings Balance</p>
+          <p className="text-gray-600 mb-2">Current Savings Balance</p>
+          
+          {/* Show member's savings credit if available */}
+          {user?.role && (user.role.toLowerCase() === 'driver' || user.role.toLowerCase() === 'operator') && (
+            <div className="text-2xl font-bold text-blue-600 mb-2">
+              {dataLoading ? '...' : formatCurrency(memberSavingsCredit)}
+            </div>
+          )}
+          {user?.role && (user.role.toLowerCase() === 'driver' || user.role.toLowerCase() === 'operator') && (
+            <p className="text-blue-600 mb-4">Savings Credit</p>
+          )}
+          
           <div className="flex flex-col space-y-2">
             <button 
               onClick={() => {
@@ -186,16 +256,25 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
   return (
     <div className="bg-white rounded-xl shadow-md p-6">
       <div className="flex justify-between items-center mb-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col">
           <h2 className="text-xl font-semibold text-gray-800">Recent Savings Transactions</h2>
-          <button 
-            onClick={refreshData}
-            disabled={dataLoading}
-            className="px-3 py-1 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {dataLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
+          
+          {/* Show member's savings credit if available for drivers/operators */}
+          {user?.role && (user.role.toLowerCase() === 'driver' || user.role.toLowerCase() === 'operator') && (
+            <div className="flex items-center mt-2">
+              <span className="text-sm text-gray-600 mr-2">Savings Credit:</span>
+              <span className="text-lg font-semibold text-blue-600">{dataLoading ? '...' : formatCurrency(memberSavingsCredit)}</span>
+            </div>
+          )}
         </div>
+        
+        <button 
+          onClick={refreshData}
+          disabled={dataLoading}
+          className="px-3 py-1 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {dataLoading ? 'Refreshing...' : 'Refresh'}
+        </button>
       </div>
       
       {dataLoading ? (
@@ -234,7 +313,22 @@ export default function ActiveSavings({ compact = false }: ActiveSavingsProps) {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {transactions.slice(0, 5).map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-gray-50">
+                  <tr 
+                    key={transaction.id} 
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => {
+                      // Show transaction details in an alert
+                      const transactionDetails = `
+Transaction Details:
+
+Date: ${formatDate(transaction.createdAt || transaction.date)}
+Type: ${transaction.type === 'deposit' ? 'Deposit' : 'Withdrawal'}
+Amount: ${transaction.type === 'deposit' ? '+' : '-'}${formatCurrency(transaction.amount)}
+Balance: ${formatCurrency(transaction.balance || 0)}
+`;
+                      alert(transactionDetails);
+                    }}
+                  >
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(transaction.createdAt || transaction.date)}
                     </td>

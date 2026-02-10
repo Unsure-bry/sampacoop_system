@@ -3,8 +3,7 @@
 import { useAuth } from '@/lib/auth';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card } from '@/components/admin';
-import { Users } from 'lucide-react';
+import MemberRecords from '@/components/admin/MemberRecords';
 
 export default function ViceChairmanMembersPage() {
   const { user, loading } = useAuth();
@@ -28,21 +27,7 @@ export default function ViceChairmanMembersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Member Records</h1>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6">
-        <Card>
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-800">Member Overview</h3>
-          </div>
-          <div className="p-6">
-            <p className="text-gray-600">View and manage all member records and statistics here.</p>
-            {/* Add member records functionality here */}
-          </div>
-        </Card>
-      </div>
+      <MemberRecords />
     </div>
   );
 }

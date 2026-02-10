@@ -36,15 +36,6 @@ export default function UserSavingsPage() {
   const [pageSize, setPageSize] = useState(10);
   const { user } = useAuth();
 
-  useEffect(() => {
-    if (user) {
-      fetchSavingsTransactions();
-    } else {
-      setTransactions([]);
-      setTotalSavings(0);
-    }
-  }, [user, fetchSavingsTransactions]);
-
   const fetchSavingsTransactions = useCallback(async () => {
     try {
       setLoading(true);
@@ -108,6 +99,15 @@ export default function UserSavingsPage() {
       setLoading(false);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchSavingsTransactions();
+    } else {
+      setTransactions([]);
+      setTotalSavings(0);
+    }
+  }, [user, fetchSavingsTransactions]);
 
   const handleAddSavings = async (transactionData: { type: 'deposit' | 'withdrawal', amount: number, date: string, remarks: string }) => {
     try {

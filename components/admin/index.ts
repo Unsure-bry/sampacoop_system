@@ -9,3 +9,8 @@ export { default as MemberDetailsModal } from './MemberDetailsModal';
 export { default as MemberEditModal } from './MemberEditModal';
 export { default as MemberRegistrationModal } from './MemberRegistrationModal';
 export { default as LoanDetailsModal } from './LoanDetailsModal';
+export { default as ExecutiveDashboard } from './ExecutiveDashboard';
+export { default as MemberRecords } from './MemberRecords';
+export { default as LoanRecords } from './LoanRecords';
+export { default as SavingsRecords } from './SavingsRecords';
+export { default as ReportsAndAnalytics } from './ReportsAndAnalytics';
