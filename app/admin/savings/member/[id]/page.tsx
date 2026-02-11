@@ -26,12 +26,12 @@ export default function MemberSavingsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   
-  // Function to generate deposit control number in SMP-0000-000 format
+  // Function to generate deposit control number in SMP-YYYYMMDD-0000 format
   const generateDepositControlNumber = (index: number) => {
-    const timestamp = Date.now();
-    const sequential = (timestamp % 10000).toString().padStart(4, '0');
-    const idx = index.toString().padStart(3, '0');
-    return `SMP-${sequential}-${idx}`;
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD format
+    const sequential = index.toString().padStart(4, '0');
+    return `SMP-${dateStr}-${sequential}`;
   };
   const params = useParams();
   const router = useRouter();
@@ -121,19 +121,16 @@ export default function MemberSavingsPage() {
     }
   };
 
-  const handleAddSavings = async (transactionData: { type: 'deposit' | 'withdrawal', amount: number, remarks: string }) => {
+  const handleAddSavings = async (transactionData: { type: 'deposit' | 'withdrawal', amount: number, remarks: string, depositControlNumber?: string }) => {
     try {
       if (!member) {
         toast.error('Member not found');
         return false;
       }
       
-      // For admin operations, we need to find the corresponding user ID for this member
-      // We'll try to find the actual user ID that corresponds to this member using the service
-      // The service has multiple fallback methods to link user IDs to member IDs
-      
-      // Use the member ID as a proxy for the user ID in the service
-      // The service will handle the lookup using various methods
+      // For admin operations, we need to pass the memberId
+      // The savings service will handle the lookup and also extract the actual userId from member data
+      // for sending email receipts
       const effectiveUserId = memberId;
       
       // Use the savings service to add the transaction
@@ -144,7 +141,8 @@ export default function MemberSavingsPage() {
         type: transactionData.type,
         amount: parseFloat(transactionData.amount.toString()),
         balance: 0, // Will be calculated by the service
-        remarks: transactionData.remarks
+        remarks: transactionData.remarks,
+        depositControlNumber: transactionData.depositControlNumber
       });
       
       if (result.success) {

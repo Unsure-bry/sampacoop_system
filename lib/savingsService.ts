@@ -1,5 +1,6 @@
 import { firestore } from '@/lib/firebase';
 import { SavingsTransaction } from '@/lib/types/savings';
+import { sendSavingsDepositReceipt } from '@/lib/transactionReceiptService';
 
 /**
  * Service for handling savings transactions with atomic updates
@@ -361,6 +362,50 @@ export async function addSavingsTransaction(
     } catch (notifError) {
       console.error('Error creating savings notification:', notifError);
       // Don't fail the transaction if notification creation fails
+    }
+
+    // Send email receipt for deposits to Driver/Operator
+    if (newTransaction.type === 'deposit') {
+      try {
+        const memberResultForEmail = await firestore.getDocument('members', memberId);
+        const memberDataForEmail = memberResultForEmail.success && memberResultForEmail.data 
+          ? memberResultForEmail.data as any 
+          : {};
+        
+        const role = (memberDataForEmail.role || '').toLowerCase();
+        if (role === 'driver' || role === 'operator') {
+          // Use the actual userId from member data if available, otherwise fall back to passed userId
+          const actualUserId = memberDataForEmail.userId || userId;
+          
+          console.log('Sending savings deposit receipt email:', {
+            actualUserId,
+            amount: newTransaction.amount,
+            runningBalance,
+            depositControlNumber: newTransaction.depositControlNumber
+          });
+          
+          const receiptResult = await sendSavingsDepositReceipt(
+            actualUserId,
+            newTransaction.amount,
+            runningBalance,
+            newTransaction.depositControlNumber
+          );
+          
+          if (receiptResult.success) {
+            console.log('✅ Savings deposit receipt sent:', receiptResult.receiptNumber);
+          } else {
+            // Log error but don't fail the transaction - email is secondary to the actual savings transaction
+            console.error('❌ Failed to send savings deposit receipt:', receiptResult.error, receiptResult);
+            // Only show warning in console, not to user
+            if (receiptResult.receiptNumber === 'CONFIG_MISSING') {
+              console.warn('⚠️ EmailJS not configured. Email receipt was not sent, but savings transaction was successful.');
+            }
+          }
+        }
+      } catch (emailError) {
+        console.error('Error sending savings deposit receipt:', emailError);
+        // Don't fail the transaction if email sending fails
+      }
     }
 
     return { success: true, transactionId: newTransaction.id };

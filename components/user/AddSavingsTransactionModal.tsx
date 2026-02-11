@@ -75,9 +75,13 @@ export default function AddSavingsTransactionModal({ isOpen, onClose, onAddSavin
       return;
     }
     
-    // Generate deposit control number for deposits
+    // Generate deposit control number for deposits in SMP-YYYYMMDD-0000 format
     if (formData.type === 'deposit') {
-      const newDepositControlNumber = `DC-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD format
+      const timestamp = Date.now();
+      const sequential = (timestamp % 10000).toString().padStart(4, '0');
+      const newDepositControlNumber = `SMP-${dateStr}-${sequential}`;
       setDepositControlNumber(newDepositControlNumber);
       
       // Store transaction data for confirmation

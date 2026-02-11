@@ -9,9 +9,10 @@ import { LoanPlan } from '@/lib/types/loan';
 interface LoanActionsProps {
   loanPlans?: LoanPlan[];
   onLoanApplied?: () => void;
+  hasActiveLoan?: boolean;
 }
 
-export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActionsProps) {
+export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLoan = false }: LoanActionsProps) {
   const { user } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<LoanPlan | null>(null);
   const [amount, setAmount] = useState('');
@@ -36,25 +37,28 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
   };
 
   const calculateAmortization = (principal: number, monthlyInterestRate: number, termMonths: number) => {
-    const dailyInterestRate = monthlyInterestRate / 100 / 30;
-    const totalDays = termMonths * 30; // Approximate 30 days per month
+    const totalDays = termMonths * 30; // 30 days per month
     
-    // Calculate daily payment using standard loan formula adjusted for daily payments
-    const dailyPayment = principal * 
-      (dailyInterestRate * Math.pow(1 + dailyInterestRate, totalDays)) / 
-      (Math.pow(1 + dailyInterestRate, totalDays) - 1);
+    // Calculate total interest: Amount × Interest Rate
+    const totalInterest = principal * (monthlyInterestRate / 100);
+    
+    // Calculate daily payment using formula: (Amount + Total Interest) / Number of days
+    const dailyPayment = (principal + totalInterest) / totalDays;
     
     const schedule = [];
-    let remainingBalance = principal;
+    let remainingBalance = principal + totalInterest;
     const startDate = new Date();
     
     for (let day = 1; day <= totalDays; day++) {
       const paymentDate = new Date(startDate);
       paymentDate.setDate(startDate.getDate() + day);
       
-      const interestPayment = remainingBalance * dailyInterestRate;
+      // Calculate interest portion for this day (total interest divided by days)
+      const interestPayment = totalInterest / totalDays;
+      // Principal portion is the rest of the daily payment
       const principalPayment = dailyPayment - interestPayment;
-      remainingBalance -= principalPayment;
+      
+      remainingBalance -= dailyPayment;
       
       // Ensure remaining balance doesn't go negative due to rounding
       if (remainingBalance < 0) remainingBalance = 0;
@@ -281,7 +285,23 @@ export default function LoanActions({ loanPlans = [], onLoanApplied }: LoanActio
       <div>
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">Available Loan Plans</h2>
         
-        {loanPlans.length === 0 ? (
+        {hasActiveLoan ? (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+            <div className="flex items-start gap-4">
+              <div className="shrink-0 mt-0.5">
+                <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-yellow-800 mb-1">Loan Application Unavailable</h3>
+                <p className="text-yellow-700">
+                  You currently have an active loan. You can apply for a new loan once your current loan is completed.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : loanPlans.length === 0 ? (
           <div className="bg-white rounded-xl shadow-md p-6 text-center">
             <p className="text-gray-500">No loan plans available at the moment.</p>
           </div>

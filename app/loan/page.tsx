@@ -3,16 +3,19 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import { firestore } from '@/lib/firebase';
+import { firestore, db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { LoanPlan } from '@/lib/types/loan';
 import { ActiveLoans, LoanActions, LoanRecords } from '@/components';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 export default function LoanPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [loanPlans, setLoanPlans] = useState<LoanPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
+  const [hasActiveLoan, setHasActiveLoan] = useState(false);
+  const [activeLoanCheckLoading, setActiveLoanCheckLoading] = useState(true);
 
   // Remove the redirect effect - middleware handles authentication
   // useEffect(() => {
@@ -26,6 +29,36 @@ export default function LoanPage() {
       fetchLoanPlans();
     }
   }, [user, loading]);
+
+  // Real-time listener for active loans
+  useEffect(() => {
+    if (!user?.uid || !db) {
+      setActiveLoanCheckLoading(false);
+      return;
+    }
+
+    setActiveLoanCheckLoading(true);
+
+    // Set up real-time listener for active loans
+    const loansQuery = query(
+      collection(db, 'loans'),
+      where('userId', '==', user.uid),
+      where('status', '==', 'active')
+    );
+
+    const unsubscribe = onSnapshot(loansQuery, (snapshot) => {
+      const hasActive = !snapshot.empty;
+      setHasActiveLoan(hasActive);
+      setActiveLoanCheckLoading(false);
+    }, (error) => {
+      console.error('Error listening to active loans:', error);
+      setHasActiveLoan(false);
+      setActiveLoanCheckLoading(false);
+    });
+
+    // Clean up listener on unmount
+    return () => unsubscribe();
+  }, [user]);
 
   const fetchLoanPlans = async () => {
     try {
@@ -109,9 +142,10 @@ export default function LoanPage() {
   const handleLoanApplied = () => {
     // Refresh loan plans or show success message
     toast.success('Loan application submitted successfully!');
+    // Active loan status is now automatically updated via real-time listener
   };
 
-  if (loading) {
+  if (loading || activeLoanCheckLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
@@ -126,7 +160,8 @@ export default function LoanPage() {
       {/* Use the new LoanActions component */}
       <LoanActions 
         loanPlans={loanPlans} 
-        onLoanApplied={handleLoanApplied} 
+        onLoanApplied={handleLoanApplied}
+        hasActiveLoan={hasActiveLoan}
       />
       
       <div className="mt-8">

@@ -1,12 +1,38 @@
 import emailjs from '@emailjs/browser';
 
-// Initialize EmailJS with your public key
-const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '';
-const EMAILJS_SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '';
-const EMAILJS_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || '';
+// EmailJS Configuration - fetch from environment variables
+const getEmailJSConfig = () => {
+  // For client-side rendering
+  if (typeof window !== 'undefined') {
+    return {
+      publicKey: process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '',
+      serviceId: process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
+      templateId: process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || ''
+    };
+  }
+  // For server-side, return empty strings
+  return {
+    publicKey: '',
+    serviceId: '',
+    templateId: ''
+  };
+};
 
-// Initialize EmailJS
-emailjs.init(EMAILJS_PUBLIC_KEY);
+// Initialize EmailJS on client side only
+const initEmailJS = () => {
+  if (typeof window !== 'undefined') {
+    const config = getEmailJSConfig();
+    if (config.publicKey) {
+      emailjs.init(config.publicKey);
+      console.log('EmailJS initialized successfully');
+    } else {
+      console.warn('EmailJS public key not found. Email functionality will not work.');
+    }
+  }
+};
+
+// Initialize on module load
+initEmailJS();
 
 interface EmailData {
   to_name?: string;
@@ -18,13 +44,14 @@ interface EmailData {
 
 export const sendEmail = async (templateId: string, emailData: EmailData): Promise<boolean> => {
   try {
-    if (!EMAILJS_SERVICE_ID || !templateId || !EMAILJS_PUBLIC_KEY) {
+    const config = getEmailJSConfig();
+    if (!config.serviceId || !templateId || !config.publicKey) {
       console.error('EmailJS configuration is missing');
       return false;
     }
 
     const response = await emailjs.send(
-      EMAILJS_SERVICE_ID,
+      config.serviceId,
       templateId,
       emailData
     );
@@ -63,7 +90,8 @@ Best regards,
 SAMPA Cooperative Team`
   };
 
-  return sendEmail(EMAILJS_TEMPLATE_ID, emailData);
+  const config = getEmailJSConfig();
+  return sendEmail(config.templateId, emailData);
 };
 
 // Send email with auto-generated password (alternative approach)
@@ -88,7 +116,8 @@ Best regards,
 SAMPA Cooperative Team`
   };
 
-  return sendEmail(EMAILJS_TEMPLATE_ID, emailData);
+  const config = getEmailJSConfig();
+  return sendEmail(config.templateId, emailData);
 };
 
 export const sendLoanApprovalEmail = async (email: string, name: string, loanId: string) => {
@@ -109,5 +138,6 @@ Best regards,
 SAMPA Cooperative Team`
   };
 
-  return sendEmail(EMAILJS_TEMPLATE_ID, emailData);
+  const config = getEmailJSConfig();
+  return sendEmail(config.templateId, emailData);
 };

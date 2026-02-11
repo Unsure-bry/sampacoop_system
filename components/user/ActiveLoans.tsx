@@ -13,14 +13,37 @@ interface Loan {
   startDate: string;
   interest: number;
   status: string;
-  paymentSchedule?: any[];
+  planName?: string;
+  paymentSchedule?: PaymentScheduleItem[];
 }
 
-export default function ActiveLoans() {
+interface PaymentScheduleItem {
+  day: number;
+  paymentDate: string;
+  principal: number;
+  interest: number;
+  totalPayment: number;
+  remainingBalance: number;
+  status?: 'pending' | 'paid' | 'partial';
+}
+
+interface ActiveLoansProps {
+  onLoanStatusChange?: () => void;
+}
+
+export default function ActiveLoans({ onLoanStatusChange }: ActiveLoansProps) {
   const { user } = useAuth();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Selected loan for amortization view
+  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [schedulePage, setSchedulePage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     if (user) {
@@ -54,6 +77,10 @@ export default function ActiveLoans() {
           ...doc
         }));
         setLoans(loansData);
+        // Notify parent component about loan status change
+        if (onLoanStatusChange) {
+          onLoanStatusChange();
+        }
       } else {
         // Handle case where query was successful but no data was found
         setLoans([]);
@@ -61,11 +88,19 @@ export default function ActiveLoans() {
           console.error('Query returned error:', result.error);
           setError('No active loans found');
         }
+        // Notify parent component about loan status change (no active loans)
+        if (onLoanStatusChange) {
+          onLoanStatusChange();
+        }
       }
     } catch (error: any) {
       console.error('Error fetching active loans:', error);
       setError(error.message || 'Failed to load active loans');
       toast.error('Failed to load active loans. Please try again later.');
+      // Notify parent component about loan status change (error state)
+      if (onLoanStatusChange) {
+        onLoanStatusChange();
+      }
     } finally {
       setLoading(false);
     }
@@ -85,6 +120,45 @@ export default function ActiveLoans() {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const handleLoanClick = (loan: Loan) => {
+    setSelectedLoan(loan);
+    setSchedulePage(1); // Reset schedule pagination
+  };
+
+  const getStatusBadgeClass = (status?: string) => {
+    switch (status) {
+      case 'paid':
+        return 'bg-green-100 text-green-800';
+      case 'partial':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'pending':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Calculate pagination for loans table
+  const totalLoanPages = Math.ceil(loans.length / itemsPerPage);
+  const indexOfLastLoan = currentPage * itemsPerPage;
+  const indexOfFirstLoan = indexOfLastLoan - itemsPerPage;
+  const currentLoans = loans.slice(indexOfFirstLoan, indexOfLastLoan);
+
+  // Calculate pagination for schedule
+  const scheduleItems = selectedLoan?.paymentSchedule || [];
+  const totalSchedulePages = Math.ceil(scheduleItems.length / itemsPerPage);
+  const indexOfLastScheduleItem = schedulePage * itemsPerPage;
+  const indexOfFirstScheduleItem = indexOfLastScheduleItem - itemsPerPage;
+  const currentScheduleItems = scheduleItems.slice(indexOfFirstScheduleItem, indexOfLastScheduleItem);
+
+  const handleLoanPageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const handleSchedulePageChange = (pageNumber: number) => {
+    setSchedulePage(pageNumber);
   };
 
   if (loading) {
@@ -131,45 +205,196 @@ export default function ActiveLoans() {
           <p className="text-gray-500">You don't have any active loans at the moment.</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {loans.map((loan) => (
-            <div key={loan.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-medium text-gray-800">Loan Details</h3>
-                  <div className="mt-2 space-y-1 text-sm">
-                    <p><span className="text-gray-600">Amount:</span> <span className="font-medium">{formatCurrency(loan.amount)}</span></p>
-                    <p><span className="text-gray-600">Term:</span> <span className="font-medium">{loan.term} months</span></p>
-                    <p><span className="text-gray-600">Interest Rate:</span> <span className="font-medium">{loan.interest}%</span></p>
-                    <p><span className="text-gray-600">Start Date:</span> <span className="font-medium">{formatDate(loan.startDate)}</span></p>
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="font-medium text-gray-800">Payment Schedule</h3>
-                  <div className="mt-2 text-sm">
-                    <p className="text-gray-600">Monthly Payment: <span className="font-medium">
-                      {loan.paymentSchedule && loan.paymentSchedule.length > 0 
-                        ? formatCurrency(loan.paymentSchedule[0].totalPayment) 
-                        : formatCurrency(loan.amount * (1 + loan.interest / 100) / loan.term)}
-                    </span></p>
-                    <p className="text-gray-600">Next Payment: <span className="font-medium">
-                      {loan.paymentSchedule && loan.paymentSchedule.length > 0 
-                        ? formatDate(loan.paymentSchedule[0].paymentDate) 
-                        : 'N/A'}
-                    </span></p>
-                    <p className="text-gray-600 mt-1">
-                      <span className="font-medium">
-                        {loan.paymentSchedule 
-                          ? `${loan.paymentSchedule.filter((p: any) => p.status !== 'paid').length} payments remaining` 
-                          : 'N/A'}
+        <div className="space-y-6">
+          {/* Loans Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Loan Plan
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Term
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Interest
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Start Date
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {currentLoans.map((loan) => (
+                  <tr 
+                    key={loan.id} 
+                    className={`cursor-pointer transition-colors ${
+                      selectedLoan?.id === loan.id 
+                        ? 'bg-red-50 hover:bg-red-100' 
+                        : 'hover:bg-gray-50'
+                    }`}
+                    onClick={() => handleLoanClick(loan)}
+                  >
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {loan.planName || 'Active Loan'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      {formatCurrency(loan.amount)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      {loan.term} months
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      {loan.interest}%
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(loan.startDate)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                        Active
                       </span>
-                    </p>
-                  </div>
-                </div>
-              </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Loans Pagination */}
+          {totalLoanPages > 1 && (
+            <div className="flex justify-center items-center space-x-2">
+              <button
+                onClick={() => handleLoanPageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600">
+                Page {currentPage} of {totalLoanPages}
+              </span>
+              <button
+                onClick={() => handleLoanPageChange(currentPage + 1)}
+                disabled={currentPage === totalLoanPages}
+                className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Next
+              </button>
             </div>
-          ))}
+          )}
+
+          {/* Amortization Schedule */}
+          {selectedLoan && (
+            <div className="mt-6 border-t pt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Payment Schedule for {selectedLoan.planName || 'Active Loan'}
+                </h3>
+                <button
+                  onClick={() => setSelectedLoan(null)}
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Close
+                </button>
+              </div>
+              
+              {scheduleItems.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">No payment schedule available.</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Day
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Payment Date
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Principal
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Interest
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Total Payment
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Remaining Balance
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {currentScheduleItems.map((item, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {item.day}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              {formatDate(item.paymentDate)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              {formatCurrency(item.principal)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              {formatCurrency(item.interest)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {formatCurrency(item.totalPayment)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {formatCurrency(item.remainingBalance)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(item.status)}`}>
+                                {item.status || 'pending'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Schedule Pagination */}
+                  {totalSchedulePages > 1 && (
+                    <div className="flex justify-center items-center space-x-2 mt-4">
+                      <button
+                        onClick={() => handleSchedulePageChange(schedulePage - 1)}
+                        disabled={schedulePage === 1}
+                        className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        Page {schedulePage} of {totalSchedulePages}
+                      </span>
+                      <button
+                        onClick={() => handleSchedulePageChange(schedulePage + 1)}
+                        disabled={schedulePage === totalSchedulePages}
+                        className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

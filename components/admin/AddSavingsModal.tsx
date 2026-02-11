@@ -5,7 +5,7 @@ import { useState } from 'react';
 interface AddSavingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddSavings: (data: { type: 'deposit' | 'withdrawal', amount: number, remarks: string }) => Promise<boolean>;
+  onAddSavings: (data: { type: 'deposit' | 'withdrawal', amount: number, remarks: string, depositControlNumber?: string }) => Promise<boolean>;
   currentBalance: number;
 }
 
@@ -67,10 +67,21 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
     
     setLoading(true);
     
+    // Generate deposit control number for deposits in SMP-YYYYMMDD-0000 format
+    let depositControlNumber: string | undefined;
+    if (formData.type === 'deposit') {
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD format
+      const timestamp = Date.now();
+      const sequential = (timestamp % 10000).toString().padStart(4, '0');
+      depositControlNumber = `SMP-${dateStr}-${sequential}`;
+    }
+    
     const success = await onAddSavings({
       type: formData.type,
       amount: parseFloat(formData.amount),
-      remarks: formData.remarks
+      remarks: formData.remarks,
+      depositControlNumber
     });
     
     setLoading(false);

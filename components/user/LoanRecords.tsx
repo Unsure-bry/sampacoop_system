@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 interface Loan {
   id: string;
@@ -26,6 +24,7 @@ interface AmortizationSchedule {
   interest: number;
   totalPayment: number;
   remainingBalance: number;
+  status?: 'pending' | 'paid' | 'partial';
 }
 
 export default function LoanRecords() {
@@ -35,6 +34,14 @@ export default function LoanRecords() {
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [amortizationSchedule, setAmortizationSchedule] = useState<AmortizationSchedule[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
+  
+  // Pagination for loans table
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  
+  // Pagination for amortization schedule
+  const [schedulePage, setSchedulePage] = useState(1);
+  const [scheduleItemsPerPage] = useState(10);
 
   useEffect(() => {
     if (user) {
@@ -125,23 +132,30 @@ export default function LoanRecords() {
   const handleViewSchedule = (loan: Loan) => {
     setScheduleLoading(true);
     setSelectedLoan(loan);
+    setSchedulePage(1); // Reset to first page when selecting a new loan
     
     // If the loan already has a payment schedule from the database, use it
     if (loan.paymentSchedule && loan.paymentSchedule.length > 0) {
-      // Map the payment schedule to ensure consistent structure
+      // Map the payment schedule to ensure consistent structure and include status
       const mappedSchedule = loan.paymentSchedule.map((item: any) => ({
         day: item.day !== undefined ? item.day : item.month,
         paymentDate: item.paymentDate,
         principal: item.principal,
         interest: item.interest,
         totalPayment: item.totalPayment,
-        remainingBalance: item.remainingBalance
+        remainingBalance: item.remainingBalance,
+        status: item.status || (loan.status === 'completed' ? 'paid' : 'pending')
       }));
       setAmortizationSchedule(mappedSchedule);
     } else {
-      // Otherwise, calculate the schedule dynamically
+      // Otherwise, calculate the schedule dynamically with status based on loan status
       const schedule = calculateAmortizationSchedule(loan);
-      setAmortizationSchedule(schedule);
+      // If loan is completed, mark all as paid, otherwise all pending
+      const scheduleWithStatus = schedule.map(item => ({
+        ...item,
+        status: loan.status === 'completed' ? 'paid' : 'pending' as 'paid' | 'pending'
+      }));
+      setAmortizationSchedule(scheduleWithStatus);
     }
     
     setScheduleLoading(false);
@@ -163,54 +177,37 @@ export default function LoanRecords() {
     });
   };
 
-  const exportToPDF = () => {
-    if (!selectedLoan || amortizationSchedule.length === 0) {
-      toast.error('No schedule to export');
-      return;
-    }
+  // Calculate pagination for loans
+  const totalLoanPages = Math.ceil(loans.length / itemsPerPage);
+  const indexOfLastLoan = currentPage * itemsPerPage;
+  const indexOfFirstLoan = indexOfLastLoan - itemsPerPage;
+  const currentLoans = loans.slice(indexOfFirstLoan, indexOfLastLoan);
 
-    const doc = new jsPDF();
-    
-    // Add title
-    doc.setFontSize(18);
-    doc.text('Amortization Schedule', 14, 20);
-    
-    // Add loan details
-    doc.setFontSize(12);
-    doc.text(`Loan ID: ${selectedLoan.id}`, 14, 30);
-    doc.text(`Plan: ${selectedLoan.planName || 'N/A'}`, 14, 36);
-    doc.text(`Loan Amount: ${formatCurrency(selectedLoan.amount)}`, 14, 42);
-    doc.text(`Interest Rate: ${selectedLoan.interest}%`, 14, 48);
-    doc.text(`Term: ${selectedLoan.term} months`, 14, 54);
-    doc.text(`Start Date: ${formatDate(selectedLoan.startDate)}`, 14, 60);
-    
-    // Add space before table
-    const startY = 68;
-    
-    // Add table
-    autoTable(doc, {
-      head: [['Day', 'Payment Date', 'Principal', 'Interest', 'Total Payment', 'Remaining Balance']],
-      body: amortizationSchedule.map(item => [
-        (item.day || '').toString(),
-        formatDate(item.paymentDate),
-        formatCurrency(item.principal),
-        formatCurrency(item.interest),
-        formatCurrency(item.totalPayment),
-        formatCurrency(item.remainingBalance)
-      ]),
-      startY: startY,
-      styles: { 
-        fontSize: 10,
-        cellPadding: 3 
-      },
-      headStyles: { 
-        fillColor: [220, 20, 60] // Red color for header
-      }
-    });
-    
-    // Save the PDF
-    doc.save(`Amortization-Schedule-${selectedLoan.id}.pdf`);
-    toast.success('PDF exported successfully!');
+  // Calculate pagination for amortization schedule
+  const totalSchedulePages = Math.ceil(amortizationSchedule.length / scheduleItemsPerPage);
+  const indexOfLastScheduleItem = schedulePage * scheduleItemsPerPage;
+  const indexOfFirstScheduleItem = indexOfLastScheduleItem - scheduleItemsPerPage;
+  const currentScheduleItems = amortizationSchedule.slice(indexOfFirstScheduleItem, indexOfLastScheduleItem);
+
+  const handleLoanPageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const handleSchedulePageChange = (pageNumber: number) => {
+    setSchedulePage(pageNumber);
+  };
+
+  const getStatusBadgeClass = (status?: string) => {
+    switch (status) {
+      case 'paid':
+        return 'bg-green-100 text-green-800';
+      case 'partial':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'pending':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
   if (loading) {
@@ -234,37 +231,96 @@ export default function LoanRecords() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {loans.map((loan) => (
-              <div 
-                key={loan.id} 
-                className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                  selectedLoan?.id === loan.id 
-                    ? 'border-red-500 bg-red-50' 
-                    : 'border-gray-200 hover:shadow-md'
-                }`}
-                onClick={() => handleViewSchedule(loan)}
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium text-gray-800">{loan.planName || 'Loan'}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{formatCurrency(loan.amount)}</p>
-                    <p className="text-xs text-gray-500">{loan.term} months • {loan.interest}%</p>
-                  </div>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    loan.status === 'active' 
-                      ? 'bg-green-100 text-green-800' 
-                      : loan.status === 'completed' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {loan.status}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">{formatDate(loan.startDate)}</p>
-              </div>
-            ))}
+          {/* Loans Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Loan Plan
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Term
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Interest
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Start Date
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {currentLoans.map((loan) => (
+                  <tr 
+                    key={loan.id} 
+                    className={`cursor-pointer transition-colors ${
+                      selectedLoan?.id === loan.id 
+                        ? 'bg-red-50 hover:bg-red-100' 
+                        : 'hover:bg-gray-50'
+                    }`}
+                    onClick={() => handleViewSchedule(loan)}
+                  >
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {loan.planName || 'Loan'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      {formatCurrency(loan.amount)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      {loan.term} months
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      {loan.interest}%
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(loan.startDate)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        loan.status === 'active' 
+                          ? 'bg-green-100 text-green-800' 
+                          : loan.status === 'completed' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {loan.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+
+          {/* Loans Pagination */}
+          {totalLoanPages > 1 && (
+            <div className="flex justify-center items-center space-x-2">
+              <button
+                onClick={() => handleLoanPageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600">
+                Page {currentPage} of {totalLoanPages}
+              </span>
+              <button
+                onClick={() => handleLoanPageChange(currentPage + 1)}
+                disabled={currentPage === totalLoanPages}
+                className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
           
           {selectedLoan && (
             <div className="mt-6 border-t pt-6">
@@ -272,17 +328,7 @@ export default function LoanRecords() {
                 <h3 className="text-lg font-semibold text-gray-800">
                   Amortization Schedule for {selectedLoan.planName || 'Loan'}
                 </h3>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={exportToPDF}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 0115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                    </svg>
-                    Export PDF
-                  </button>
-                </div>
+  
               </div>
               
               {scheduleLoading ? (
@@ -290,56 +336,89 @@ export default function LoanRecords() {
                   <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Day
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Payment Date
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Principal
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Interest
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Total Payment
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Remaining Balance
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {amortizationSchedule.map((item, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {item.day || ''}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(item.paymentDate)}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {formatCurrency(item.principal)}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {formatCurrency(item.interest)}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {formatCurrency(item.totalPayment)}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {formatCurrency(item.remainingBalance)}
-                          </td>
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Day
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Payment Date
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Principal
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Interest
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Total Payment
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Remaining Balance
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {currentScheduleItems.map((item, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {item.day || ''}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              {formatDate(item.paymentDate)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              {formatCurrency(item.principal)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              {formatCurrency(item.interest)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {formatCurrency(item.totalPayment)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {formatCurrency(item.remainingBalance)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(item.status)}`}>
+                                {item.status || 'pending'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Amortization Schedule Pagination */}
+                  {totalSchedulePages > 1 && (
+                    <div className="flex justify-center items-center space-x-2 mt-4">
+                      <button
+                        onClick={() => handleSchedulePageChange(schedulePage - 1)}
+                        disabled={schedulePage === 1}
+                        className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        Page {schedulePage} of {totalSchedulePages}
+                      </span>
+                      <button
+                        onClick={() => handleSchedulePageChange(schedulePage + 1)}
+                        disabled={schedulePage === totalSchedulePages}
+                        className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

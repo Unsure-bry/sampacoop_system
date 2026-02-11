@@ -5,6 +5,7 @@ import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { sendLoanPaymentReceipt } from '@/lib/transactionReceiptService';
 
 interface Loan {
   id: string;
@@ -97,22 +98,24 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
     // Convert loan term to days (1 month = 30 days)
     const totalDays = loan.term * 30;
     
-    // Calculate daily interest rate
-    const dailyInterestRate = loan.interest / 100 / 365; // Annual interest rate divided by 365 days
+    // Calculate total interest: Amount × Interest Rate
+    const totalInterest = loan.amount * (loan.interest / 100);
     
-    // Calculate daily payment
-    const dailyPayment = loan.amount / totalDays;
+    // Calculate daily payment using formula: (Amount + Total Interest) / Number of days
+    const dailyPayment = (loan.amount + totalInterest) / totalDays;
     
-    let remainingBalance = loan.amount;
+    // Calculate daily interest portion
+    const dailyInterest = totalInterest / totalDays;
+    const dailyPrincipal = dailyPayment - dailyInterest;
+    
+    let remainingBalance = loan.amount + totalInterest;
     let currentDate = new Date(loan.startDate);
     
     for (let day = 1; day <= totalDays; day++) {
       // Add one day for each payment date
       currentDate.setDate(currentDate.getDate() + 1);
       
-      const interestPayment = remainingBalance * dailyInterestRate;
-      const principalPayment = dailyPayment;
-      remainingBalance -= principalPayment;
+      remainingBalance -= dailyPayment;
       
       // Ensure remaining balance doesn't go below 0
       if (remainingBalance < 0) {
@@ -122,9 +125,9 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
       schedule.push({
         day,
         paymentDate: currentDate.toISOString().split('T')[0],
-        principal: principalPayment,
-        interest: interestPayment,
-        totalPayment: principalPayment + interestPayment,
+        principal: dailyPrincipal,
+        interest: dailyInterest,
+        totalPayment: dailyPayment,
         remainingBalance
       });
     }
@@ -351,6 +354,54 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
         
         // Create notification for the user
         await createPaymentNotification(amount, receiptNumber, paidItems);
+        
+        // Send email receipt to Driver/Operator
+        if (loan?.userId && loan?.role) {
+          const role = loan.role.toLowerCase();
+          console.log('Checking email receipt for role:', role, 'userId:', loan.userId);
+          
+          if (role === 'driver' || role === 'operator') {
+            console.log('Sending loan payment receipt to', role, '- userId:', loan.userId);
+            try {
+              const firstPaidItem = paidItems.length > 0 ? paidItems[0] : null;
+              console.log('Payment details:', { 
+                amount, 
+                newRemainingBalance, 
+                firstPaidDay: firstPaidItem?.day,
+                loanId: loan.id 
+              });
+              
+              const receiptResult = await sendLoanPaymentReceipt(
+                loan.userId,
+                loan.id,
+                amount,
+                newRemainingBalance,
+                firstPaidItem?.day
+              );
+              
+              if (receiptResult.success) {
+                console.log('✅ Loan payment receipt sent:', receiptResult.receiptNumber);
+              } else {
+                console.error('❌ Failed to send loan payment receipt:', receiptResult.error, receiptResult);
+                // Log error but don't block the payment process
+              }
+            } catch (emailError: any) {
+              console.error('❌ Error sending loan payment receipt:', emailError);
+              console.error('Error details:', {
+                message: emailError?.message,
+                stack: emailError?.stack
+              });
+              // Log error but don't block the payment process
+            }
+          } else {
+            console.log('Email receipt not sent - role is not driver or operator:', role);
+          }
+        } else {
+          console.log('Email receipt not sent - missing userId or role:', { 
+            userId: loan?.userId, 
+            role: loan?.role 
+          });
+        }
         
         // Close modals and reset state
         setShowConfirmationModal(false);

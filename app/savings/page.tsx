@@ -109,7 +109,7 @@ export default function UserSavingsPage() {
     }
   }, [user, fetchSavingsTransactions]);
 
-  const handleAddSavings = async (transactionData: { type: 'deposit' | 'withdrawal', amount: number, date: string, remarks: string }) => {
+  const handleAddSavings = async (transactionData: { type: 'deposit' | 'withdrawal', amount: number, date: string, remarks: string, depositControlNumber?: string }) => {
     try {
       if (!user) {
         toast.error('User not authenticated');
@@ -140,7 +140,8 @@ export default function UserSavingsPage() {
         type: transactionData.type,
         amount: parseFloat(transactionData.amount.toString()),
         balance: 0, // Will be calculated by the service
-        remarks: transactionData.remarks
+        remarks: transactionData.remarks,
+        depositControlNumber: transactionData.depositControlNumber
       });
       
       if (result.success) {
