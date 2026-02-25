@@ -46,11 +46,40 @@ export interface Member {
   age: number;
   status: string;
   createdAt: string;
+  updatedAt?: string;
+  lastActivityAt?: string;
+  lastTransactionAt?: string;
+  // Archiving fields
   archived?: boolean;
+  archivedAt?: string | null;
+  archiveReason?: string | null;
+  previousStatus?: string | null;
+  // Restoration fields
+  restoredAt?: string | null;
+  restoredBy?: string | null;
+  reactivationFee?: number | null;
+  reactivationReceiptNumber?: string | null;
   driverInfo: DriverInfo | null;
   operatorInfo: OperatorInfo | null;
   certificate?: CertificateData;
   certificateGenerated?: boolean;
   certificateGeneratedAt?: string;
   [key: string]: any;
+}
+
+export interface ArchivedMember extends Member {
+  archivedAt: string;
+  archiveReason: string;
+}
+
+export interface ReactivationTransaction {
+  id: string;
+  memberId: string;
+  type: 'Reactivation Fee';
+  amount: number;
+  receiptNumber: string;
+  date: string;
+  processedBy: string;
+  processedByName?: string;
+  createdAt: string;
 }

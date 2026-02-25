@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import { LoanPlan } from '@/lib/types/loan';
 import AddLoanPlanModal from '@/components/admin/AddLoanPlanModal';
 
-export default function LoanPlansPage() {
+export default function SecretaryLoanPlansPage() {
   const [loanPlans, setLoanPlans] = useState<LoanPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);

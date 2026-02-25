@@ -3,7 +3,7 @@
 import { useAuth } from '@/lib/auth';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import MemberRecords from '@/components/admin/MemberRecords';
+import MemberRecordsReadOnly from '@/components/admin/MemberRecordsReadOnly';
 
 export default function ChairmanMembersPage() {
   const { user, loading } = useAuth();
@@ -27,7 +27,13 @@ export default function ChairmanMembersPage() {
 
   return (
     <div className="space-y-6">
-      <MemberRecords />
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Member Records</h1>
+          <p className="text-gray-600">View cooperative members</p>
+        </div>
+      </div>
+      <MemberRecordsReadOnly />
     </div>
   );
 }

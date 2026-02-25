@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/lib/auth';
 import { useState } from 'react';
+import { handleAdminLogout } from '@/lib/logoutUtils';
 
 // Icons for header
 const MenuIcon = ({ className }: { className?: string }) => (

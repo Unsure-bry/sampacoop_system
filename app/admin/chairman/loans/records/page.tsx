@@ -4,11 +4,31 @@ import { useAuth } from '@/lib/auth';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/admin';
+import { firestore } from '@/lib/firebase';
+import { toast } from 'react-hot-toast';
+
+interface Loan {
+  id: string;
+  memberId?: string;
+  memberName?: string;
+  userId?: string;
+  amount: number;
+  remainingAmount?: number;
+  status: string;
+  loanType?: string;
+  term?: number;
+  interestRate?: number;
+  startDate?: string;
+  dueDate?: string;
+  createdAt?: string;
+  completedAt?: string;
+}
 
 export default function ChairmanLoanRecordsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [loans, setLoans] = useState<any[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -18,16 +38,89 @@ export default function ChairmanLoanRecordsPage() {
     }
   }, [user, loading, router]);
 
-  // Mock data - in a real app, this would come from Firestore
+  // Fetch loans from Firestore
   useEffect(() => {
-    setLoans([
-      { id: 1, member: 'John Doe', amount: 50000, status: 'Active', date: '2023-01-15' },
-      { id: 2, member: 'Jane Smith', amount: 30000, status: 'Paid', date: '2023-02-20' },
-      { id: 3, member: 'Robert Johnson', amount: 75000, status: 'Active', date: '2023-03-10' },
-    ]);
-  }, []);
+    const fetchLoans = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch all loans from Firestore
+        const result = await firestore.getCollection('loans');
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to fetch loans');
+        }
 
-  if (loading) {
+        const loansData = result.data || [];
+        
+        // Process loans and fetch member names
+        const processedLoans = await Promise.all(
+          loansData.map(async (loan: any) => {
+            let memberName = loan.memberName || 'Unknown Member';
+            
+            // If we have a memberId but no memberName, fetch the member details
+            if (loan.memberId && !loan.memberName) {
+              try {
+                const memberResult = await firestore.getDocument('members', loan.memberId);
+                if (memberResult.success && memberResult.data) {
+                  const member = memberResult.data;
+                  memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Unknown Member';
+                }
+              } catch (error) {
+                console.error('Error fetching member:', error);
+              }
+            }
+            
+            // Calculate due date based on start date and term
+            let dueDate = loan.dueDate || loan.completedAt;
+            if (loan.startDate && loan.term && !dueDate) {
+              const start = new Date(loan.startDate);
+              const due = new Date(start);
+              due.setMonth(due.getMonth() + parseInt(loan.term));
+              dueDate = due.toISOString();
+            }
+            
+            return {
+              id: loan.id,
+              memberId: loan.memberId,
+              memberName: memberName,
+              userId: loan.userId,
+              amount: loan.amount || 0,
+              remainingAmount: loan.remainingAmount || loan.amount || 0,
+              status: loan.status || 'pending',
+              loanType: loan.loanType || loan.planName || 'Regular Loan',
+              term: loan.term || 0,
+              interestRate: loan.interestRate || loan.interest || 0,
+              startDate: loan.startDate,
+              dueDate: dueDate,
+              createdAt: loan.createdAt,
+              completedAt: loan.completedAt
+            };
+          })
+        );
+        
+        // Sort by created date (newest first)
+        processedLoans.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        
+        setLoans(processedLoans);
+      } catch (error) {
+        console.error('Error fetching loans:', error);
+        toast.error('Failed to load loan records');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (user && user.role?.toLowerCase() === 'chairman') {
+      fetchLoans();
+    }
+  }, [user]);
+
+  if (loading || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
@@ -63,7 +156,7 @@ export default function ChairmanLoanRecordsPage() {
                     Amount
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
+                    Due Date
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -77,21 +170,25 @@ export default function ChairmanLoanRecordsPage() {
                 {loans.map((loan) => (
                   <tr key={loan.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{loan.member}</div>
+                      <div className="text-sm font-medium text-gray-900">{loan.memberName}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">₱{loan.amount.toLocaleString()}</div>
+                      <div className="text-sm text-gray-500">₱{(loan.amount || 0).toLocaleString()}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{loan.date}</div>
+                      <div className="text-sm text-gray-500">
+                        {loan.dueDate ? new Date(loan.dueDate).toLocaleDateString() : 'N/A'}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        loan.status === 'Active' 
+                        loan.status === 'active' || loan.status === 'Active'
                           ? 'bg-green-100 text-green-800' 
-                          : 'bg-blue-100 text-blue-800'
+                          : loan.status === 'paid' || loan.status === 'Paid'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {loan.status}
+                        {loan.status || 'Pending'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

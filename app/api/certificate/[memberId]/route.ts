@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
 import { firestore } from '@/lib/firebase';
 
-export async function GET(request: NextRequest, { params }: { params: { memberId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ memberId: string }> }) {
   try {
-    const { memberId } = params;
+    const { memberId } = await params;
     
     // Decode the member ID if it was encoded
     const decodedMemberId = decodeURIComponent(memberId);

@@ -18,7 +18,7 @@ interface FirestoreTimestampLike {
   seconds?: number;
 }
 
-type RawDate = string | number | Date | FirestoreTimestampLike | undefined;
+type RawDate = any;
 
 type RawDoc = {
   id: string;
@@ -66,7 +66,7 @@ export default function UserSavingsPage() {
       if (txResult.success && txResult.data) {
         const data = txResult.data as unknown as RawDoc[];
         fetched = data.map((doc) => {
-          const rawDate: RawDate = doc.date ?? doc.createdAt;
+          const rawDate = doc.date ?? doc.createdAt;
           let dateString: string;
           if (typeof rawDate === 'string') {
             dateString = rawDate;
@@ -74,14 +74,15 @@ export default function UserSavingsPage() {
             dateString = rawDate.toISOString();
           } else if (typeof rawDate === 'number') {
             dateString = new Date(rawDate).toISOString();
-          } else if (rawDate && typeof (rawDate as FirestoreTimestampLike).toDate === 'function') {
-            dateString = (rawDate as FirestoreTimestampLike).toDate!().toISOString();
-          } else if (rawDate && typeof (rawDate as FirestoreTimestampLike).seconds === 'number') {
-            dateString = new Date((rawDate as FirestoreTimestampLike).seconds * 1000).toISOString();
+          } else if (rawDate && typeof (rawDate as any).toDate === 'function') {
+            dateString = (rawDate as any).toDate().toISOString();
+          } else if (rawDate && typeof (rawDate as any).seconds === 'number') {
+            dateString = new Date((rawDate as any).seconds * 1000).toISOString();
           } else {
             dateString = new Date().toISOString();
           }
-          return { id: doc.id, ...(doc as SavingsTransaction), date: dateString };
+          const { id, ...rest } = doc as SavingsTransaction & { id: string };
+          return { id: doc.id, ...rest, date: dateString };
         });
       }
 

@@ -13,7 +13,9 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
   const [formData, setFormData] = useState({
     type: 'deposit' as 'deposit' | 'withdrawal',
     amount: '',
-    remarks: ''
+    remarks: '',
+    controlNumber: '',
+    withdrawalNumber: ''
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -35,7 +37,15 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
       }
     }
     
-
+    // Validate control number for deposits
+    if (formData.type === 'deposit' && !formData.controlNumber.trim()) {
+      newErrors.controlNumber = 'Control number is required for deposits';
+    }
+    
+    // Validate withdrawal number for withdrawals
+    if (formData.type === 'withdrawal' && !formData.withdrawalNumber.trim()) {
+      newErrors.withdrawalNumber = 'Withdrawal number is required for withdrawals';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -67,15 +77,12 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
     
     setLoading(true);
     
-    // Generate deposit control number for deposits in SMP-YYYYMMDD-0000 format
-    let depositControlNumber: string | undefined;
-    if (formData.type === 'deposit') {
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD format
-      const timestamp = Date.now();
-      const sequential = (timestamp % 10000).toString().padStart(4, '0');
-      depositControlNumber = `SMP-${dateStr}-${sequential}`;
-    }
+    // Use manually entered control number for deposits or withdrawal number for withdrawals
+    const depositControlNumber = formData.type === 'deposit' 
+      ? formData.controlNumber.trim() 
+      : formData.type === 'withdrawal' 
+        ? formData.withdrawalNumber.trim() 
+        : undefined;
     
     const success = await onAddSavings({
       type: formData.type,
@@ -91,7 +98,9 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
       setFormData({
         type: 'deposit',
         amount: '',
-        remarks: ''
+        remarks: '',
+        controlNumber: '',
+        withdrawalNumber: ''
       });
       onClose();
     }
@@ -157,7 +166,55 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
                 </p>
               </div>
               
-
+              {formData.type === 'deposit' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Control Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="controlNumber"
+                    value={formData.controlNumber}
+                    onChange={handleInputChange}
+                    className={`w-full p-2 border rounded-md focus:ring-red-500 focus:border-red-500 ${
+                      errors.controlNumber ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter control number from hardcopy receipt"
+                    disabled={loading}
+                  />
+                  {errors.controlNumber && (
+                    <p className="mt-1 text-sm text-red-600">{errors.controlNumber}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    
+                  </p>
+                </div>
+              )}
+              
+              {formData.type === 'withdrawal' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Withdrawal Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="withdrawalNumber"
+                    value={formData.withdrawalNumber}
+                    onChange={handleInputChange}
+                    className={`w-full p-2 border rounded-md focus:ring-red-500 focus:border-red-500 ${
+                      errors.withdrawalNumber ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter withdrawal number from hardcopy receipt"
+                    disabled={loading}
+                  />
+                  {errors.withdrawalNumber && (
+                    <p className="mt-1 text-sm text-red-600">{errors.withdrawalNumber}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    
+                  </p>
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
@@ -30,6 +30,22 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
   const [itemsPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
 
+  // Listen for custom event from loan page
+  useEffect(() => {
+    const handleSelectLoanPlan = (event: CustomEvent<LoanPlan>) => {
+      const plan = event.detail;
+      if (plan && !hasActiveLoan) {
+        handleApplyClick(plan);
+      }
+    };
+
+    window.addEventListener('selectLoanPlan', handleSelectLoanPlan as EventListener);
+    
+    return () => {
+      window.removeEventListener('selectLoanPlan', handleSelectLoanPlan as EventListener);
+    };
+  }, [hasActiveLoan]);
+
   const handleApplyClick = (plan: LoanPlan) => {
     setSelectedPlan(plan);
     setAmount('5000'); // Default to 5000 PHP
@@ -40,7 +56,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
     const totalDays = termMonths * 30; // 30 days per month
     
     // Calculate total interest: Amount × Interest Rate
-    const totalInterest = principal * (monthlyInterestRate / 100);
+    const totalInterest = (principal * (monthlyInterestRate / 100)) * (termMonths);
     
     // Calculate daily payment using formula: (Amount + Total Interest) / Number of days
     const dailyPayment = (principal + totalInterest) / totalDays;
@@ -54,7 +70,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
       paymentDate.setDate(startDate.getDate() + day);
       
       // Calculate interest portion for this day (total interest divided by days)
-      const interestPayment = totalInterest / totalDays;
+      const interestPayment = totalInterest/totalDays;
       // Principal portion is the rest of the daily payment
       const principalPayment = dailyPayment - interestPayment;
       
@@ -281,67 +297,6 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
 
   return (
     <div className="space-y-6">
-      {/* Loan Plans Section */}
-      <div>
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">Available Loan Plans</h2>
-        
-        {hasActiveLoan ? (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-            <div className="flex items-start gap-4">
-              <div className="shrink-0 mt-0.5">
-                <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-yellow-800 mb-1">Loan Application Unavailable</h3>
-                <p className="text-yellow-700">
-                  You currently have an active loan. You can apply for a new loan once your current loan is completed.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : loanPlans.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-md p-6 text-center">
-            <p className="text-gray-500">No loan plans available at the moment.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {loanPlans.map((plan) => (
-              <div 
-                key={plan.id} 
-                className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-200"
-              >
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">{plan.name}</h3>
-                <p className="text-gray-600 mb-4">{plan.description}</p>
-                
-                <div className="space-y-2 mb-6">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Maximum Amount:</span>
-                    <span className="font-medium">{formatCurrency(plan.maxAmount)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Interest Rate:</span>
-                    <span className="font-medium">{plan.interestRate}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Terms:</span>
-                    <span className="font-medium">{plan.termOptions.join(', ')} months</span>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => handleApplyClick(plan)}
-                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Apply Now
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* Loan Application Modal */}
       {selectedPlan && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

@@ -31,6 +31,8 @@ interface AmortizationSchedule {
   status?: string;
   receiptNumber?: string;
   paymentDateProcessed?: string;
+  partialPaymentAmount?: number; // Track how much was paid for partial payments
+  paidAmount?: number; // Track total paid amount for this day
 }
 
 interface LoanDetailsModalProps {
@@ -65,23 +67,29 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
       setLoading(true);
       setError(null);
       
-      // Use the payment schedule from the loan if available
-      if (loan && loan.paymentSchedule && loan.paymentSchedule.length > 0) {
-        // Map the payment schedule to ensure consistent structure
-        const mappedSchedule = loan.paymentSchedule.map((item: any) => ({
-          day: item.day !== undefined ? item.day : item.month,
-          paymentDate: item.paymentDate,
-          principal: item.principal,
-          interest: item.interest,
-          totalPayment: item.totalPayment,
-          remainingBalance: item.remainingBalance,
-          status: item.status || 'pending'  // Default to pending if no status
-        }));
-        setAmortizationSchedule(mappedSchedule);
-      } else if (loan) {
-        // Calculate the schedule if not available
-        const schedule = calculateAmortizationSchedule(loan);
-        setAmortizationSchedule(schedule);
+      // Always calculate the schedule using the correct formula
+      // This ensures the amortization calculation is consistent and accurate
+      if (loan) {
+        const calculatedSchedule = calculateAmortizationSchedule(loan);
+        
+        // Merge payment status from Firestore if available
+        // IMPORTANT: Only merge payment status info, keep calculated values
+        const scheduleWithPayments = calculatedSchedule.map((calcItem, index) => {
+          const storedItem = loan.paymentSchedule?.[index];
+          if (storedItem) {
+            return {
+              ...calcItem, // Keep calculated values (principal, interest, totalPayment, remainingBalance)
+              status: storedItem.status, // Merge payment status
+              receiptNumber: storedItem.receiptNumber, // Merge receipt number
+              paymentDateProcessed: storedItem.paymentDateProcessed, // Merge processed date
+              partialPaymentAmount: storedItem.partialPaymentAmount, // Merge partial payment
+              paidAmount: storedItem.paidAmount // Merge paid amount
+            };
+          }
+          return calcItem;
+        });
+        
+        setAmortizationSchedule(scheduleWithPayments);
       }
     } catch (err) {
       console.error('Error loading amortization schedule:', err);
@@ -98,24 +106,36 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
     // Convert loan term to days (1 month = 30 days)
     const totalDays = loan.term * 30;
     
-    // Calculate total interest: Amount × Interest Rate
-    const totalInterest = loan.amount * (loan.interest / 100);
+    // Step 1: Calculate interest amount (Principal × Interest Rate)
+    // Example: 3000 × 5% = 150
+    const interestAmount = loan.amount * (loan.interest / 100);
     
-    // Calculate daily payment using formula: (Amount + Total Interest) / Number of days
-    const dailyPayment = (loan.amount + totalInterest) / totalDays;
+    // Step 2: Calculate total amount (Principal + Interest)
+    // Example: 3000 + 150 = 3150
+    const totalAmount = loan.amount + interestAmount;
     
-    // Calculate daily interest portion
-    const dailyInterest = totalInterest / totalDays;
-    const dailyPrincipal = dailyPayment - dailyInterest;
+    // Step 3: Calculate principal per day (Principal / Days)
+    // Example: 3000 / 30 = 100
+    const principalPerDay = loan.amount / totalDays;
     
-    let remainingBalance = loan.amount + totalInterest;
+    // Step 4: Calculate interest per day (Interest Amount / Days)
+    // Example: 150 / 30 = 5
+    const interestPerDay = interestAmount / totalDays;
+    
+    // Step 5: Calculate total payment per day (Total Amount / Days)
+    // Example: 3150 / 30 = 105
+    const totalPaymentPerDay = totalAmount / totalDays;
+    
+    // Step 6: Remaining balance starts at total amount
+    let remainingBalance = totalAmount;
     let currentDate = new Date(loan.startDate);
     
     for (let day = 1; day <= totalDays; day++) {
       // Add one day for each payment date
       currentDate.setDate(currentDate.getDate() + 1);
       
-      remainingBalance -= dailyPayment;
+      // Subtract total payment from remaining balance
+      remainingBalance -= totalPaymentPerDay;
       
       // Ensure remaining balance doesn't go below 0
       if (remainingBalance < 0) {
@@ -125,9 +145,9 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
       schedule.push({
         day,
         paymentDate: currentDate.toISOString().split('T')[0],
-        principal: dailyPrincipal,
-        interest: dailyInterest,
-        totalPayment: dailyPayment,
+        principal: principalPerDay,
+        interest: interestPerDay,
+        totalPayment: totalPaymentPerDay,
         remainingBalance
       });
     }
@@ -179,7 +199,7 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
     
     // Add table
     autoTable(doc, {
-      head: [['Day', 'Payment Date', 'Principal', 'Interest', 'Total Payment', 'Remaining Balance']],
+      head: [['Day', 'Payment Date', 'Principal', 'Interest Amount', 'Total Payment', 'Remaining Balance']],
       body: amortizationSchedule.map(item => [
         (item.day || '').toString(),
         formatDate(item.paymentDate),
@@ -246,7 +266,7 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                   <th class="center">Day</th>
                   <th>Payment Date</th>
                   <th class="center">Principal</th>
-                  <th class="center">Interest</th>
+                  <th class="center">Interest Amount</th>
                   <th class="center">Total Payment</th>
                   <th class="center">Remaining Balance</th>
                 </tr>
@@ -274,16 +294,6 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
     }
   };
 
-  // Function to generate receipt number in SMP-0000 format
-  const generateReceiptNumber = () => {
-    // Get current timestamp and convert to a sequential number
-    const timestamp = Date.now();
-    // Use last 4 digits of timestamp + random component to ensure uniqueness
-    const sequential = (timestamp % 10000).toString().padStart(4, '0');
-    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-    return `SMP-${sequential}${random}`;
-  };
-
   // Function to handle payment confirmation
   const handlePaymentConfirmation = () => {
     const amount = parseFloat(paymentAmount);
@@ -294,8 +304,11 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
       return;
     }
     
-    const newReceiptNumber = generateReceiptNumber();
-    setReceiptNumber(newReceiptNumber);
+    // Validate receipt number
+    if (!receiptNumber.trim()) {
+      toast.error('Please enter a receipt number');
+      return;
+    }
     
     // Show confirmation modal
     setShowPaymentModal(false);
@@ -318,20 +331,29 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
       for (let i = 0; i < updatedSchedule.length; i++) {
         if (updatedSchedule[i].status !== 'paid' && remainingPayment > 0) {
           const totalPaymentDue = updatedSchedule[i].totalPayment;
+          const alreadyPaid = updatedSchedule[i].paidAmount || 0;
+          const remainingDue = totalPaymentDue - alreadyPaid;
           
-          if (remainingPayment >= totalPaymentDue) {
+          // Use a small tolerance for floating point comparison (0.01 peso)
+          const tolerance = 0.01;
+          const isFullPayment = remainingPayment >= remainingDue - tolerance;
+          
+          if (isFullPayment) {
             // Full payment for this installment
             updatedSchedule[i].status = 'paid';
-            updatedSchedule[i].receiptNumber = receiptNumber; // Add receipt number to paid item
-            updatedSchedule[i].paymentDateProcessed = new Date().toISOString(); // Add processing date with time
+            updatedSchedule[i].receiptNumber = receiptNumber;
+            updatedSchedule[i].paymentDateProcessed = new Date().toISOString();
+            updatedSchedule[i].paidAmount = totalPaymentDue; // Mark as fully paid
             paidItems.push(updatedSchedule[i]);
-            remainingPayment -= totalPaymentDue;
+            remainingPayment -= remainingDue;
             paymentsApplied++;
           } else {
-            // Partial payment
+            // Partial payment - accumulate the paid amount
             updatedSchedule[i].status = 'partial';
-            updatedSchedule[i].receiptNumber = receiptNumber; // Add receipt number to partial payment
-            updatedSchedule[i].paymentDateProcessed = new Date().toISOString(); // Add processing date with time
+            updatedSchedule[i].receiptNumber = receiptNumber;
+            updatedSchedule[i].paymentDateProcessed = new Date().toISOString();
+            updatedSchedule[i].partialPaymentAmount = remainingPayment;
+            updatedSchedule[i].paidAmount = alreadyPaid + remainingPayment;
             paidItems.push(updatedSchedule[i]);
             remainingPayment = 0;
             paymentsApplied++;
@@ -343,9 +365,24 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
       // Calculate the new remaining balance after payments
       const newRemainingBalance = calculateRemainingBalanceFromSchedule(updatedSchedule);
       
+      // Clean the schedule data to remove undefined values before saving
+      const cleanSchedule = updatedSchedule.map(item => ({
+        day: item.day,
+        paymentDate: item.paymentDate,
+        principal: item.principal,
+        interest: item.interest,
+        totalPayment: item.totalPayment,
+        remainingBalance: item.remainingBalance,
+        status: item.status || 'pending',
+        receiptNumber: item.receiptNumber || null,
+        paymentDateProcessed: item.paymentDateProcessed || null,
+        partialPaymentAmount: item.partialPaymentAmount || null,
+        paidAmount: item.paidAmount || 0
+      }));
+      
       // Update the loan document with the new payment schedule and remaining balance
       const updateResult = await firestore.updateDocument('loans', loan!.id, {
-        paymentSchedule: updatedSchedule,
+        paymentSchedule: cleanSchedule,
         remainingBalance: newRemainingBalance
       });
 
@@ -499,18 +536,34 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
   
   // Helper function to calculate remaining balance from a given schedule
   const calculateRemainingBalanceFromSchedule = (schedule: AmortizationSchedule[]) => {
-    // Find all unpaid items (not paid or partial)
-    const unpaidItems = schedule.filter(item => 
-      item.status !== 'paid' && item.status !== 'completed'
-    );
-      
-    // If there are unpaid items, return the remaining balance of the last unpaid item
-    if (unpaidItems.length > 0) {
-      return unpaidItems[unpaidItems.length - 1].remainingBalance;
+    // Calculate remaining balance by summing up all unpaid amounts
+    let totalRemaining = 0;
+    
+    for (const item of schedule) {
+      if (item.status === 'paid') {
+        // Fully paid, nothing remaining
+        continue;
+      } else if (item.status === 'partial') {
+        // Partially paid - add the remaining amount for this day
+        const paidAmount = item.paidAmount || 0;
+        totalRemaining += item.totalPayment - paidAmount;
+      } else {
+        // Not paid at all - add full amount
+        totalRemaining += item.totalPayment;
+      }
     }
-      
-    // If all items are paid, return 0
-    return 0;
+    
+    // Add to the remaining balance from the last item to account for accumulated interest/principal
+    const lastItem = schedule[schedule.length - 1];
+    if (lastItem) {
+      // The remainingBalance field shows the balance after each scheduled payment
+      // We need to adjust it based on actual payments made
+      const originalTotal = schedule.reduce((sum, item) => sum + item.totalPayment, 0);
+      const totalPaid = schedule.reduce((sum, item) => sum + (item.paidAmount || 0), 0);
+      return Math.max(0, originalTotal - totalPaid);
+    }
+    
+    return Math.max(0, totalRemaining);
   };
 
   // Function to get exact remaining balance from loan data
@@ -651,7 +704,7 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                           Principal
                         </th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Interest
+                          Interest Amount
                         </th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Total Payment
@@ -661,6 +714,9 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                         </th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Status
+                        </th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Paid Amount
                         </th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Receipt No.
@@ -701,6 +757,14 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                             }`}>
                               {item.status || 'pending'}
                             </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            {item.paidAmount ? formatCurrency(item.paidAmount) : '-'}
+                            {item.status === 'partial' && item.paidAmount && (
+                              <span className="text-xs text-gray-500 ml-1">
+                                / {formatCurrency(item.totalPayment)}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                             {item.receiptNumber || '-'}
@@ -789,6 +853,20 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
               </div>
               
               <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Receipt Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={receiptNumber}
+                  onChange={(e) => setReceiptNumber(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  placeholder="Enter receipt number from hardcopy"
+                />
+                <p className="text-xs text-gray-500 mt-1">Enter the receipt number from your hardcopy receipt</p>
+              </div>
+              
+              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount</label>
                 <input
                   type="number"
@@ -805,7 +883,6 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                 <p className="text-sm text-gray-600">
                   <span className="font-medium">Remaining Balance:</span> {formatCurrency(getExactRemainingBalance())}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Exact amount from database</p>
               </div>
               
               <div className="flex justify-end space-x-3">
@@ -818,7 +895,7 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                 </button>
                 <button
                   onClick={handlePaymentConfirmation}
-                  disabled={paymentLoading || !paymentAmount || parseFloat(paymentAmount) <= 0}
+                  disabled={paymentLoading || !paymentAmount || parseFloat(paymentAmount) <= 0 || !receiptNumber.trim()}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {paymentLoading ? 'Processing...' : 'Continue to Confirmation'}
@@ -854,18 +931,18 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-green-800">Payment Details</h3>
+                    <h3 className="text-sm font-medium text-green-800">Confirm Payment</h3>
                   </div>
                 </div>
                 
                 <div className="space-y-2 text-sm text-green-700">
                   <div className="flex justify-between">
-                    <span>Amount:</span>
-                    <span className="font-medium">{formatCurrency(parseFloat(paymentAmount))}</span>
-                  </div>
-                  <div className="flex justify-between">
                     <span>Receipt Number:</span>
                     <span className="font-medium">{receiptNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Amount:</span>
+                    <span className="font-medium">{formatCurrency(parseFloat(paymentAmount))}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Member:</span>

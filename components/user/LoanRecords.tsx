@@ -94,22 +94,24 @@ export default function LoanRecords() {
     // Convert loan term to days (1 month = 30 days)
     const totalDays = loan.term * 30;
     
-    // Calculate daily interest rate
-    const dailyInterestRate = loan.interest / 100 / 365; // Annual interest rate divided by 365 days
+    // Calculate total interest: Amount × Interest Rate × Term
+    const totalInterest = (loan.amount * (loan.interest / 100)) * loan.term;
     
-    // Calculate daily payment
-    const dailyPayment = loan.amount / totalDays;
+    // Calculate daily payment using formula: (Amount + Total Interest) / Number of days
+    const dailyPayment = (loan.amount + totalInterest) / totalDays;
     
-    let remainingBalance = loan.amount;
+    // Calculate daily interest and principal portions
+    const dailyInterest = totalInterest / totalDays;
+    const dailyPrincipal = dailyPayment - dailyInterest;
+    
+    let remainingBalance = loan.amount + totalInterest;
     let currentDate = new Date(loan.startDate);
     
     for (let day = 1; day <= totalDays; day++) {
       // Add one day for each payment date
       currentDate.setDate(currentDate.getDate() + 1);
       
-      const interestPayment = remainingBalance * dailyInterestRate;
-      const principalPayment = dailyPayment;
-      remainingBalance -= principalPayment;
+      remainingBalance -= dailyPayment;
       
       // Ensure remaining balance doesn't go below 0
       if (remainingBalance < 0) {
@@ -119,9 +121,9 @@ export default function LoanRecords() {
       schedule.push({
         day,
         paymentDate: currentDate.toISOString().split('T')[0],
-        principal: principalPayment,
-        interest: interestPayment,
-        totalPayment: principalPayment + interestPayment,
+        principal: dailyPrincipal,
+        interest: dailyInterest,
+        totalPayment: dailyPayment,
         remainingBalance
       });
     }

@@ -11,6 +11,7 @@ export { default as MemberRegistrationModal } from './MemberRegistrationModal';
 export { default as LoanDetailsModal } from './LoanDetailsModal';
 export { default as ExecutiveDashboard } from './ExecutiveDashboard';
 export { default as MemberRecords } from './MemberRecords';
+export { default as MemberRecordsReadOnly } from './MemberRecordsReadOnly';
 export { default as LoanRecords } from './LoanRecords';
 export { default as SavingsRecords } from './SavingsRecords';
 export { default as ReportsAndAnalytics } from './ReportsAndAnalytics';

@@ -136,7 +136,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 // Base64 encoding helper
-function toBase64(buf: ArrayBuffer) {
+function toBase64(buf: ArrayBuffer | Uint8Array) {
   return btoa(String.fromCharCode(...new Uint8Array(buf)));
 }
 

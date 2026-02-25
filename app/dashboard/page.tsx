@@ -234,7 +234,7 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto w-full">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Welcome, {user?.email?.split('@')[0]}</h1>
+            <h1 className="text-3xl font-bold text-gray-800">Welcome</h1>
             
           </div>
         </div>

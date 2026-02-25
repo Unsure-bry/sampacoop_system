@@ -104,18 +104,25 @@ export default function LoanTable({
         }
       }
       
-      // Calculate daily amortization schedule
-      // Convert loan term to days (1 month = 30 days)
+      // Calculate amortization schedule
+      // Logic: Total Amount = Principal + (Principal × Interest Rate), then divide by days
+      // Example: 3000 + (3000 × 5%) = 3150, then 3150 / 30 = 105 per day
       const totalDays = requestData.term * 30;
       
-      // Calculate daily interest rate
-      const dailyInterestRate = interestRate / 100 / 365; // Annual interest rate divided by 365 days
+      // Calculate flat interest amount: Principal × Interest Rate (as is, not divided)
+      const interestAmount = requestData.amount * (interestRate / 100);
       
-      // Calculate daily payment
-      const dailyPayment = requestData.amount / totalDays;
+      // Calculate total amount: Principal + Interest
+      const totalAmount = requestData.amount + interestAmount;
+      
+      // Daily payment: Total Amount / Number of days
+      const dailyPayment = totalAmount / totalDays;
+      
+      // Daily principal portion: Principal / Number of days
+      const dailyPrincipal = requestData.amount / totalDays;
       
       // Generate payment schedule
-      let remainingBalance = requestData.amount;
+      let remainingBalance = totalAmount;
       let currentDate = new Date();
       const paymentSchedule = [];
       
@@ -123,9 +130,7 @@ export default function LoanTable({
         // Add one day for each payment date
         currentDate.setDate(currentDate.getDate() + 1);
         
-        const interestPayment = remainingBalance * dailyInterestRate;
-        const principalPayment = dailyPayment;
-        remainingBalance -= principalPayment;
+        remainingBalance -= dailyPayment;
         
         // Ensure remaining balance doesn't go below 0
         if (remainingBalance < 0) {
@@ -135,9 +140,9 @@ export default function LoanTable({
         paymentSchedule.push({
           day,
           paymentDate: currentDate.toISOString().split('T')[0],
-          principal: principalPayment,
-          interest: interestPayment,
-          totalPayment: principalPayment + interestPayment,
+          principal: dailyPrincipal,
+          interest: interestAmount,
+          totalPayment: dailyPayment,
           remainingBalance,
           status: 'pending' // Initial status for payments
         });

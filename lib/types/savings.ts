@@ -18,4 +18,5 @@ export interface MemberSavings {
   totalSavings: number;
   status: string;
   lastUpdated: string;
+  loanDueDate?: string;
 }

@@ -6,8 +6,18 @@ import { toast } from 'react-hot-toast';
 import { Member } from '@/lib/types/member';
 import { MemberSavings } from '@/lib/types/savings';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth';
 
-export default function SecretarySavingsPage() {
+interface SavingsTransaction {
+  id: string;
+  type: 'deposit' | 'withdrawal';
+  amount: number;
+  date: string;
+  description?: string;
+}
+
+export default function BODSavingsPage() {
+  const { user, loading: authLoading } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<MemberSavings[]>([]);
   const [selectedMember, setSelectedMember] = useState<MemberSavings | null>(null);
@@ -21,12 +31,27 @@ export default function SecretarySavingsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [minSavingsFilter, setMinSavingsFilter] = useState('');
   const [maxSavingsFilter, setMaxSavingsFilter] = useState('');
+  // Transaction modal state
+  const [memberTransactions, setMemberTransactions] = useState<SavingsTransaction[]>([]);
+  const [transactionPage, setTransactionPage] = useState(1);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
   const itemsPerPage = 10;
+  const transactionsPerPage = 5;
   const router = useRouter();
 
   useEffect(() => {
-    fetchMembers();
-  }, []);
+    if (!authLoading && !user) {
+      router.push('/admin/login');
+    } else if (user && user.role?.toLowerCase() !== 'board of directors') {
+      router.push('/admin/unauthorized');
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (!authLoading && user && user.role?.toLowerCase() === 'board of directors') {
+      fetchMembers();
+    }
+  }, [authLoading, user]);
 
   useEffect(() => {
     filterMembers();
@@ -243,7 +268,43 @@ export default function SecretarySavingsPage() {
     router.push(`/admin/savings/member/${memberId}`);
   };
 
-  if (loading) {
+  // Fetch member transactions when modal opens
+  const fetchMemberTransactions = async (memberId: string) => {
+    try {
+      setLoadingTransactions(true);
+      const result = await firestore.getCollection(`members/${memberId}/savings`);
+      
+      if (result.success && result.data) {
+        const transactions: SavingsTransaction[] = result.data.map((doc: any) => ({
+          id: doc.id,
+          type: doc.type || 'deposit',
+          amount: Number(doc.amount) || 0,
+          date: doc.createdAt || doc.date || new Date().toISOString(),
+          description: doc.description || ''
+        })).sort((a: SavingsTransaction, b: SavingsTransaction) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        setMemberTransactions(transactions);
+      } else {
+        setMemberTransactions([]);
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      setMemberTransactions([]);
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
+
+  // Open modal with member and fetch transactions
+  const openSavingsModal = (member: MemberSavings) => {
+    setSelectedMember(member);
+    setTransactionPage(1);
+    setShowDetailsModal(true);
+    fetchMemberTransactions(member.memberId);
+  };
+
+  if (authLoading || loading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div>
@@ -339,8 +400,8 @@ export default function SecretarySavingsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Savings Management</h1>
-          <p className="text-gray-600">View and manage member savings</p>
+          <h1 className="text-2xl font-bold text-gray-800">Savings Records</h1>
+          <p className="text-gray-600">View member savings records</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
           <button
@@ -476,10 +537,7 @@ export default function SecretarySavingsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
-                          onClick={() => {
-                            setSelectedMember(member);
-                            setShowDetailsModal(true);
-                          }}
+                          onClick={() => openSavingsModal(member)}
                           className="text-sm font-medium text-red-600 hover:text-red-900 underline"
                         >
                           ₱{member.totalSavings.toFixed(2)}
@@ -499,10 +557,14 @@ export default function SecretarySavingsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
-                          onClick={() => handleViewSavings(member.memberId)}
-                          className="text-red-600 hover:text-red-900 mr-3"
+                          onClick={() => openSavingsModal(member)}
+                          className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
                         >
-                          View Details
+                          <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          View Savings
                         </button>
                       </td>
                     </tr>
@@ -566,15 +628,19 @@ export default function SecretarySavingsPage() {
         )}
       </div>
 
-      {/* Member Savings Details Modal */}
+      {/* Member Savings Details Modal - View Only */}
       {showDetailsModal && selectedMember && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">Savings Details</h2>
                 <button 
-                  onClick={() => setShowDetailsModal(false)}
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setMemberTransactions([]);
+                    setTransactionPage(1);
+                  }}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -624,22 +690,127 @@ export default function SecretarySavingsPage() {
                   </div>
                 </div>
 
+                {/* Transaction History Table */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Transaction History</h3>
+                  {loadingTransactions ? (
+                    <div className="flex justify-center items-center h-32">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
+                    </div>
+                  ) : memberTransactions.length === 0 ? (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <p className="text-gray-500">No transactions found</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Date
+                              </th>
+                              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Type
+                              </th>
+                              <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Amount
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {memberTransactions
+                              .slice((transactionPage - 1) * transactionsPerPage, transactionPage * transactionsPerPage)
+                              .map((transaction) => (
+                                <tr key={transaction.id} className="hover:bg-gray-50">
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                    {new Date(transaction.date).toLocaleDateString()}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                      transaction.type === 'deposit'
+                                        ? 'bg-green-100 text-green-800'
+                                        : 'bg-red-100 text-red-800'
+                                    }`}>
+                                      {transaction.type === 'deposit' ? 'Credit' : 'Debit'}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium">
+                                    <span className={transaction.type === 'deposit' ? 'text-green-600' : 'text-red-600'}>
+                                      {transaction.type === 'deposit' ? '+' : '-'}₱{transaction.amount.toFixed(2)}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      {/* Transaction Pagination */}
+                      {memberTransactions.length > transactionsPerPage && (
+                        <div className="flex items-center justify-between mt-4 px-2">
+                          <div className="text-sm text-gray-700">
+                            Showing {((transactionPage - 1) * transactionsPerPage) + 1} to{' '}
+                            {Math.min(transactionPage * transactionsPerPage, memberTransactions.length)} of{' '}
+                            {memberTransactions.length} transactions
+                          </div>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => setTransactionPage(prev => Math.max(1, prev - 1))}
+                              disabled={transactionPage === 1}
+                              className={`px-3 py-1 rounded-md text-sm font-medium ${
+                                transactionPage === 1
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              }`}
+                            >
+                              Previous
+                            </button>
+                            {Array.from(
+                              { length: Math.ceil(memberTransactions.length / transactionsPerPage) },
+                              (_, i) => i + 1
+                            ).map((page) => (
+                              <button
+                                key={page}
+                                onClick={() => setTransactionPage(page)}
+                                className={`px-3 py-1 rounded-md text-sm font-medium ${
+                                  transactionPage === page
+                                    ? 'bg-red-600 text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => setTransactionPage(prev => Math.min(Math.ceil(memberTransactions.length / transactionsPerPage), prev + 1))}
+                              disabled={transactionPage === Math.ceil(memberTransactions.length / transactionsPerPage)}
+                              className={`px-3 py-1 rounded-md text-sm font-medium ${
+                                transactionPage === Math.ceil(memberTransactions.length / transactionsPerPage)
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              }`}
+                            >
+                              Next
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
                 {/* Action Buttons */}
                 <div className="flex justify-end space-x-3">
                   <button
-                    onClick={() => setShowDetailsModal(false)}
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setMemberTransactions([]);
+                      setTransactionPage(1);
+                    }}
                     className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Close
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowDetailsModal(false);
-                      handleViewSavings(selectedMember.memberId);
-                    }}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    View Full History
                   </button>
                 </div>
               </div>

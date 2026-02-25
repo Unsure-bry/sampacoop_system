@@ -98,12 +98,25 @@ export const roleSidebarConfig: RoleSidebarConfig = {
       items: [
         { name: 'Loan Records', path: '/admin/secretary/loans/records', icon: FileText },
         { name: 'Loan Requests', path: '/admin/secretary/loans/requests', icon: FileText },
+        { name: 'Loan Plans', path: '/admin/secretary/loans/plans', icon: FileText },
       ],
     },
     {
       title: 'Savings',
       items: [
         { name: 'Savings', path: '/admin/secretary/savings', icon: DollarSign },
+      ],
+    },
+    {
+      title: 'Documentation',
+      items: [
+        { name: 'Reports and Analytics', path: '/admin/secretary/reports', icon: BarChart3 },
+      ],
+    },
+    {
+      title: 'Profile',
+      items: [
+        { name: 'My Account', path: '/admin/secretary/profile', icon: User },
       ],
     },
   ],

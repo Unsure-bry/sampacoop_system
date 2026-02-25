@@ -26,13 +26,6 @@ export default function MemberSavingsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   
-  // Function to generate deposit control number in SMP-YYYYMMDD-0000 format
-  const generateDepositControlNumber = (index: number) => {
-    const now = new Date();
-    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD format
-    const sequential = index.toString().padStart(4, '0');
-    return `SMP-${dateStr}-${sequential}`;
-  };
   const params = useParams();
   const router = useRouter();
   const memberId = params.id as string;
@@ -81,7 +74,7 @@ export default function MemberSavingsPage() {
         
         // Calculate running balance for each transaction
         let runningBalance = 0;
-        const transactionsWithBalance = sortedTransactions.map((transaction: any, index) => {
+        const transactionsWithBalance = sortedTransactions.map((transaction: any) => {
           if (transaction.type === 'deposit') {
             runningBalance += transaction.amount;
           } else if (transaction.type === 'withdrawal') {
@@ -90,8 +83,9 @@ export default function MemberSavingsPage() {
           
           return {
             ...transaction,
-            balance: runningBalance,
-            depositControlNumber: generateDepositControlNumber(index + 1)
+            balance: runningBalance
+            // Use the depositControlNumber from the database (if it exists)
+            // Don't generate a new one - it should be entered by admin during transaction
           };
         });
         

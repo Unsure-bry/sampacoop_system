@@ -172,24 +172,40 @@ export default function DriverDashboardPage() {
   useEffect(() => {
     const checkNotifications = async () => {
       try {
-        const res = await firestore.getCollection('notifications');
+        if (!user?.uid) return;
+        
+        // Try to query with userId filter first
+        let res = await firestore.queryDocuments('notifications', [
+          { field: 'userId', operator: '==', value: user.uid }
+        ]);
+        
+        // Fallback to getCollection if query fails (e.g., missing index)
+        if (!res.success) {
+          console.warn('Notification query failed, using fallback:', res.error);
+          const allRes = await firestore.getCollection('notifications');
+          if (allRes.success && allRes.data) {
+            // Filter in memory
+            res = {
+              success: true,
+              data: allRes.data.filter((doc: any) => doc.userId === user.uid)
+            };
+          }
+        }
+        
         if (res.success && res.data) {
           const docs = res.data as Array<{ userId?: string; userRole?: string; status?: string; type?: string }>;
           const has = docs.some((doc) => {
-            const targeted =
-              doc.userId === user?.uid ||
-              doc.userRole === 'all' ||
-              doc.userRole?.toLowerCase() === user?.role?.toLowerCase();
-            // Check for various notification types including loan status, savings, and general notifications
             const relevant = ['loan', 'savings', 'payment', 'approval', 'rejection', 'pending', 'welcome', 'general'].some(type => 
               (doc.type || '').toLowerCase().includes(type)
             );
             const unread = doc.status === 'unread' || doc.status === 'new';
-            return targeted && relevant && unread;
+            return relevant && unread;
           });
           setHasNewNotifications(has);
         }
-      } catch {}
+      } catch (error) {
+        console.error('Error checking notifications:', error);
+      }
     };
     if (user && !loading) {
       checkNotifications();
@@ -198,17 +214,35 @@ export default function DriverDashboardPage() {
 
   const loadNotifications = async () => {
     try {
-      const res = await firestore.getCollection('notifications');
+      if (!user?.uid) return;
+      
+      // Try to query with userId filter and sorting first
+      let res = await firestore.queryDocuments('notifications', [
+        { field: 'userId', operator: '==', value: user.uid }
+      ], { field: 'createdAt', direction: 'desc' });
+      
+      // Fallback to getCollection if query fails (e.g., missing index)
+      if (!res.success) {
+        console.warn('Notification query with orderBy failed, using fallback:', res.error);
+        const allRes = await firestore.getCollection('notifications');
+        if (allRes.success && allRes.data) {
+          // Filter in memory and sort
+          const filtered = allRes.data
+            .filter((doc: any) => doc.userId === user.uid)
+            .sort((a: any, b: any) => {
+              const da = new Date(a.createdAt || '').getTime();
+              const db = new Date(b.createdAt || '').getTime();
+              return db - da;
+            });
+          res = { success: true, data: filtered };
+        }
+      }
+      
       if (res.success && res.data) {
         const docs = res.data as Notification[];
         const relevant = docs
           .filter((doc) => {
-            const targeted =
-              doc.userId === user?.uid ||
-              doc.userRole === 'all' ||
-              doc.userRole?.toLowerCase() === user?.role?.toLowerCase();
             const t = (doc.type || '').toLowerCase();
-            // Include all relevant notification types
             const matchesType =
               t.includes('loan') || 
               t.includes('savings') || 
@@ -219,12 +253,7 @@ export default function DriverDashboardPage() {
               t.includes('schedule') ||
               t.includes('welcome') || 
               t.includes('general');
-            return targeted && matchesType;
-          })
-          .sort((a, b) => {
-            const da = new Date(a.createdAt || '').getTime();
-            const db = new Date(b.createdAt || '').getTime();
-            return db - da;
+            return matchesType;
           });
         setNotifications(relevant);
         setHasNewNotifications(
@@ -306,8 +335,8 @@ export default function DriverDashboardPage() {
     <DynamicDashboard>
       <div className="max-w-7xl mx-auto w-full" >
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Welcome, {user?.email}</h1>
-          <p className="text-gray-600 mt-2">Driver Dashboard</p>
+          <h1 className="text-3xl font-bold text-gray-800">Welcome</h1>
+          
         </div>
         <div className="w-full">
           <div className="flex justify-end mb-4">

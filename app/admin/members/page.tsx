@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { firestore } from '@/lib/firebase';
 import toast from 'react-hot-toast';
 import { Member, DriverInfo, OperatorInfo } from '@/lib/types/member';
+import MemberRecordsEnhanced from '@/components/admin/MemberRecordsEnhanced';
 
 export default function MembersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -215,9 +216,7 @@ export default function MembersPage() {
         </button>
       </div>
       
-      <div className="bg-white rounded-lg shadow p-6">
-        <p>Members management features will be implemented here.</p>
-      </div>
+      <MemberRecordsEnhanced />
 
       {/* Add Member Modal */}
       {isModalOpen && (

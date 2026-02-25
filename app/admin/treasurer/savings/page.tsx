@@ -99,17 +99,62 @@ export default function TreasurerSavingsPage() {
     }
   };
 
+  // Function to fetch loan due date for a member
+  const fetchMemberLoanDueDate = async (memberId: string): Promise<string | undefined> => {
+    try {
+      // Query loans collection for active loans of this member
+      const loansResult = await firestore.queryDocuments('loans', [
+        { field: 'memberId', operator: '==', value: memberId }
+      ]);
+      
+      if (loansResult.success && loansResult.data && loansResult.data.length > 0) {
+        // Find the active loan with the earliest due date
+        const activeLoans = loansResult.data.filter((loan: any) => 
+          loan.status === 'active' || loan.status === 'Active'
+        );
+        
+        if (activeLoans.length > 0) {
+          // Sort by due date and return the earliest one
+          const sortedLoans = activeLoans.sort((a: any, b: any) => {
+            const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+            const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+            return dateA - dateB;
+          });
+          
+          const earliestLoan: any = sortedLoans[0];
+          if (earliestLoan.dueDate) {
+            return earliestLoan.dueDate;
+          }
+          // Calculate due date from start date and term if not stored
+          if (earliestLoan.startDate && earliestLoan.term) {
+            const start = new Date(earliestLoan.startDate);
+            const due = new Date(start);
+            due.setMonth(due.getMonth() + parseInt(earliestLoan.term));
+            return due.toISOString();
+          }
+        }
+      }
+      return undefined;
+    } catch (error) {
+      console.error(`Error fetching loan due date for member ${memberId}:`, error);
+      return undefined;
+    }
+  };
+
   // Function to fetch all members' savings data
   const fetchAllMembersSavings = async () => {
     const membersWithSavings = await Promise.all(
       members.map(async (member) => {
         const totalSavings = await fetchMemberTotalSavings(member.id);
+        const loanDueDate = await fetchMemberLoanDueDate(member.id);
         return {
           memberId: member.id,
           memberName: `${member.firstName || ''} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName || ''}${member.suffix ? ' ' + member.suffix : ''}`.trim(),
+          role: member.role || 'Member',
           totalSavings,
           status: member.status || 'Active',
-          lastUpdated: member.createdAt || new Date().toISOString()
+          lastUpdated: member.createdAt || new Date().toISOString(),
+          loanDueDate
         };
       })
     );
@@ -154,12 +199,15 @@ export default function TreasurerSavingsPage() {
       membersWithSavings = await Promise.all(
         filtered.map(async (member) => {
           const totalSavings = await fetchMemberTotalSavings(member.id);
+          const loanDueDate = await fetchMemberLoanDueDate(member.id);
           return {
             memberId: member.id,
             memberName: `${member.firstName || ''} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName || ''}${member.suffix ? ' ' + member.suffix : ''}`.trim(),
+            role: member.role || 'Member',
             totalSavings,
             status: member.status || 'Active',
-            lastUpdated: member.createdAt || new Date().toISOString()
+            lastUpdated: member.createdAt || new Date().toISOString(),
+            loanDueDate
           };
         })
       );
@@ -222,10 +270,10 @@ export default function TreasurerSavingsPage() {
                     Total Savings
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Loan Due Date
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Updated
+                    Status
                   </th>
                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -246,6 +294,11 @@ export default function TreasurerSavingsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">
+                        {member.loanDueDate ? new Date(member.loanDueDate).toLocaleDateString() : 'No Active Loan'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         member.status === 'Active' 
                           ? 'bg-green-100 text-green-800' 
@@ -253,9 +306,6 @@ export default function TreasurerSavingsPage() {
                       }`}>
                         {member.status}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(member.lastUpdated).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button

@@ -3,22 +3,37 @@
 import { useEffect, useState } from 'react';
 import { Member } from '@/lib/types/member';
 import { getMemberCertificate } from '@/lib/certificateService';
+import { firestore } from '@/lib/firebase';
+import { toast } from 'react-hot-toast';
+import { useAuth } from '@/lib/auth';
 
 export default function MemberDetailsModal({ 
   member, 
   isOpen, 
-  onClose 
+  onClose,
+  onMarkInactive
 }: { 
   member: Member | null; 
   isOpen: boolean; 
-  onClose: () => void; 
+  onClose: () => void;
+  onMarkInactive?: (member: Member) => void;
 }) {
   const [isClient, setIsClient] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
+  const [showInactiveConfirm, setShowInactiveConfirm] = useState(false);
+  const [isMarkingInactive, setIsMarkingInactive] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      setShowInactiveConfirm(false);
+      setIsMarkingInactive(false);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -256,16 +271,115 @@ export default function MemberDetailsModal({
             )}
           </div>
 
-          <div className="flex justify-end mt-6">
-            <button
-              onClick={onClose}
-              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Close
-            </button>
+          {/* Action Buttons */}
+          <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
+            {/* Mark as Inactive Button - Only show for active members */}
+            {member && !member.archived && member.status !== 'archived' && (
+              <button
+                onClick={() => setShowInactiveConfirm(true)}
+                disabled={isMarkingInactive}
+                className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center disabled:opacity-50"
+              >
+                <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Mark as Inactive
+              </button>
+            )}
+            
+            <div className="flex space-x-3 ml-auto">
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Mark as Inactive Confirmation Modal */}
+      {showInactiveConfirm && member && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <div className="bg-red-100 p-2 rounded-full mr-3">
+                  <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800">Mark as Inactive?</h3>
+              </div>
+              
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to mark <strong>{member.firstName} {member.lastName}</strong> as inactive? 
+                This will archive the account and require a ₱1,500 reactivation fee to restore.
+              </p>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-yellow-800">
+                  <strong>Note:</strong> The member will be moved to the Archived Members list and will not be able to access their account until restored.
+                </p>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowInactiveConfirm(false)}
+                  disabled={isMarkingInactive}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setIsMarkingInactive(true);
+                    try {
+                      const result = await firestore.updateDocument('members', member.id, {
+                        status: 'archived',
+                        archived: true,
+                        archivedAt: new Date().toISOString(),
+                        archiveReason: 'Marked manually by admin',
+                        previousStatus: member.status || 'active',
+                        updatedAt: new Date().toISOString()
+                      });
+                      
+                      if (result.success) {
+                        toast.success(`${member.firstName} ${member.lastName} has been marked as inactive and archived.`);
+                        setShowInactiveConfirm(false);
+                        onClose();
+                        if (onMarkInactive) onMarkInactive(member);
+                      } else {
+                        toast.error('Failed to mark member as inactive.');
+                      }
+                    } catch (error) {
+                      console.error('Error marking member as inactive:', error);
+                      toast.error('An error occurred. Please try again.');
+                    } finally {
+                      setIsMarkingInactive(false);
+                    }
+                  }}
+                  disabled={isMarkingInactive}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center disabled:opacity-50"
+                >
+                  {isMarkingInactive ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </>
+                  ) : (
+                    'Yes, Mark as Inactive'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
