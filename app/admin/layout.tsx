@@ -14,7 +14,7 @@ export default function AdminLayout({
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Check if user has valid admin role
   const isValidAdmin = user && validateAdminRoute(user);
@@ -32,6 +32,16 @@ export default function AdminLayout({
     }
   }, [user, loading, isValidAdmin, router]);
 
+  // Don't show sidebar on login page
+  const isLoginPage = pathname === '/admin/login';
+  const isRegisterPage = pathname === '/admin/register';
+  const showSidebar = !isLoginPage && !isRegisterPage;
+
+  // On login/register pages, render children directly without any wrapper
+  if (isLoginPage || isRegisterPage) {
+    return <>{children}</>;
+  }
+
   // Don't render sidebar or content if user is not authenticated or not admin
   if (loading || !user || !isValidAdmin) {
     return (
@@ -40,11 +50,6 @@ export default function AdminLayout({
       </div>
     );
   }
-
-  // Don't show sidebar on login page
-  const isLoginPage = pathname === '/admin/login';
-  const isRegisterPage = pathname === '/admin/register';
-  const showSidebar = !isLoginPage && !isRegisterPage;
 
   return (
     <div className="flex h-screen bg-gray-100">

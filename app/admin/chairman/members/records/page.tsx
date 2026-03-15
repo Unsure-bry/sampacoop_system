@@ -51,7 +51,7 @@ export default function ChairmanMembersRecordsPage() {
           email: doc.email || '',
           contactNumber: doc.contactNumber || doc.phoneNumber || '',
           role: doc.role || 'Member',
-          status: doc.status || 'active',
+          status: doc.status || 'Active',
         }));
 
         setMembers(processedMembers);
@@ -154,7 +154,7 @@ export default function ChairmanMembersRecordsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(member.status)}`}>
-                          {member.status || 'Active'}
+                          {member.status ? member.status.charAt(0).toUpperCase() + member.status.slice(1).toLowerCase() : 'Active'}
                         </span>
                       </td>
                     </tr>

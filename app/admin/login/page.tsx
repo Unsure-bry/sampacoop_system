@@ -16,7 +16,7 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { user, loading: authLoading, logout, customLogin } = useAuth();
+  const { user, logout, customLogin } = useAuth();
 
   // Don't automatically redirect authenticated users
   // Just show them a message that they're already logged in
@@ -82,15 +82,6 @@ export default function AdminLoginPage() {
       setLoading(false);
     }
   };
-
-  // Show loading screen while checking auth state
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
-      </div>
-    );
-  }
 
   // If user is already authenticated, show a message but don't redirect
   // This ensures the login form is always accessible

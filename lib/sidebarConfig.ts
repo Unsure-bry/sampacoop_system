@@ -3,11 +3,13 @@ interface SidebarItem {
   name: string;
   path: string;
   icon: React.ComponentType<{ className?: string }>;
+  permission?: string; // Permission required to show this item
 }
 
 interface SidebarSection {
   title: string;
   items: SidebarItem[];
+  permission?: string; // Permission required to show this section
 }
 
 interface RoleSidebarConfig {
@@ -23,7 +25,9 @@ import {
   BarChart3, 
   User,
   Settings,
-  Activity 
+  Activity,
+  UserCog,
+  Shield
 } from 'lucide-react';
 
 // Define sidebar configuration for each role
@@ -38,43 +42,49 @@ export const roleSidebarConfig: RoleSidebarConfig = {
     },
     {
       title: 'Members',
+      permission: 'viewMembers',
       items: [
-        { name: 'Members Record', path: '/admin/members/records', icon: Users },
+        { name: 'Members Record', path: '/admin/members/records', icon: Users, permission: 'viewMembers' },
       ],
     },
     {
       title: 'Loan Manager',
+      permission: 'viewLoans',
       items: [
-        { name: 'Loan Records', path: '/admin/loans/records', icon: FileText },
-        { name: 'Loan Requests', path: '/admin/loans/requests', icon: FileText },
-        { name: 'Loan Plans', path: '/admin/loans/plans', icon: FileText },
+        { name: 'Loan Records', path: '/admin/loans/records', icon: FileText, permission: 'viewLoans' },
+        { name: 'Loan Requests', path: '/admin/loans/requests', icon: FileText, permission: 'viewLoans' },
       ],
     },
     {
       title: 'Savings Manager',
+      permission: 'viewSavings',
       items: [
-        { name: 'Savings Record', path: '/admin/savings', icon: FileText },
+        { name: 'Savings Record', path: '/admin/savings', icon: FileText, permission: 'viewSavings' },
       ],
     },
     {
       title: 'Documentation',
+      permission: 'viewReports',
       items: [
-        { name: 'Reports and Analytics', path: '/admin/reports', icon: BarChart3 },
+        { name: 'Reports and Analytics', path: '/admin/reports', icon: BarChart3, permission: 'viewReports' },
       ],
     },
     {
-      title: 'System Setup',
+      title: 'Admin Settings',
+      permission: 'manageSettings',
       items: [
-        { name: 'Event and Reminder Generator', path: '/admin/dashboard-data', icon: FileText },
+        { name: 'Role Permissions', path: '/admin/settings/permissions', icon: Settings, permission: 'manageSettings' },
+        { name: 'Officer Management', path: '/admin/settings/officers', icon: Users, permission: 'manageSettings' },
+        { name: 'Audit Logs', path: '/admin/profile/activity', icon: Activity, permission: 'manageSettings' },
+        { name: 'System Settings', path: '/admin/settings/system', icon: Settings, permission: 'manageSettings' },
       ],
     },
     {
       title: 'Profile',
       items: [
         { name: 'My Account', path: '/admin/profile', icon: User },
-        { name: 'Account Settings', path: '/admin/profile/edit', icon: Settings },
-        { name: 'Security', path: '/admin/profile/security', icon: Settings },
-        { name: 'Activity Log', path: '/admin/profile/activity', icon: Activity },
+        { name: 'Edit Profile', path: '/admin/profile/edit', icon: UserCog },
+        { name: 'Security', path: '/admin/profile/security', icon: Shield },
       ],
     },
   ],
@@ -89,34 +99,39 @@ export const roleSidebarConfig: RoleSidebarConfig = {
     },
     {
       title: 'Members',
+      permission: 'viewMembers',
       items: [
-        { name: 'Member Records', path: '/admin/secretary/members/records', icon: Users },
+        { name: 'Member Records', path: '/admin/members/records', icon: Users, permission: 'viewMembers' },
       ],
     },
     {
       title: 'Loan Manager',
+      permission: 'viewLoans',
       items: [
-        { name: 'Loan Records', path: '/admin/secretary/loans/records', icon: FileText },
-        { name: 'Loan Requests', path: '/admin/secretary/loans/requests', icon: FileText },
-        { name: 'Loan Plans', path: '/admin/secretary/loans/plans', icon: FileText },
+        { name: 'Loan Records', path: '/admin/loans/records', icon: FileText, permission: 'viewLoans' },
+        { name: 'Loan Requests', path: '/admin/loans/requests', icon: FileText, permission: 'viewLoans' },
       ],
     },
     {
       title: 'Savings',
+      permission: 'viewSavings',
       items: [
-        { name: 'Savings', path: '/admin/secretary/savings', icon: DollarSign },
+        { name: 'Savings', path: '/admin/savings', icon: DollarSign, permission: 'viewSavings' },
       ],
     },
     {
       title: 'Documentation',
+      permission: 'viewReports',
       items: [
-        { name: 'Reports and Analytics', path: '/admin/secretary/reports', icon: BarChart3 },
+        { name: 'Reports and Analytics', path: '/admin/reports', icon: BarChart3, permission: 'viewReports' },
       ],
     },
     {
       title: 'Profile',
       items: [
-        { name: 'My Account', path: '/admin/secretary/profile', icon: User },
+        { name: 'My Account', path: '/admin/profile', icon: User },
+        { name: 'Edit Profile', path: '/admin/profile/edit', icon: UserCog },
+        { name: 'Security', path: '/admin/profile/security', icon: Shield },
       ],
     },
   ],
@@ -131,26 +146,38 @@ export const roleSidebarConfig: RoleSidebarConfig = {
     },
     {
       title: 'Members',
+      permission: 'viewMembers',
       items: [
-        { name: 'Members', path: '/admin/chairman/members', icon: Users },
+        { name: 'Members', path: '/admin/members/records', icon: Users, permission: 'viewMembers' },
       ],
     },
     {
       title: 'Loan Manager',
+      permission: 'viewLoans',
       items: [
-        { name: 'Loans', path: '/admin/chairman/loans', icon: FileText },
+        { name: 'Loans', path: '/admin/loans/records', icon: FileText, permission: 'viewLoans' },
       ],
     },
     {
       title: 'Savings',
+      permission: 'viewSavings',
       items: [
-        { name: 'Savings', path: '/admin/chairman/savings', icon: DollarSign },
+        { name: 'Savings', path: '/admin/savings', icon: DollarSign, permission: 'viewSavings' },
       ],
     },
     {
       title: 'Reports',
+      permission: 'viewReports',
       items: [
-        { name: 'Reports', path: '/admin/chairman/reports', icon: BarChart3 },
+        { name: 'Reports', path: '/admin/reports', icon: BarChart3, permission: 'viewReports' },
+      ],
+    },
+    {
+      title: 'Profile',
+      items: [
+        { name: 'My Account', path: '/admin/profile', icon: User },
+        { name: 'Edit Profile', path: '/admin/profile/edit', icon: Settings },
+        { name: 'Security', path: '/admin/profile/security', icon: Activity },
       ],
     },
   ],
@@ -165,26 +192,38 @@ export const roleSidebarConfig: RoleSidebarConfig = {
     },
     {
       title: 'Members',
+      permission: 'viewMembers',
       items: [
-        { name: 'Members', path: '/admin/vice-chairman/members', icon: Users },
+        { name: 'Members', path: '/admin/members/records', icon: Users, permission: 'viewMembers' },
       ],
     },
     {
       title: 'Loan Manager',
+      permission: 'viewLoans',
       items: [
-        { name: 'Loans', path: '/admin/vice-chairman/loans', icon: FileText },
+        { name: 'Loans', path: '/admin/loans/records', icon: FileText, permission: 'viewLoans' },
       ],
     },
     {
       title: 'Savings',
+      permission: 'viewSavings',
       items: [
-        { name: 'Savings', path: '/admin/vice-chairman/savings', icon: DollarSign },
+        { name: 'Savings', path: '/admin/savings', icon: DollarSign, permission: 'viewSavings' },
       ],
     },
     {
       title: 'Reports',
+      permission: 'viewReports',
       items: [
-        { name: 'Reports', path: '/admin/vice-chairman/reports', icon: BarChart3 },
+        { name: 'Reports', path: '/admin/reports', icon: BarChart3, permission: 'viewReports' },
+      ],
+    },
+    {
+      title: 'Profile',
+      items: [
+        { name: 'My Account', path: '/admin/profile', icon: User },
+        { name: 'Edit Profile', path: '/admin/profile/edit', icon: Settings },
+        { name: 'Security', path: '/admin/profile/security', icon: Activity },
       ],
     },
   ],
@@ -199,14 +238,31 @@ export const roleSidebarConfig: RoleSidebarConfig = {
     },
     {
       title: 'Loan Manager',
+      permission: 'viewLoans',
       items: [
-        { name: 'Loans', path: '/admin/manager/loans', icon: FileText },
+        { name: 'Loans', path: '/admin/loans/records', icon: FileText, permission: 'viewLoans' },
       ],
     },
     {
       title: 'Savings',
+      permission: 'viewSavings',
       items: [
-        { name: 'Savings', path: '/admin/manager/savings', icon: DollarSign },
+        { name: 'Savings', path: '/admin/savings', icon: DollarSign, permission: 'viewSavings' },
+      ],
+    },
+    {
+      title: 'Reports',
+      permission: 'viewReports',
+      items: [
+        { name: 'Reports', path: '/admin/reports', icon: BarChart3, permission: 'viewReports' },
+      ],
+    },
+    {
+      title: 'Profile',
+      items: [
+        { name: 'My Account', path: '/admin/profile', icon: User },
+        { name: 'Edit Profile', path: '/admin/profile/edit', icon: Settings },
+        { name: 'Security', path: '/admin/profile/security', icon: Activity },
       ],
     },
   ],
@@ -221,26 +277,38 @@ export const roleSidebarConfig: RoleSidebarConfig = {
     },
     {
       title: 'Members',
+      permission: 'viewMembers',
       items: [
-        { name: 'Members', path: '/admin/treasurer/members', icon: Users },
+        { name: 'Members', path: '/admin/members/records', icon: Users, permission: 'viewMembers' },
       ],
     },
     {
       title: 'Loan Manager',
+      permission: 'viewLoans',
       items: [
-        { name: 'Loans', path: '/admin/treasurer/loans', icon: FileText },
+        { name: 'Loans', path: '/admin/loans/records', icon: FileText, permission: 'viewLoans' },
       ],
     },
     {
       title: 'Savings',
+      permission: 'viewSavings',
       items: [
-        { name: 'Savings', path: '/admin/treasurer/savings', icon: DollarSign },
+        { name: 'Savings', path: '/admin/savings', icon: DollarSign, permission: 'viewSavings' },
       ],
     },
     {
       title: 'Reports',
+      permission: 'viewReports',
       items: [
-        { name: 'Reports', path: '/admin/treasurer/reports', icon: BarChart3 },
+        { name: 'Reports', path: '/admin/reports', icon: BarChart3, permission: 'viewReports' },
+      ],
+    },
+    {
+      title: 'Profile',
+      items: [
+        { name: 'My Account', path: '/admin/profile', icon: User },
+        { name: 'Edit Profile', path: '/admin/profile/edit', icon: Settings },
+        { name: 'Security', path: '/admin/profile/security', icon: Activity },
       ],
     },
   ],
@@ -255,14 +323,38 @@ export const roleSidebarConfig: RoleSidebarConfig = {
     },
     {
       title: 'Members',
+      permission: 'viewMembers',
       items: [
-        { name: 'Members', path: '/admin/bod/members', icon: Users },
+        { name: 'Members', path: '/admin/members/records', icon: Users, permission: 'viewMembers' },
       ],
     },
     {
       title: 'Loan Manager',
+      permission: 'viewLoans',
       items: [
-        { name: 'Loans', path: '/admin/bod/loans', icon: FileText },
+        { name: 'Loans', path: '/admin/loans/records', icon: FileText, permission: 'viewLoans' },
+      ],
+    },
+    {
+      title: 'Savings',
+      permission: 'viewSavings',
+      items: [
+        { name: 'Savings', path: '/admin/savings', icon: DollarSign, permission: 'viewSavings' },
+      ],
+    },
+    {
+      title: 'Reports',
+      permission: 'viewReports',
+      items: [
+        { name: 'Reports', path: '/admin/reports', icon: BarChart3, permission: 'viewReports' },
+      ],
+    },
+    {
+      title: 'Profile',
+      items: [
+        { name: 'My Account', path: '/admin/profile', icon: User },
+        { name: 'Edit Profile', path: '/admin/profile/edit', icon: Settings },
+        { name: 'Security', path: '/admin/profile/security', icon: Activity },
       ],
     },
   ],
@@ -272,4 +364,34 @@ export const roleSidebarConfig: RoleSidebarConfig = {
 export function getSidebarConfig(role: string): SidebarSection[] {
   const normalizedRole = role.toLowerCase();
   return roleSidebarConfig[normalizedRole] || roleSidebarConfig['admin'];
+}
+
+// Filter sidebar config based on user permissions
+export function filterSidebarByPermissions(
+  sections: SidebarSection[],
+  userPermissions: Record<string, boolean>
+): SidebarSection[] {
+  return sections
+    .map((section) => {
+      // Filter items within the section based on their permissions
+      const filteredItems = section.items.filter((item) => {
+        // If no permission is required, always show
+        if (!item.permission) return true;
+        // Otherwise, check if user has the permission
+        return userPermissions[item.permission] === true;
+      });
+
+      // Return section with filtered items
+      return {
+        ...section,
+        items: filteredItems,
+      };
+    })
+    .filter((section) => {
+      // Only include sections that have at least one item
+      // or sections that don't require a specific permission
+      if (section.items.length === 0) return false;
+      if (!section.permission) return true;
+      return userPermissions[section.permission] === true;
+    });
 }

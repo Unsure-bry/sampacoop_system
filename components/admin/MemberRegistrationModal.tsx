@@ -7,6 +7,9 @@ import { toast } from 'react-hot-toast';
 import { Member } from '@/lib/types/member';
 import { sendMemberRegistrationEmail } from '@/lib/emailService';
 import { createLinkedUserMember, checkEmailExists } from '@/lib/userMemberService';
+import { logActivity } from '@/lib/activityLogger';
+import { useAuth } from '@/lib/auth';
+import { getSystemSettings, formatCurrency, SystemSettings } from '@/lib/settingsService';
 
 interface PersonalInfo {
   firstName: string;
@@ -94,11 +97,27 @@ export default function MemberRegistrationModal({
   onClose: () => void; 
   onMemberAdded: () => void; 
 }) {
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [role, setRole] = useState<'Driver' | 'Operator' | null>(null);
   const [licenseNumberValid, setLicenseNumberValid] = useState<boolean | null>(null); // null = not validated yet, true = valid, false = invalid
   const [isSubmitting, setIsSubmitting] = useState(false); // New state for loading
+  const [isPaid, setIsPaid] = useState(false); // Payment confirmation checkbox
+  const [controlNumber, setControlNumber] = useState(''); // Receipt control number
+  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
   const { register, handleSubmit, watch, setValue, formState: { errors }, reset, trigger } = useForm<FormData>();
+
+  // Fetch system settings when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchSystemSettings();
+    }
+  }, [isOpen]);
+
+  const fetchSystemSettings = async () => {
+    const settings = await getSystemSettings();
+    setSystemSettings(settings);
+  };
   
   // Function to validate all required fields for current step
   const validateCurrentStep = async () => {
@@ -173,25 +192,25 @@ export default function MemberRegistrationModal({
   
   // Handle dynamic plate number fields
   useEffect(() => {
-    if (numberOfJeepneys && numberOfJeepneys > 0) {
-      const currentPlateNumbers = plateNumbers || [];
-      const newPlateNumbers: string[] = [...currentPlateNumbers];
-      
-      // Adjust array size based on numberOfJeepneys
-      if (newPlateNumbers.length > numberOfJeepneys) {
-        newPlateNumbers.splice(numberOfJeepneys);
-      } else {
-        while (newPlateNumbers.length < numberOfJeepneys) {
-          newPlateNumbers.push('');
-        }
+  if (!numberOfJeepneys || numberOfJeepneys <= 0) return;
+
+  const currentPlateNumbers = plateNumbers || [];
+
+  if (currentPlateNumbers.length !== numberOfJeepneys) {
+    const newPlateNumbers = [...currentPlateNumbers];
+
+    if (newPlateNumbers.length > numberOfJeepneys) {
+      newPlateNumbers.splice(numberOfJeepneys);
+    } else {
+      while (newPlateNumbers.length < numberOfJeepneys) {
+        newPlateNumbers.push('');
       }
-      
-      setValue('plateNumbers', newPlateNumbers);
-      
-      // Validate the plate numbers array
-      trigger('plateNumbers');
     }
-  }, [numberOfJeepneys, plateNumbers, setValue, trigger]);
+
+    setValue('plateNumbers', newPlateNumbers);
+  }
+
+}, [numberOfJeepneys]);
 
   const nextStep = async () => {
     if (currentStep < 3) {
@@ -260,13 +279,14 @@ export default function MemberRegistrationModal({
         return;
       }
       
-      // Add payment information
+      // Add payment information using system settings
+      const membershipFee = systemSettings?.membershipPayment || 1500;
       const paymentData: PaymentInfo = {
-        membershipFee: 1500,
+        membershipFee: membershipFee,
         paymentMethod: 'Cash',
         status: 'PAID',
-        totalFee: 1500,
-        amountPaid: 1500,
+        totalFee: membershipFee,
+        amountPaid: membershipFee,
         remainingBalance: 0
       };
       
@@ -350,6 +370,15 @@ export default function MemberRegistrationModal({
           toast.success('Registration successful! A confirmation email has been sent.');
         }
         
+        // Log activity
+        await logActivity({
+          userId: user?.uid || 'unknown',
+          userEmail: user?.email || 'unknown',
+          userName: user?.displayName || 'Admin',
+          action: 'Member Added',
+          role: user?.role || 'admin',
+        });
+        
         reset();
         setCurrentStep(1);
         setRole(null);
@@ -381,14 +410,14 @@ export default function MemberRegistrationModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Add New Member</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+        <div className="p-4 sm:p-6">
+          <div className="flex justify-between items-center mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-black">Add New Member</h2>
             <button 
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
+              className="text-black hover:text-gray-700"
               disabled={isSubmitting}
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -398,8 +427,8 @@ export default function MemberRegistrationModal({
           </div>
 
           {/* Progress Steps */}
-          <div className="mb-8">
-            <div className="flex justify-between relative">
+          <div className="mb-6 sm:mb-8">
+            <div className="flex justify-between relative px-2 sm:px-0">
               <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-200 -z-10"></div>
               {[1, 2, 3].map((step) => (
                 <div key={step} className="flex flex-col items-center">
@@ -408,8 +437,8 @@ export default function MemberRegistrationModal({
                   }`}>
                     {step}
                   </div>
-                  <span className="mt-2 text-sm font-medium text-gray-600">
-                    {step === 1 ? 'Personal Info' : step === 2 ? 'Role Details' : 'Confirmation'}
+                  <span className="mt-2 text-xs sm:text-sm font-medium text-black text-center">
+                    {step === 1 ? 'Personal' : step === 2 ? 'Role' : 'Confirm'}
                   </span>
                 </div>
               ))}
@@ -420,11 +449,11 @@ export default function MemberRegistrationModal({
             {/* Step 1: Personal Information */}
             {currentStep === 1 && (
               <div className="space-y-6">
-                <h3 className="text-lg font-semibold text-gray-800">Personal Information</h3>
+                <h3 className="text-lg font-semibold text-black">Personal Information</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-black mb-1">
                       First Name <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -440,7 +469,7 @@ export default function MemberRegistrationModal({
                           message: 'First name can only contain letters and spaces'
                         }
                       })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                         errors.firstName ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter first name"
@@ -451,7 +480,7 @@ export default function MemberRegistrationModal({
                   </div>
                 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-black mb-1">
                       Middle Name
                     </label>
                     <input
@@ -466,7 +495,7 @@ export default function MemberRegistrationModal({
                           message: 'Middle name can only contain letters and spaces'
                         }
                       })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                         errors.middleName ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter middle name"
@@ -478,7 +507,7 @@ export default function MemberRegistrationModal({
                   </div>
                 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-black mb-1">
                       Last Name <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -494,7 +523,7 @@ export default function MemberRegistrationModal({
                           message: 'Last name can only contain letters and spaces'
                         }
                       })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                         errors.lastName ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter last name"
@@ -506,7 +535,7 @@ export default function MemberRegistrationModal({
                   </div>
                 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-black mb-1">
                       Suffix
                     </label>
                     <input
@@ -517,7 +546,7 @@ export default function MemberRegistrationModal({
                           message: 'Suffix can only contain letters, periods, and spaces'
                         }
                       })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                         errors.suffix ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="e.g., Jr., Sr., III"
@@ -528,7 +557,7 @@ export default function MemberRegistrationModal({
                   </div>
                 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-black mb-1">
                       Email Address <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -552,7 +581,7 @@ export default function MemberRegistrationModal({
                           return true;
                         }
                       })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                         errors.email ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter email address"
@@ -564,7 +593,7 @@ export default function MemberRegistrationModal({
                   </div>
                 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-black mb-1">
                       Phone Number <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -584,12 +613,17 @@ export default function MemberRegistrationModal({
                           message: 'Phone number is too long'
                         }
                       })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                         errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter phone number"
                       disabled={isSubmitting}
                       maxLength={11}
+                      onChange={(e) => {
+                        // Only allow numbers
+                        const value = e.target.value.replace(/\D/g, '');
+                        setValue('phoneNumber', value);
+                      }}
                     />
                     {errors.phoneNumber && (
                       <p className="mt-1 text-sm text-red-600">{errors.phoneNumber.message}</p>
@@ -597,7 +631,7 @@ export default function MemberRegistrationModal({
                   </div>
                 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-black mb-1">
                       Birthdate <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
@@ -610,23 +644,23 @@ export default function MemberRegistrationModal({
                             const birthDate = new Date(value);
                             const today = new Date();
                             const age = today.getFullYear() - birthDate.getFullYear();
-                                              
+                                                                
                             if (age < 18) {
                               return 'Member must be at least 18 years old';
                             }
-                                              
+                                                                
                             if (age > 100) {
                               return 'Please enter a valid birthdate';
                             }
-                                              
+                                                                
                             if (birthDate > today) {
                               return 'Birthdate cannot be in the future';
                             }
-                                              
+                                                                
                             return true;
                           }
                         })}
-                        className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                        className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                           errors.birthdate ? 'border-red-500' : 'border-gray-300'
                         }`}
                       />
@@ -635,7 +669,7 @@ export default function MemberRegistrationModal({
                       )}
                       <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                         <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                       </div>
                     </div>
@@ -645,7 +679,7 @@ export default function MemberRegistrationModal({
                   </div>
                 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-black mb-1">
                       Age
                     </label>
                     <input
@@ -655,7 +689,7 @@ export default function MemberRegistrationModal({
                         min: { value: 18, message: 'Member must be at least 18 years old' },
                         max: { value: 100, message: 'Please enter a valid age' }
                       })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                         errors.age ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Age will be calculated automatically"
@@ -667,7 +701,7 @@ export default function MemberRegistrationModal({
                   </div>
                 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-black mb-1">
                       Role <span className="text-red-500">*</span>
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -680,8 +714,8 @@ export default function MemberRegistrationModal({
                             : 'border-gray-300 hover:border-gray-400'
                         }`}
                       >
-                        <div className="font-medium">Driver</div>
-                        <div className="text-sm text-gray-500 mt-1">For jeepney drivers</div>
+                        <div className="font-medium text-black">Driver</div>
+                        <div className="text-sm text-black mt-1">For jeepney drivers</div>
                       </button>
                       <button
                         type="button"
@@ -692,8 +726,8 @@ export default function MemberRegistrationModal({
                             : 'border-gray-300 hover:border-gray-400'
                         }`}
                       >
-                        <div className="font-medium">Operator</div>
-                        <div className="text-sm text-gray-500 mt-1">For jeepney operators</div>
+                        <div className="font-medium text-black">Operator</div>
+                        <div className="text-sm text-black mt-1">For jeepney operators</div>
                       </button>
                     </div>
                     {!role && (
@@ -703,20 +737,29 @@ export default function MemberRegistrationModal({
                   
                   {/* Address fields for both roles in Step 1 */}
                   <div className="md:col-span-2">
-                    <h4 className="text-md font-semibold text-gray-800 mb-3">Address Information</h4>
+                    <h4 className="text-md font-semibold text-black mb-3">Address Information</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-black mb-1">
                           House No.
                         </label>
                         <input
                           type="text"
-                          {...register(role === 'Driver' ? 'driverHouseNumber' : 'operatorHouseNumber')}
-                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                          {...register(role === 'Driver' ? 'driverHouseNumber' : 'operatorHouseNumber', {
+                            pattern: {
+                              value: /^\d+$/,
+                              message: 'House number must contain only numbers'
+                            }
+                          })}
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                             (role === 'Driver' ? errors.driverHouseNumber : errors.operatorHouseNumber) ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter house number"
                           disabled={isSubmitting}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '');
+                            setValue(role === 'Driver' ? 'driverHouseNumber' : 'operatorHouseNumber', value);
+                          }}
                         />
                         {(role === 'Driver' ? errors.driverHouseNumber : errors.operatorHouseNumber) && (
                           <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverHouseNumber : errors.operatorHouseNumber)?.message}</p>
@@ -724,17 +767,26 @@ export default function MemberRegistrationModal({
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-black mb-1">
                           Block No.
                         </label>
                         <input
                           type="text"
-                          {...register(role === 'Driver' ? 'driverBlockNumber' : 'operatorBlockNumber')}
-                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                          {...register(role === 'Driver' ? 'driverBlockNumber' : 'operatorBlockNumber', {
+                            pattern: {
+                              value: /^\d+$/,
+                              message: 'Block number must contain only numbers'
+                            }
+                          })}
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                             (role === 'Driver' ? errors.driverBlockNumber : errors.operatorBlockNumber) ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter block number"
                           disabled={isSubmitting}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '');
+                            setValue(role === 'Driver' ? 'driverBlockNumber' : 'operatorBlockNumber', value);
+                          }}
                         />
                         {(role === 'Driver' ? errors.driverBlockNumber : errors.operatorBlockNumber) && (
                           <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverBlockNumber : errors.operatorBlockNumber)?.message}</p>
@@ -742,17 +794,26 @@ export default function MemberRegistrationModal({
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-black mb-1">
                           Lot No.
                         </label>
                         <input
                           type="text"
-                          {...register(role === 'Driver' ? 'driverLotNumber' : 'operatorLotNumber')}
-                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                          {...register(role === 'Driver' ? 'driverLotNumber' : 'operatorLotNumber', {
+                            pattern: {
+                              value: /^\d+$/,
+                              message: 'Lot number must contain only numbers'
+                            }
+                          })}
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                             (role === 'Driver' ? errors.driverLotNumber : errors.operatorLotNumber) ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter lot number"
                           disabled={isSubmitting}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '');
+                            setValue(role === 'Driver' ? 'driverLotNumber' : 'operatorLotNumber', value);
+                          }}
                         />
                         {(role === 'Driver' ? errors.driverLotNumber : errors.operatorLotNumber) && (
                           <p className="mt-1 text-sm text-red-600">{(role === 'Driver' ? errors.driverLotNumber : errors.operatorLotNumber)?.message}</p>
@@ -760,19 +821,19 @@ export default function MemberRegistrationModal({
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Street
+                        <label className="block text-sm font-medium text-black mb-1">
+                          Street <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           {...register(role === 'Driver' ? 'driverStreet' : 'operatorStreet', { 
                             required: 'Street is required',
                             pattern: {
-                              value: /^[A-Za-z0-9\s\-\.,]+$/,
-                              message: 'Street can only contain letters, numbers, spaces, hyphens, periods, and commas'
+                              value: /^[A-Za-z0-9\s\-\.\,\'\(\)\/]+$/,
+                              message: 'Street can contain letters, numbers, spaces, hyphens, periods, commas, apostrophes, parentheses, and slashes'
                             }
                           })}
-                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                             (role === 'Driver' ? errors.driverStreet : errors.operatorStreet) ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter street"
@@ -784,19 +845,19 @@ export default function MemberRegistrationModal({
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Barangay
+                        <label className="block text-sm font-medium text-black mb-1">
+                          Barangay <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           {...register(role === 'Driver' ? 'driverBarangay' : 'operatorBarangay', { 
                             required: 'Barangay is required',
                             pattern: {
-                              value: /^[A-Za-z\s\-]+$/,
-                              message: 'Barangay can only contain letters, spaces, and hyphens'
+                              value: /^[A-Za-z0-9\s\-\.\,\'\(\)\/]+$/,
+                              message: 'Barangay can contain letters, numbers, spaces, hyphens, periods, commas, apostrophes, parentheses, and slashes'
                             }
                           })}
-                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                             (role === 'Driver' ? errors.driverBarangay : errors.operatorBarangay) ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter barangay"
@@ -808,19 +869,19 @@ export default function MemberRegistrationModal({
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          City
+                        <label className="block text-sm font-medium text-black mb-1">
+                          City <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           {...register(role === 'Driver' ? 'driverCity' : 'operatorCity', { 
                             required: 'City is required',
                             pattern: {
-                              value: /^[A-Za-z\s\-]+$/,
-                              message: 'City can only contain letters, spaces, and hyphens'
+                              value: /^[A-Za-z0-9\s\-\.\,\'\(\)\/]+$/,
+                              message: 'City can contain letters, numbers, spaces, hyphens, periods, commas, apostrophes, parentheses, and slashes'
                             }
                           })}
-                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                             (role === 'Driver' ? errors.driverCity : errors.operatorCity) ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter city"
@@ -834,12 +895,12 @@ export default function MemberRegistrationModal({
                   </div>
                 </div>
                 
-                <div className="flex justify-end pt-4">
+                <div className="flex flex-col sm:flex-row justify-end pt-4 gap-3">
                   <button
                     type="button"
                     onClick={nextStep}
                     disabled={!role || isSubmitting}
-                    className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                    className="w-full sm:w-auto px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                   >
                     Next: Role Details
                   </button>
@@ -850,13 +911,13 @@ export default function MemberRegistrationModal({
             {/* Step 2: Role-specific Information */}
             {currentStep === 2 && (
               <div className="space-y-6">
-                <h3 className="text-lg font-semibold text-gray-800">
+                <h3 className="text-lg font-semibold text-black">
                   {role} Information
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-black mb-1">
                       License Number <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -876,7 +937,7 @@ export default function MemberRegistrationModal({
                           message: 'Invalid license number format. Use A12-34-567890.'
                         }
                       })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                         role === 'Driver' 
                           ? (errors.driverLicenseNumber ? 'border-red-500' : (licenseNumberValid === false ? 'border-red-500' : 'border-gray-300'))
                           : (errors.operatorLicenseNumber ? 'border-red-500' : (licenseNumberValid === false ? 'border-red-500' : 'border-gray-300'))
@@ -938,7 +999,7 @@ export default function MemberRegistrationModal({
                   </div>
                   
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-black mb-1">
                       TIN ID <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -958,7 +1019,7 @@ export default function MemberRegistrationModal({
                           message: 'TIN ID must be in the format XXX-XXX-XXX-XXXXX (e.g., 123-456-789-12345)'
                         }
                       })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                         role === 'Driver' 
                           ? (errors.driverTinId ? 'border-red-500' : 'border-gray-300')
                           : (errors.operatorTinId ? 'border-red-500' : 'border-gray-300')
@@ -1001,7 +1062,7 @@ export default function MemberRegistrationModal({
                   {role === 'Operator' && (
                     <>
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-black mb-1">
                           Number of Jeepneys <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -1018,7 +1079,7 @@ export default function MemberRegistrationModal({
                               message: 'Maximum number of jeepneys exceeded (50 max)'
                             }
                           })}
-                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                             errors.numberOfJeepneys ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter number of jeepneys"
@@ -1031,14 +1092,14 @@ export default function MemberRegistrationModal({
                       </div>
                       
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-black mb-1">
                           Jeepney Plate Number(s) <span className="text-red-500">*</span>
                         </label>
                         {numberOfJeepneys && numberOfJeepneys > 0 ? (
                           <div className="space-y-3">
                             {Array.from({ length: numberOfJeepneys }).map((_, index) => (
                               <div key={index}>
-                                <label className="block text-sm text-gray-600 mb-1">Jeepney {index + 1} Plate Number</label>
+                                <label className="block text-sm text-black mb-1">Jeepney {index + 1} Plate Number</label>
                                 <input
                                   type="text"
                                   {...register(`plateNumbers.${index}` as keyof FormData, {
@@ -1056,7 +1117,7 @@ export default function MemberRegistrationModal({
                                       message: 'Plate number is too long'
                                     }
                                   })}
-                                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                                     errors.plateNumbers && errors.plateNumbers[index] ? 'border-red-500' : 'border-gray-300'
                                   }`}
                                   placeholder={`Enter plate number for jeepney ${index + 1}`}
@@ -1080,11 +1141,11 @@ export default function MemberRegistrationModal({
                   )}
                 </div>
                 
-                <div className="flex justify-between pt-4">
+                <div className="flex flex-col sm:flex-row justify-between pt-4 gap-3">
                   <button
                     type="button"
                     onClick={prevStep}
-                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="w-full sm:w-auto px-6 py-3 border border-gray-300 text-black rounded-lg hover:bg-gray-50 transition-colors order-2 sm:order-1"
                     disabled={isSubmitting}
                   >
                     Back
@@ -1092,7 +1153,7 @@ export default function MemberRegistrationModal({
                   <button
                     type="button"
                     onClick={nextStep}
-                    className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    className="w-full sm:w-auto px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors order-1 sm:order-2"
                     disabled={isSubmitting}
                   >
                     Next: Confirmation
@@ -1104,7 +1165,7 @@ export default function MemberRegistrationModal({
             {/* Step 3: Confirmation & Payment Details */}
             {currentStep === 3 && (
               <div className="space-y-6">
-                <h3 className="text-lg font-semibold text-gray-800">Confirm Member Information & Payment</h3>
+                <h3 className="text-lg font-semibold text-black">Confirm Member Information & Payment</h3>
                 
                 {/* Validate all fields before allowing submission */}
                 {Object.keys(errors).length > 0 && (
@@ -1121,52 +1182,52 @@ export default function MemberRegistrationModal({
                 <div className="bg-gray-50 rounded-lg p-4 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <h4 className="font-medium text-gray-700">Personal Information</h4>
+                      <h4 className="font-medium text-black">Personal Information</h4>
                       <div className="mt-2 space-y-1 text-sm">
-                        <p><span className="text-gray-600">Name:</span> {watch('firstName')} {watch('middleName')} {watch('lastName')} {watch('suffix')}</p>
-                        <p><span className="text-gray-600">Email:</span> {watch('email')}</p>
-                        <p><span className="text-gray-600">Phone:</span> {watch('phoneNumber')}</p>
-                        <p><span className="text-gray-600">Birthdate:</span> {watch('birthdate')}</p>
-                        <p><span className="text-gray-600">Age:</span> {watch('age')}</p>
-                        <p><span className="text-gray-600">Role:</span> {watch('role')}</p>
+                        <p className="text-black"><span className="font-medium">Name:</span> {watch('firstName')} {watch('middleName')} {watch('lastName')} {watch('suffix')}</p>
+                        <p className="text-black"><span className="font-medium">Email:</span> {watch('email')}</p>
+                        <p className="text-black"><span className="font-medium">Phone:</span> {watch('phoneNumber')}</p>
+                        <p className="text-black"><span className="font-medium">Birthdate:</span> {watch('birthdate')}</p>
+                        <p className="text-black"><span className="font-medium">Age:</span> {watch('age')}</p>
+                        <p className="text-black"><span className="font-medium">Role:</span> {watch('role')}</p>
                       </div>
                     </div>
                     
                     <div>
-                      <h4 className="font-medium text-gray-700">Address Information</h4>
+                      <h4 className="font-medium text-black">Address Information</h4>
                       <div className="mt-2 space-y-1 text-sm">
-                        <p><span className="text-gray-600">House No.:</span> {role === 'Driver' ? watch('driverHouseNumber') : watch('operatorHouseNumber')}</p>
-                        <p><span className="text-gray-600">Block No.:</span> {role === 'Driver' ? watch('driverBlockNumber') : watch('operatorBlockNumber')}</p>
-                        <p><span className="text-gray-600">Lot No.:</span> {role === 'Driver' ? watch('driverLotNumber') : watch('operatorLotNumber')}</p>
-                        <p><span className="text-gray-600">Street:</span> {role === 'Driver' ? watch('driverStreet') : watch('operatorStreet')}</p>
-                        <p><span className="text-gray-600">Barangay:</span> {role === 'Driver' ? watch('driverBarangay') : watch('operatorBarangay')}</p>
-                        <p><span className="text-gray-600">City:</span> {role === 'Driver' ? watch('driverCity') : watch('operatorCity')}</p>
+                        <p className="text-black"><span className="font-medium">House No.:</span> {role === 'Driver' ? watch('driverHouseNumber') : watch('operatorHouseNumber')}</p>
+                        <p className="text-black"><span className="font-medium">Block No.:</span> {role === 'Driver' ? watch('driverBlockNumber') : watch('operatorBlockNumber')}</p>
+                        <p className="text-black"><span className="font-medium">Lot No.:</span> {role === 'Driver' ? watch('driverLotNumber') : watch('operatorLotNumber')}</p>
+                        <p className="text-black"><span className="font-medium">Street:</span> {role === 'Driver' ? watch('driverStreet') : watch('operatorStreet')}</p>
+                        <p className="text-black"><span className="font-medium">Barangay:</span> {role === 'Driver' ? watch('driverBarangay') : watch('operatorBarangay')}</p>
+                        <p className="text-black"><span className="font-medium">City:</span> {role === 'Driver' ? watch('driverCity') : watch('operatorCity')}</p>
                       </div>
                     </div>
                     
                     {role === 'Driver' && (
                       <div>
-                        <h4 className="font-medium text-gray-700">Driver Information</h4>
+                        <h4 className="font-medium text-black">Driver Information</h4>
                         <div className="mt-2 space-y-1 text-sm">
-                          <p><span className="text-gray-600">License:</span> {watch('driverLicenseNumber')}</p>
-                          <p><span className="text-gray-600">TIN ID:</span> {watch('driverTinId')}</p>
+                          <p className="text-black"><span className="font-medium">License:</span> {watch('driverLicenseNumber')}</p>
+                          <p className="text-black"><span className="font-medium">TIN ID:</span> {watch('driverTinId')}</p>
                         </div>
                       </div>
                     )}
                     
                     {role === 'Operator' && (
                       <div>
-                        <h4 className="font-medium text-gray-700">Operator Information</h4>
+                        <h4 className="font-medium text-black">Operator Information</h4>
                         <div className="mt-2 space-y-1 text-sm">
-                          <p><span className="text-gray-600">License:</span> {watch('operatorLicenseNumber')}</p>
-                          <p><span className="text-gray-600">TIN ID:</span> {watch('operatorTinId')}</p>
-                          <p><span className="text-gray-600">Jeepneys:</span> {watch('numberOfJeepneys')}</p>
+                          <p className="text-black"><span className="font-medium">License:</span> {watch('operatorLicenseNumber')}</p>
+                          <p className="text-black"><span className="font-medium">TIN ID:</span> {watch('operatorTinId')}</p>
+                          <p className="text-black"><span className="font-medium">Jeepneys:</span> {watch('numberOfJeepneys')}</p>
                           <div>
-                            <span className="text-gray-600">Plate Numbers:</span>
+                            <span className="font-medium text-black">Plate Numbers:</span>
                             <div className="ml-2">
                               {Array.isArray(watch('plateNumbers')) && 
                                 watch('plateNumbers')?.map((plate: string, index: number) => (
-                                  <p key={index}>Jeepney {index + 1}: {plate}</p>
+                                  <p key={index} className="text-black">Jeepney {index + 1}: {plate}</p>
                                 ))}
                             </div>
                           </div>
@@ -1177,54 +1238,64 @@ export default function MemberRegistrationModal({
                 </div>
                 
                 <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-                  <h4 className="font-medium text-gray-700 mb-3">Payment Details</h4>
+                  <h4 className="font-medium text-black mb-3">Payment Details</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Selected Role:</span>
-                      <span className="font-medium">{watch('role')}</span>
+                      <span className="text-black">Selected Role:</span>
+                      <span className="font-medium text-black">{watch('role')}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Membership Fee:</span>
-                      <span className="font-medium">₱1500</span>
+                      <span className="text-black">Membership Fee:</span>
+                      <span className="font-medium text-black">
+                        {systemSettings ? formatCurrency(systemSettings.membershipPayment) : '₱1,500.00'}
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Payment Method:</span>
-                      <span className="font-medium">Cash only</span>
+                      <span className="text-black">Payment Method:</span>
+                      <span className="font-medium text-black">Cash only</span>
                     </div>
                     <div className="border-t border-gray-200 pt-2 mt-2">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Total Fee:</span>
-                        <span className="font-medium">₱1500</span>
+                        <span className="text-black">Total Fee:</span>
+                        <span className="font-medium text-black">
+                          {systemSettings ? formatCurrency(systemSettings.membershipPayment) : '₱1,500.00'}
+                        </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Amount Paid:</span>
-                        <span className="font-medium">₱1500</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Remaining Balance:</span>
-                        <span className="font-medium">₱0</span>
-                      </div>
+                    </div>
+                    
+                    {/* Control Number Input */}
+                    <div className="pt-3 mt-3 border-t border-gray-200">
+                      <label className="block text-sm font-medium text-black mb-1">
+                        Receipt Control Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={controlNumber}
+                        onChange={(e) => setControlNumber(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
+                        placeholder="Enter receipt control number"
+                      />
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex justify-between pt-4">
+                <div className="flex flex-col sm:flex-row justify-between pt-4 gap-3">
                   <button
                     type="button"
                     onClick={prevStep}
-                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="w-full sm:w-auto px-6 py-3 border border-gray-300 text-black rounded-lg hover:bg-gray-50 transition-colors order-2 sm:order-1"
                     disabled={isSubmitting}
                   >
                     Back
                   </button>
                   <button
                     type="submit"
-                    className={`px-6 py-3 rounded-lg transition-colors flex items-center ${
-                      Object.keys(errors).length === 0 && !isSubmitting
+                    className={`w-full sm:w-auto px-6 py-3 rounded-lg transition-colors flex items-center justify-center order-1 sm:order-2 ${
+                      Object.keys(errors).length === 0 && !isSubmitting && controlNumber.trim() !== ''
                         ? 'bg-red-600 text-white hover:bg-red-700' 
                         : 'bg-gray-400 text-white cursor-not-allowed'
                     }`}
-                    disabled={Object.keys(errors).length > 0 || isSubmitting}
+                    disabled={Object.keys(errors).length > 0 || isSubmitting || controlNumber.trim() === ''}
                   >
                     {isSubmitting ? (
                       <>

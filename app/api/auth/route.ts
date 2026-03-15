@@ -177,7 +177,7 @@ export async function POST(req: Request) {
     // Validate that user role is valid
     const validRoles = [
       'admin', 'secretary', 'chairman', 'vice chairman', 'manager', 
-      'treasurer', 'board of directors', 'member', 'driver', 'operator'
+      'treasurer', 'board of directors', 'driver', 'operator'
     ];
     const normalizedRole = userData.role.toLowerCase().trim();
     if (!validRoles.includes(normalizedRole)) {

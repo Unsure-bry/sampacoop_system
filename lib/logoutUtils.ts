@@ -54,8 +54,8 @@ export function performImmediateLogout(redirectPath: string = '/login', isAdmin:
  * This function handles admin-specific logout with proper redirection
  */
 export function handleAdminLogout(): void {
-  // Clear authentication data and redirect to admin login
-  performImmediateLogout('/admin/login', true);
+  // Clear authentication data and redirect to main login page
+  performImmediateLogout('/login', true);
 }
 
 /**

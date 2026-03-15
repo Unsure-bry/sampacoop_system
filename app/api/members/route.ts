@@ -41,7 +41,7 @@ export async function GET() {
     
     // Filter out only members (not admin users)
     const members = (result.data || []).filter((user: any) => 
-      user.role && ['member', 'driver', 'operator'].includes(user.role.toLowerCase())
+      user.role && ['driver', 'operator'].includes(user.role.toLowerCase())
     );
     
     return NextResponse.json(
@@ -67,7 +67,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { email, fullName, contactNumber, role = 'member', password } = body;
+    const { email, fullName, contactNumber, role = 'driver', password } = body;
     
     // Validate required fields
     if (!email || !fullName || !contactNumber) {

@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     const userData = {
       email,
       fullName,
-      role: role || 'member',
+      role: role || 'driver',
       createdAt: new Date().toISOString()
     };
     

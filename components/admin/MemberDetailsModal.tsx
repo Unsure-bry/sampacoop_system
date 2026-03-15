@@ -80,10 +80,10 @@ export default function MemberDetailsModal({
       <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Member Details</h2>
+            <h2 className="text-2xl font-bold text-black">Member Details</h2>
             <button 
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
+              className="text-black hover:text-gray-700"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -94,39 +94,50 @@ export default function MemberDetailsModal({
           <div className="space-y-6">
             {/* Personal Information */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Personal Information</h3>
+              <h3 className="text-lg font-semibold text-black mb-3">Personal Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
                 <div>
-                  <p className="text-sm text-gray-600">Full Name</p>
-                  <p className="font-medium">{getFullName()}</p>
+                  <p className="text-sm text-black">Full Name</p>
+                  <p className="font-medium text-black">{getFullName()}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Role</p>
-                  <p className="font-medium">
+                  <p className="text-sm text-black">Role</p>
+                  <p className="font-medium text-black">
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
                       {member.role}
                     </span>
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Email</p>
-                  <p className="font-medium">{member.email}</p>
+                  <p className="text-sm text-black">Email</p>
+                  <p className="font-medium text-black">{member.email}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Phone Number</p>
-                  <p className="font-medium">{member.phoneNumber}</p>
+                  <p className="text-sm text-black">Phone Number</p>
+                  <p className="font-medium text-black">{member.phoneNumber}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Birthdate</p>
-                  <p className="font-medium">{member.birthdate}</p>
+                  <p className="text-sm text-black">Birthdate</p>
+                  <p className="font-medium text-black">{member.birthdate ? new Date(member.birthdate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Age</p>
-                  <p className="font-medium">{member.age}</p>
+                  <p className="text-sm text-black">Age</p>
+                  <p className="font-medium text-black">
+                    {member.birthdate ? (() => {
+                      const birthDate = new Date(member.birthdate);
+                      const today = new Date();
+                      let age = today.getFullYear() - birthDate.getFullYear();
+                      const monthDiff = today.getMonth() - birthDate.getMonth();
+                      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                        age--;
+                      }
+                      return age > 0 ? `${age} years old` : 'Less than 1 year';
+                    })() : (member.age ? `${member.age} years old` : 'N/A')}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Status</p>
-                  <p className="font-medium">
+                  <p className="text-sm text-black">Status</p>
+                  <p className="font-medium text-black">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       member.archived 
                         ? 'bg-gray-100 text-gray-800' 
@@ -137,32 +148,32 @@ export default function MemberDetailsModal({
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Member Since</p>
-                  <p className="font-medium">{new Date(member.createdAt).toLocaleDateString()}</p>
+                  <p className="text-sm text-black">Member Since</p>
+                  <p className="font-medium text-black">{new Date(member.createdAt).toLocaleDateString()}</p>
                 </div>
               </div>
             </div>
 
             {/* Address Information */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Address Information</h3>
+              <h3 className="text-lg font-semibold text-black mb-3">Address Information</h3>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="font-medium">{getAddress()}</p>
+                <p className="font-medium text-black">{getAddress()}</p>
               </div>
             </div>
 
             {/* Role-specific Information */}
             {member.role === 'Driver' && member.driverInfo && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">Driver Information</h3>
+                <h3 className="text-lg font-semibold text-black mb-3">Driver Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
                   <div>
-                    <p className="text-sm text-gray-600">License Number</p>
-                    <p className="font-medium">{member.driverInfo.licenseNumber}</p>
+                    <p className="text-sm text-black">License Number</p>
+                    <p className="font-medium text-black">{member.driverInfo.licenseNumber}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">TIN ID</p>
-                    <p className="font-medium">{member.driverInfo.tinId}</p>
+                    <p className="text-sm text-black">TIN ID</p>
+                    <p className="font-medium text-black">{member.driverInfo.tinId}</p>
                   </div>
                 </div>
               </div>
@@ -170,22 +181,22 @@ export default function MemberDetailsModal({
 
             {member.role === 'Operator' && member.operatorInfo && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">Operator Information</h3>
+                <h3 className="text-lg font-semibold text-black mb-3">Operator Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
                   <div>
-                    <p className="text-sm text-gray-600">License Number</p>
-                    <p className="font-medium">{member.operatorInfo.licenseNumber}</p>
+                    <p className="text-sm text-black">License Number</p>
+                    <p className="font-medium text-black">{member.operatorInfo.licenseNumber}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">TIN ID</p>
-                    <p className="font-medium">{member.operatorInfo.tinId}</p>
+                    <p className="text-sm text-black">TIN ID</p>
+                    <p className="font-medium text-black">{member.operatorInfo.tinId}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Number of Jeepneys</p>
-                    <p className="font-medium">{member.operatorInfo.numberOfJeepneys}</p>
+                    <p className="text-sm text-black">Number of Jeepneys</p>
+                    <p className="font-medium text-black">{member.operatorInfo.numberOfJeepneys}</p>
                   </div>
                   <div className="md:col-span-2">
-                    <p className="text-sm text-gray-600">Jeepney Plate Numbers</p>
+                    <p className="text-sm text-black">Jeepney Plate Numbers</p>
                     <div className="mt-2">
                       {(() => {
                         // Safely handle plateNumbers which might not be an array
@@ -198,13 +209,13 @@ export default function MemberDetailsModal({
                         return plateNumbersArray.length > 0 ? (
                           <div className="flex flex-wrap gap-2">
                             {plateNumbersArray.map((plate, index) => (
-                              <span key={index} className="px-3 py-1 bg-white border border-gray-300 rounded-full text-sm">
+                              <span key={index} className="px-3 py-1 bg-white border border-gray-300 rounded-full text-sm text-black">
                                 {plate}
                               </span>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-gray-500">No plate numbers provided</p>
+                          <p className="text-black">No plate numbers provided</p>
                         );
                       })()}
                     </div>
@@ -217,7 +228,7 @@ export default function MemberDetailsModal({
           {/* Certificate Section */}
           <div className="mt-8 pt-6 border-t border-gray-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Membership Certificate</h3>
+              <h3 className="text-lg font-semibold text-black">Membership Certificate</h3>
               <button
                 onClick={async () => {
                   // Toggle the certificate view
@@ -242,7 +253,7 @@ export default function MemberDetailsModal({
                     width="100%"
                     height="500px"
                     title="Membership Certificate"
-                    className="border border-gray-300 rounded"
+                    className="border border-gray-300 rounded bg-white"
                   ></iframe>
                 </div>
                 <div className="flex justify-center space-x-4">
@@ -310,16 +321,16 @@ export default function MemberDetailsModal({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800">Mark as Inactive?</h3>
+                <h3 className="text-xl font-semibold text-black">Mark as Inactive?</h3>
               </div>
               
-              <p className="text-gray-600 mb-4">
+              <p className="text-black mb-4">
                 Are you sure you want to mark <strong>{member.firstName} {member.lastName}</strong> as inactive? 
                 This will archive the account and require a ₱1,500 reactivation fee to restore.
               </p>
               
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-                <p className="text-sm text-yellow-800">
+                <p className="text-sm text-black">
                   <strong>Note:</strong> The member will be moved to the Archived Members list and will not be able to access their account until restored.
                 </p>
               </div>
@@ -328,7 +339,7 @@ export default function MemberDetailsModal({
                 <button
                   onClick={() => setShowInactiveConfirm(false)}
                   disabled={isMarkingInactive}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 border border-gray-300 text-black rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>

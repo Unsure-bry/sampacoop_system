@@ -50,12 +50,39 @@ export async function POST(req: Request) {
       );
     }
     
-    // Validate password strength
+    // Validate password requirements (8+ chars, uppercase, lowercase, number)
     if (password.length < 8) {
       return NextResponse.json(
         { 
           success: false, 
           error: "Password must be at least 8 characters long" 
+        }, 
+        { status: 400 }
+      );
+    }
+    if (!/[A-Z]/.test(password)) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Password must contain at least one uppercase letter" 
+        }, 
+        { status: 400 }
+      );
+    }
+    if (!/[a-z]/.test(password)) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Password must contain at least one lowercase letter" 
+        }, 
+        { status: 400 }
+      );
+    }
+    if (!/[0-9]/.test(password)) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Password must contain at least one number" 
         }, 
         { status: 400 }
       );

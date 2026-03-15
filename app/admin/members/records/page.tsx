@@ -7,8 +7,11 @@ import MemberDetailsModal from '@/components/admin/MemberDetailsModal';
 import MemberEditModal from '@/components/admin/MemberEditModal';
 import MemberRegistrationModal from '@/components/admin/MemberRegistrationModal';
 import { Member } from '@/lib/types/member';
+import { getSystemSettings, formatCurrency, SystemSettings } from '@/lib/settingsService';
+import { usePermissions, PermissionGuard } from '@/lib/rolePermissions';
 
 export default function MemberRecordsPage() {
+  const { hasPermission, hasAnyPermission } = usePermissions();
   const [members, setMembers] = useState<Member[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,10 +23,175 @@ export default function MemberRecordsPage() {
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [archivingInProgress, setArchivingInProgress] = useState(false);
+  const [autoArchiveInfo, setAutoArchiveInfo] = useState<{checked: number; archived: number} | null>(null);
+
+  // Constants for archiving
+  const INACTIVITY_THRESHOLD_DAYS = 180; // 6 months
+
+  // Restore modal state
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [memberToRestore, setMemberToRestore] = useState<Member | null>(null);
+  const [controlNumber, setControlNumber] = useState('');
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
 
   useEffect(() => {
+    // Check if user has permission to view members
+    if (!hasPermission('viewMembers')) {
+      return;
+    }
     fetchMembers();
+    fetchSystemSettings();
   }, []);
+
+  // Show access denied if user doesn't have viewMembers permission
+  if (!hasPermission('viewMembers')) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-800">Member Records</h1>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="flex items-center gap-3">
+            <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <div>
+              <h2 className="text-lg font-semibold text-red-800">Access Denied</h2>
+              <p className="text-red-600">You do not have permission to view member records.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const fetchSystemSettings = async () => {
+    const settings = await getSystemSettings();
+    setSystemSettings(settings);
+  };
+
+  // Helper function to parse Firestore timestamp
+  const parseFirestoreDate = (dateValue: any): Date | null => {
+    if (!dateValue) return null;
+    
+    // Handle Firestore Timestamp object { seconds: number, nanoseconds: number }
+    if (typeof dateValue === 'object' && 'seconds' in dateValue) {
+      return new Date(dateValue.seconds * 1000);
+    }
+    
+    // Handle ISO string or other date formats
+    const parsedDate = new Date(dateValue);
+    if (!isNaN(parsedDate.getTime())) {
+      return parsedDate;
+    }
+    
+    return null;
+  };
+
+  // Check if member should be auto-archived (no transactions for 6 months)
+  const shouldAutoArchiveMember = (member: Member): {shouldArchive: boolean; reason: string; daysInactive: number} => {
+    // Get the most recent activity date
+    const lastActivity = member.lastTransactionAt || member.lastActivityAt || member.updatedAt;
+    
+    if (!lastActivity) {
+      // If no activity recorded, check created date
+      if (!member.createdAt) {
+        return { shouldArchive: false, reason: 'No activity data', daysInactive: 0 };
+      }
+      
+      const createdDate = parseFirestoreDate(member.createdAt);
+      if (!createdDate) {
+        return { shouldArchive: false, reason: 'Invalid date', daysInactive: 0 };
+      }
+      
+      const currentDate = new Date();
+      const diffTime = currentDate.getTime() - createdDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      // Only archive if member has been inactive since creation for 6+ months
+      if (diffDays >= INACTIVITY_THRESHOLD_DAYS) {
+        return { 
+          shouldArchive: true, 
+          reason: `No transactions since creation (${diffDays} days)`,
+          daysInactive: diffDays 
+        };
+      }
+      
+      return { shouldArchive: false, reason: 'Recently created', daysInactive: diffDays };
+    }
+    
+    const lastActivityDate = parseFirestoreDate(lastActivity);
+    if (!lastActivityDate) {
+      return { shouldArchive: false, reason: 'Invalid activity date', daysInactive: 0 };
+    }
+    
+    const currentDate = new Date();
+    const diffTime = currentDate.getTime() - lastActivityDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays >= INACTIVITY_THRESHOLD_DAYS) {
+      return { 
+        shouldArchive: true, 
+        reason: `No transactions for ${diffDays} days`,
+        daysInactive: diffDays 
+      };
+    }
+    
+    return { shouldArchive: false, reason: 'Active', daysInactive: diffDays };
+  };
+
+  // Archive a member
+  const archiveMember = async (member: Member, reason: string): Promise<boolean> => {
+    try {
+      const result = await firestore.updateDocument('members', member.id, {
+        status: 'archived',
+        archived: true,
+        archivedAt: new Date().toISOString(),
+        archiveReason: reason,
+        previousStatus: member.status || 'active',
+        updatedAt: new Date().toISOString()
+      });
+      
+      return result.success;
+    } catch (error) {
+      console.error(`Error archiving member ${member.id}:`, error);
+      return false;
+    }
+  };
+
+  // Auto-archive inactive members
+  const autoArchiveInactiveMembers = async (membersList: Member[]): Promise<{checked: number; archived: number}> => {
+    console.log('=== AUTO ARCHIVE CHECK (6 Months Inactivity) ===');
+    
+    let archivedCount = 0;
+    let checkedCount = 0;
+    
+    for (const member of membersList) {
+      // Skip already archived members
+      if (member.status === 'archived' || member.archived) {
+        continue;
+      }
+      
+      checkedCount++;
+      const { shouldArchive, reason, daysInactive } = shouldAutoArchiveMember(member);
+      
+      console.log(`Member: ${member.firstName} ${member.lastName}, Days Inactive: ${daysInactive}, Should Archive: ${shouldArchive}`);
+      
+      if (shouldArchive) {
+        const archiveReason = `No transaction for 6 months (${daysInactive} days inactive)`;
+        const success = await archiveMember(member, archiveReason);
+        if (success) {
+          archivedCount++;
+          console.log(`✓ Auto-archived: ${member.firstName} ${member.lastName} - ${archiveReason}`);
+        } else {
+          console.error(`✗ Failed to archive: ${member.firstName} ${member.lastName}`);
+        }
+      }
+    }
+    
+    console.log(`=== AUTO ARCHIVE COMPLETE: ${archivedCount} of ${checkedCount} checked members archived ===`);
+    return { checked: checkedCount, archived: archivedCount };
+  };
 
   useEffect(() => {
     filterMembers();
@@ -40,6 +208,7 @@ export default function MemberRecordsPage() {
     try {
       setLoading(true);
       setError(null);
+      setArchivingInProgress(true);
       
       // First try to fetch from 'members' collection
       let result = await firestore.getCollection('members');
@@ -128,7 +297,58 @@ export default function MemberRecordsPage() {
           return dateB - dateA; // Descending order
         });
         
-        setMembers(sortedMembers);
+        // Auto-archive inactive members (6 months no transactions)
+        const archiveResult = await autoArchiveInactiveMembers(sortedMembers);
+        setAutoArchiveInfo(archiveResult);
+        
+        if (archiveResult.archived > 0) {
+          toast.success(`${archiveResult.archived} member(s) auto-archived due to 6 months inactivity`);
+          
+          // Re-fetch to get updated data after archiving
+          const updatedResult = await firestore.getCollection('members');
+          if (updatedResult.success && updatedResult.data) {
+            const updatedMembersData = updatedResult.data.map((doc: any) => {
+              const firstName = doc.firstName || 
+                               doc.fullName?.split(' ')[0] || 
+                               doc.displayName?.split(' ')[0] || 
+                               'Unknown';
+                               
+              const lastName = doc.lastName || 
+                              doc.fullName?.split(' ').slice(-1)[0] || 
+                              doc.displayName?.split(' ').slice(-1)[0] || 
+                              'User';
+              
+              return {
+                id: doc.id,
+                firstName,
+                lastName,
+                middleName: doc.middleName || '',
+                suffix: doc.suffix || '',
+                role: doc.role || 'Member',
+                email: doc.email || '',
+                phoneNumber: doc.contactNumber || doc.phoneNumber || '',
+                birthdate: doc.birthdate || '',
+                age: doc.age || 0,
+                status: doc.status || 'Active',
+                createdAt: doc.createdAt || new Date().toISOString(),
+                archived: doc.archived || false,
+                driverInfo: doc.driverInfo || null,
+                operatorInfo: doc.operatorInfo || null,
+                ...doc
+              };
+            });
+            
+            const sortedUpdatedMembers = updatedMembersData.sort((a, b) => {
+              const dateA = new Date(a.createdAt || 0).getTime();
+              const dateB = new Date(b.createdAt || 0).getTime();
+              return dateB - dateA;
+            });
+            
+            setMembers(sortedUpdatedMembers);
+          }
+        } else {
+          setMembers(sortedMembers);
+        }
       } else {
         // If both collections fail, show an error
         const errorMessage = 'Failed to fetch members from both collections. Please check your database connection.';
@@ -143,6 +363,7 @@ export default function MemberRecordsPage() {
       toast.error(errorMessage);
     } finally {
       setLoading(false);
+      setArchivingInProgress(false);
     }
   };
 
@@ -225,27 +446,54 @@ export default function MemberRecordsPage() {
     }
   };
 
-  const handleRestoreMember = async (memberId: string) => {
+  const openRestoreModal = (member: Member) => {
+    setMemberToRestore(member);
+    setControlNumber('');
+    setShowRestoreModal(true);
+  };
+
+  const closeRestoreModal = () => {
+    setShowRestoreModal(false);
+    setMemberToRestore(null);
+    setControlNumber('');
+    setRestoreLoading(false);
+  };
+
+  const handleRestoreMember = async () => {
+    if (!memberToRestore) return;
+    
+    setRestoreLoading(true);
     try {
-      const result = await firestore.updateDocument('members', memberId, {
+      const now = new Date().toISOString();
+      const reactivationFee = systemSettings?.reactivationFee || 1500;
+      const result = await firestore.updateDocument('members', memberToRestore.id, {
         archived: false,
-        restoredAt: new Date().toISOString()
+        restoredAt: now,
+        restoredBy: 'admin',
+        reactivationFee: reactivationFee,
+        reactivationReceiptNumber: controlNumber,
+        status: 'Active'
       });
       
       if (result.success) {
         // Update local state
         setMembers(prevMembers => 
           prevMembers.map(member => 
-            member.id === memberId ? { ...member, archived: false } : member
+            member.id === memberToRestore.id 
+              ? { ...member, archived: false, status: 'Active' } 
+              : member
           )
         );
         toast.success('Member restored successfully');
+        closeRestoreModal();
       } else {
         toast.error('Failed to restore member');
       }
     } catch (error) {
       console.error('Error restoring member:', error);
       toast.error('An error occurred while restoring member');
+    } finally {
+      setRestoreLoading(false);
     }
   };
 
@@ -322,41 +570,66 @@ export default function MemberRecordsPage() {
           <p className="text-gray-600">View and manage member records</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
-          <button
-            onClick={() => setIsAddMemberModalOpen(true)}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center"
-          >
-            <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Add Member
-          </button>
+          <PermissionGuard permission="addMembers">
+            <button
+              onClick={() => setIsAddMemberModalOpen(true)}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center"
+            >
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Member
+            </button>
+          </PermissionGuard>
           <div className="relative">
             <input
               type="text"
               placeholder="Search by name, ID, or email..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 w-full md:w-64"
+              className="pl-10 pr-4 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 w-full md:w-64 text-gray-900 placeholder-gray-500 shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
           </div>
-          <button
-            onClick={handleExport}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
-          >
-            <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Export
-          </button>
+          <PermissionGuard permission="exportData">
+            <button
+              onClick={handleExport}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+            >
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export
+            </button>
+          </PermissionGuard>
         </div>
       </div>
       
+      {/* Auto-archive info */}
+      {autoArchiveInfo && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+          <div className="flex items-center">
+            <svg className="h-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-sm text-blue-800">
+              Auto-checked {autoArchiveInfo.checked} members, {autoArchiveInfo.archived} archived for inactivity
+            </span>
+          </div>
+        </div>
+      )}
+      
+      {archivingInProgress && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+          <span className="text-sm text-blue-700">Checking for inactive members...</span>
+        </div>
+      )}
+
       {/* Status Tabs */}
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
@@ -420,17 +693,19 @@ export default function MemberRecordsPage() {
             <p className="text-gray-500">
               {searchTerm ? 'No members found matching your search.' : `No ${activeTab} members found.`}
             </p>
-            <div className="mt-4">
-              <button
-                onClick={() => setIsAddMemberModalOpen(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                <svg className="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Add Member
-              </button>
-            </div>
+            {hasPermission('addMembers') && (
+              <div className="mt-4">
+                <button
+                  onClick={() => setIsAddMemberModalOpen(true)}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  <svg className="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Add Member
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -478,13 +753,20 @@ export default function MemberRecordsPage() {
                         {member.email}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          member.archived 
-                            ? 'bg-gray-100 text-gray-800' 
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {member.archived ? 'Archived' : (member.status || 'Active')}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full w-fit ${
+                            member.archived 
+                              ? 'bg-gray-100 text-gray-800' 
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {member.archived ? 'Archived' : (member.status ? member.status.charAt(0).toUpperCase() + member.status.slice(1).toLowerCase() : 'Active')}
+                          </span>
+                          {member.archived && member.archiveReason && (
+                            <span className="text-xs text-gray-500 mt-1 max-w-[150px] truncate" title={member.archiveReason}>
+                              {member.archiveReason}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         {activeTab === 'active' ? (
@@ -495,19 +777,14 @@ export default function MemberRecordsPage() {
                             >
                               View
                             </button>
-                            <button
-                              onClick={() => handleEditMember(member)}
-                              className="text-yellow-600 hover:text-yellow-900 mr-3"
-                              
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleArchiveMember(member.id)}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              Archive
-                            </button>
+                            {hasPermission('editMembers') && (
+                              <button
+                                onClick={() => handleEditMember(member)}
+                                className="text-yellow-600 hover:text-yellow-900"
+                              >
+                                Edit
+                              </button>
+                            )}
                           </>
                         ) : (
                           <>
@@ -517,12 +794,14 @@ export default function MemberRecordsPage() {
                             >
                               View
                             </button>
-                            <button
-                              onClick={() => handleRestoreMember(member.id)}
-                              className="text-green-600 hover:text-green-900"
-                            >
-                              Restore
-                            </button>
+                            {hasPermission('archiveMembers') && (
+                              <button
+                                onClick={() => openRestoreModal(member)}
+                                className="text-green-600 hover:text-green-900"
+                              >
+                                Restore
+                              </button>
+                            )}
                           </>
                         )}
                       </td>
@@ -634,6 +913,7 @@ export default function MemberRecordsPage() {
         member={viewingMember} 
         isOpen={!!viewingMember} 
         onClose={() => setViewingMember(null)} 
+        onMarkInactive={() => fetchMembers()}
       />
       
       {/* Member Edit Modal */}
@@ -650,6 +930,97 @@ export default function MemberRecordsPage() {
         onClose={() => setIsAddMemberModalOpen(false)} 
         onMemberAdded={handleMemberAdded} 
       />
+
+      {/* Restore Confirmation Modal */}
+      {showRestoreModal && memberToRestore && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-800">Restore Member</h3>
+                <button 
+                  onClick={closeRestoreModal}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="mb-6">
+                {/* Confirmation Message */}
+                <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4">
+                  <p className="text-sm text-blue-800">
+                    Restoring this account requires a reactivation fee of {systemSettings ? formatCurrency(systemSettings.reactivationFee) : '₱1,500.00'}. Please confirm payment details before proceeding.
+                  </p>
+                </div>
+                
+                {/* Member Details */}
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <p className="text-sm text-gray-800 mb-2">
+                    <span className="font-medium">Member:</span> {memberToRestore.firstName} {memberToRestore.lastName}
+                  </p>
+                  <p className="text-sm text-gray-800">
+                    <span className="font-medium">Email:</span> {memberToRestore.email || 'N/A'}
+                  </p>
+                </div>
+                
+                {/* Fixed Amount Display */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Reactivation Fee
+                  </label>
+                  <div className="px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-lg font-bold text-gray-900">
+                    {systemSettings ? formatCurrency(systemSettings.reactivationFee) : '₱1,500.00'}
+                  </div>
+                </div>
+                
+                {/* Control Number Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Receipt Control Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={controlNumber}
+                    onChange={(e) => setControlNumber(e.target.value)}
+                    placeholder="Enter receipt control number"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={closeRestoreModal}
+                  disabled={restoreLoading}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRestoreMember}
+                  disabled={restoreLoading || controlNumber.trim() === ''}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {restoreLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </>
+                  ) : (
+                    'Restore'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

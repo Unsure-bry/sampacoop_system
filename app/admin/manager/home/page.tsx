@@ -3,669 +3,345 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-
 import { firestore } from '@/lib/firebase';
-import { Users, FileText, DollarSign, CheckCircle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-
-// Types for our data
-interface Member {
-  id: string;
-  fullName: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  status: string;
-  createdAt: string;
-  uid?: string;
-  [key: string]: unknown;
-}
-
-interface LoanRequest {
-  id: string;
-  status: 'pending' | 'approved' | 'rejected';
-  amount: number;
-  term: number;
-  userId: string;
-  createdAt: string;
-  approvedAt?: string;
-  rejectedAt?: string;
-  [key: string]: any;
-}
-
-interface Loan {
-  id: string;
-  status: 'active' | 'completed' | 'rejected' | 'approved';
-  amount: number;
-  term: number;
-  userId: string;
-  startDate: string;
-  endDate: string;
-  [key: string]: any;
-}
+import Link from 'next/link';
+import { 
+  FileText, 
+  DollarSign, 
+  Clock,
+  CheckCircle,
+  Briefcase
+} from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line
+} from 'recharts';
 
 interface DashboardStats {
-  totalMembers: number;
   activeLoans: number;
   pendingRequests: number;
-  totalApprovedLoans: number;
-}
-
-interface SavingsLeaderboardEntry {
-  memberId: string;
-  fullName: string;
-  role: string;
   totalSavings: number;
+  completedLoans: number;
+  totalLoanAmount: number;
 }
 
-interface SavingsTransaction {
-  id: string;
-  memberId: string;
-  userId?: string;
-  uid?: string;
-  amount: number;
-  type: 'deposit' | 'withdrawal';
-  createdAt: string;
-  date?: string;
-  timestamp?: any;
-  [key: string]: any;
+interface ChartData {
+  loanStatus: { name: string; value: number; color: string }[];
+  monthlyLoans: { month: string; disbursed: number; collected: number }[];
+  savingsTrend: { month: string; amount: number }[];
 }
 
 export default function ManagerHomePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats>({
-    totalMembers: 0,
     activeLoans: 0,
     pendingRequests: 0,
-    totalApprovedLoans: 0,
+    totalSavings: 0,
+    completedLoans: 0,
+    totalLoanAmount: 0,
   });
-  const [loading, setLoading] = useState(true);
-  const [savingsLeaderboard, setSavingsLeaderboard] = useState<SavingsLeaderboardEntry[]>([]);
-  const [filteredSavings, setFilteredSavings] = useState<SavingsLeaderboardEntry[]>([]);
-  const [savingsFilter, setSavingsFilter] = useState<'monthly' | 'yearly'>('monthly');
+  const [chartData, setChartData] = useState<ChartData>({
+    loanStatus: [],
+    monthlyLoans: [],
+    savingsTrend: [],
+  });
+  const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!loading && !user) {
       router.push('/admin/login');
-    } else if (user && user.role?.toLowerCase() !== 'manager') {
-      router.push('/admin/unauthorized');
+      return;
     }
-  }, [user, authLoading, router]);
 
-  // Calculate total savings for a member from transactions
-  const calculateMemberSavings = (transactions: SavingsTransaction[]): number => {
-    return transactions.reduce((total, transaction) => {
-      if (transaction.type === 'deposit') {
-        return total + (transaction.amount || 0);
-      } else if (transaction.type === 'withdrawal') {
-        return total - (transaction.amount || 0);
-      }
-      return total;
-    }, 0);
-  };
+    if (user && user.role?.toLowerCase() !== 'manager') {
+      router.push('/admin/unauthorized');
+      return;
+    }
 
-  // Filter transactions by date range
-  const filterTransactionsByDate = (
-    transactions: SavingsTransaction[], 
-    filter: 'monthly' | 'yearly'
-  ): SavingsTransaction[] => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    
-    return transactions.filter(transaction => {
-      let transactionDate: Date;
-      
-      if (transaction.createdAt) {
-        transactionDate = new Date(transaction.createdAt);
-      } else if (transaction.date) {
-        transactionDate = new Date(transaction.date);
-      } else if (transaction.timestamp?.toDate) {
-        transactionDate = transaction.timestamp.toDate();
-      } else {
-        return false;
-      }
-      
-      if (filter === 'monthly') {
-        return transactionDate.getFullYear() === currentYear && 
-               transactionDate.getMonth() === currentMonth;
-      } else {
-        return transactionDate.getFullYear() === currentYear;
-      }
-    });
-  };
-
-  // Filter savings based on selected filter
-  useEffect(() => {
-    const filterSavings = async () => {
-      if (savingsLeaderboard.length === 0) {
-        setFilteredSavings([]);
-        return;
-      }
-
-      try {
-        // Fetch all members to get their savings data
-        const membersResult = await firestore.getCollection('members');
-        
-        if (!membersResult.success || !membersResult.data) {
-          setFilteredSavings(savingsLeaderboard);
-          return;
-        }
-
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth();
-
-        // Process each member's savings
-        const processedLeaderboard = await Promise.all(
-          savingsLeaderboard.map(async (entry) => {
-            try {
-              // Fetch savings transactions from member's subcollection
-              const savingsResult = await firestore.getCollection(`members/${entry.memberId}/savings`);
-              
-              if (!savingsResult.success || !savingsResult.data || savingsResult.data.length === 0) {
-                // Check if member has totalSavings field
-                const memberDoc = (membersResult.data as any[]).find((m: any) => m.id === entry.memberId);
-                const memberTotalSavings = memberDoc?.totalSavings;
-                if (memberTotalSavings && memberTotalSavings > 0) {
-                  return { ...entry, totalSavings: Number(memberTotalSavings) };
-                }
-                return { ...entry, totalSavings: 0 };
-              }
-
-              const transactions = savingsResult.data as SavingsTransaction[];
-              
-              // Filter transactions by date
-              const filteredTransactions = transactions.filter(transaction => {
-                let transactionDate: Date | null = null;
-                
-                if (transaction.createdAt) {
-                  transactionDate = new Date(transaction.createdAt);
-                } else if (transaction.date) {
-                  transactionDate = new Date(transaction.date);
-                } else if (transaction.timestamp?.toDate) {
-                  transactionDate = transaction.timestamp.toDate();
-                } else if (transaction.timestamp?.seconds) {
-                  transactionDate = new Date(transaction.timestamp.seconds * 1000);
-                }
-                
-                if (!transactionDate || isNaN(transactionDate.getTime())) {
-                  return false;
-                }
-                
-                if (savingsFilter === 'monthly') {
-                  return transactionDate.getFullYear() === currentYear && 
-                         transactionDate.getMonth() === currentMonth;
-                } else {
-                  return transactionDate.getFullYear() === currentYear;
-                }
-              });
-
-              // Calculate total savings from filtered transactions
-              const totalSavings = filteredTransactions.reduce((total, transaction) => {
-                const amount = Number(transaction.amount) || 0;
-                if (transaction.type === 'deposit') {
-                  return total + amount;
-                } else if (transaction.type === 'withdrawal') {
-                  return total - amount;
-                }
-                return total;
-              }, 0);
-
-              return { ...entry, totalSavings: Math.max(0, totalSavings) };
-            } catch (error) {
-              console.warn(`Error processing savings for member ${entry.memberId}:`, error);
-              return { ...entry, totalSavings: 0 };
-            }
-          })
-        );
-
-        // Filter out zero savings and sort
-        const filteredLeaderboard = processedLeaderboard
-          .filter(entry => entry.totalSavings > 0)
-          .sort((a, b) => b.totalSavings - a.totalSavings);
-
-        setFilteredSavings(filteredLeaderboard);
-      } catch (error) {
-        console.error('Error filtering savings:', error);
-        setFilteredSavings(savingsLeaderboard.filter(entry => entry.totalSavings > 0));
-      }
-    };
-
-    filterSavings();
-  }, [savingsLeaderboard, savingsFilter]);
-
-  // Fetch dashboard data
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch all required data in parallel
-        const [
-          membersResult,
-          loanRequestsResult,
-          loansResult
-        ] = await Promise.all([
-          // Total Members
-          (async () => {
-            try {
-              const result = await firestore.queryDocuments('members', [
-                { field: 'status', operator: '==', value: 'active' }
-              ]);
-              if (result.success && result.data) {
-                return result;
-              }
-              const allMembers = await firestore.getCollection('members');
-              if (allMembers.success && allMembers.data) {
-                return {
-                  ...allMembers,
-                  data: allMembers.data.filter((member: any) => member.status === 'active')
-                };
-              }
-              return allMembers;
-            } catch (error) {
-              console.error('Error in members query:', error);
-              const allMembers = await firestore.getCollection('members');
-              if (allMembers.success && allMembers.data) {
-                return {
-                  ...allMembers,
-                  data: allMembers.data.filter((member: any) => member.status === 'active')
-                };
-              }
-              return { success: false, data: [], error: 'Failed to fetch members' };
-            }
-          })(),
-          
-          // Pending Loan Requests
-          (async () => {
-            try {
-              const result = await firestore.queryDocuments('loanRequests', [
-                { field: 'status', operator: '==', value: 'pending' }
-              ]);
-              if (result.success && result.data) {
-                return result;
-              }
-              const allRequests = await firestore.getCollection('loanRequests');
-              if (allRequests.success && allRequests.data) {
-                return {
-                  ...allRequests,
-                  data: allRequests.data.filter((request: any) => request.status === 'pending')
-                };
-              }
-              return allRequests;
-            } catch (error) {
-              console.error('Error in loan requests query:', error);
-              const allRequests = await firestore.getCollection('loanRequests');
-              if (allRequests.success && allRequests.data) {
-                return {
-                  ...allRequests,
-                  data: allRequests.data.filter((request: any) => request.status === 'pending')
-                };
-              }
-              return { success: false, data: [], error: 'Failed to fetch loan requests' };
-            }
-          })(),
-          
-          // Loans data
-          (async () => {
-            try {
-              return await firestore.getCollection('loans');
-            } catch (error) {
-              console.error('Error fetching loans:', error);
-              return { success: false, data: [], error: 'Failed to fetch loans' };
-            }
-          })()
-        ]);
-
-        // Process members data
-        let totalMembers = 0;
-        if (membersResult.success && membersResult.data) {
-          totalMembers = membersResult.data.length;
-        }
-
-        // Process pending loan requests
-        let pendingRequests = 0;
-        if (loanRequestsResult.success && loanRequestsResult.data) {
-          pendingRequests = loanRequestsResult.data.length;
-        }
-
-        // Process loans
-        let activeLoans = 0;
-        let totalApprovedLoans = 0;
-        
-        if (loansResult.success && loansResult.data) {
-          const loans = loansResult.data as Loan[];
-          activeLoans = loans.filter(loan => loan.status === 'active').length;
-          totalApprovedLoans = loans.filter(loan => loan.status === 'approved').length;
-        }
-
-        // Update state with fetched data
-        setStats({
-          totalMembers: totalMembers || 0,
-          activeLoans: activeLoans || 0,
-          pendingRequests: pendingRequests || 0,
-          totalApprovedLoans: totalApprovedLoans || 0
-        });
-
-        // Process savings leaderboard data
-        if (membersResult.success && membersResult.data) {
-          const members = membersResult.data as Member[];
-          
-          // Calculate savings for each member by fetching their subcollection
-          const leaderboardData = await Promise.all(
-            members.map(async (member) => {
-              const memberId = member.id || member.uid || '';
-              if (!memberId) return null;
-              
-              try {
-                // Fetch savings from member's subcollection
-                const memberSavingsResult = await firestore.getCollection(`members/${memberId}/savings`);
-                let totalSavings = 0;
-                
-                if (memberSavingsResult.success && memberSavingsResult.data && memberSavingsResult.data.length > 0) {
-                  // Calculate total from all transactions
-                  totalSavings = memberSavingsResult.data.reduce((total: number, transaction: any) => {
-                    const amount = Number(transaction.amount) || 0;
-                    if (transaction.type === 'deposit') {
-                      return total + amount;
-                    } else if (transaction.type === 'withdrawal') {
-                      return total - amount;
-                    }
-                    return total;
-                  }, 0);
-                } else {
-                  // Fallback to totalSavings field if exists
-                  totalSavings = Number((member as any).totalSavings) || 0;
-                }
-                
-                const firstName = member.firstName || '';
-                const lastName = member.lastName || '';
-                const fullName = `${firstName} ${lastName}`.trim() || 'Unknown User';
-                
-                if (fullName === 'Unknown User') return null;
-                
-                return {
-                  memberId: memberId,
-                  fullName: fullName,
-                  role: member.role || 'Member',
-                  totalSavings: totalSavings
-                };
-              } catch (error) {
-                console.warn(`Error processing member ${memberId}:`, error);
-                return null;
-              }
-            })
-          );
-          
-          // Filter out nulls and sort
-          const validLeaderboardData = leaderboardData
-            .filter((entry): entry is SavingsLeaderboardEntry => entry !== null)
-            .sort((a, b) => b.totalSavings - a.totalSavings);
-
-          setSavingsLeaderboard(validLeaderboardData);
-        }
-
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        setLoading(false);
-      }
-    };
-
-    if (!authLoading && user && user.role?.toLowerCase() === 'manager') {
+    if (user) {
       fetchDashboardData();
     }
-  }, [user, authLoading]);
+  }, [user, loading, router]);
 
-  // Format currency for display
+  const fetchDashboardData = async () => {
+    try {
+      setFetching(true);
+      
+      const [loansResult, loanRequestsResult, savingsResult] = await Promise.all([
+        firestore.getCollection('loans'),
+        firestore.getCollection('loanRequests'),
+        firestore.getCollection('savings'),
+      ]);
+
+      const loans = loansResult.success && loansResult.data ? loansResult.data : [];
+      const activeLoans = loans.filter((loan: any) => loan.status === 'active').length;
+      const completedLoans = loans.filter((loan: any) => loan.status === 'completed').length;
+      const rejectedLoans = loans.filter((loan: any) => loan.status === 'rejected').length;
+      const totalLoanAmount = loans.reduce((sum: number, loan: any) => sum + (Number(loan.amount) || 0), 0);
+
+      const loanRequests = loanRequestsResult.success && loanRequestsResult.data ? loanRequestsResult.data : [];
+      const pendingRequests = loanRequests.filter((req: any) => req.status === 'pending').length;
+
+      // For total savings, fetch members to get accurate aggregate totals
+      const membersResultForSavings = await firestore.getCollection('members');
+      const membersForSavings = membersResultForSavings.success && membersResultForSavings.data ? membersResultForSavings.data : [];
+      const totalSavings = membersForSavings.reduce((sum: number, member: any) => {
+        return sum + (member.savings?.total || 0);
+      }, 0);
+
+      // Keep savings data for chart generation
+      const savings = savingsResult.success && savingsResult.data ? savingsResult.data : [];
+
+      setStats({
+        activeLoans,
+        pendingRequests,
+        totalSavings: Math.max(0, totalSavings),
+        completedLoans,
+        totalLoanAmount,
+      });
+
+      const monthlyLoans = generateMonthlyLoanData(loans, 6);
+      const monthlySavings = generateMonthlySavings(savings, 6);
+
+      setChartData({
+        loanStatus: [
+          { name: 'Active', value: activeLoans, color: '#10B981' },
+          { name: 'Completed', value: completedLoans, color: '#3B82F6' },
+          { name: 'Rejected', value: rejectedLoans, color: '#EF4444' },
+          { name: 'Pending', value: pendingRequests, color: '#F59E0B' },
+        ].filter(item => item.value > 0),
+        monthlyLoans,
+        savingsTrend: monthlySavings,
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  const generateMonthlyLoanData = (loans: any[], months: number) => {
+    const data: { month: string; disbursed: number; collected: number }[] = [];
+    const now = new Date();
+    
+    for (let i = months - 1; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = date.toLocaleString('en-US', { month: 'short' });
+      const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      const monthLoans = loans.filter((loan: any) => {
+        const loanDate = loan.createdAt ? new Date(loan.createdAt) : null;
+        if (!loanDate) return false;
+        return `${loanDate.getFullYear()}-${String(loanDate.getMonth() + 1).padStart(2, '0')}` === yearMonth;
+      });
+      
+      const disbursed = monthLoans.reduce((sum: number, loan: any) => sum + (Number(loan.amount) || 0), 0);
+      const collected = monthLoans.filter((l: any) => l.status === 'completed').reduce((sum: number, loan: any) => sum + (Number(loan.amount) || 0) * 0.1, 0);
+      
+      data.push({ month: monthKey, disbursed, collected: Math.floor(collected) });
+    }
+    
+    return data;
+  };
+
+  const generateMonthlySavings = (savings: any[], months: number) => {
+    const data: { month: string; amount: number }[] = [];
+    const now = new Date();
+    
+    for (let i = months - 1; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = date.toLocaleString('en-US', { month: 'short' });
+      const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      const amount = savings.reduce((sum: number, item: any) => {
+        const itemDate = item.createdAt ? new Date(item.createdAt) : null;
+        if (!itemDate) return sum;
+        if (`${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}` === yearMonth) {
+          const itemAmount = Number(item.amount) || 0;
+          return item.type === 'deposit' ? sum + itemAmount : sum - itemAmount;
+        }
+        return sum;
+      }, 0);
+      
+      data.push({ month: monthKey, amount: Math.max(0, amount) });
+    }
+    
+    return data;
+  };
+
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-PH', {
       style: 'currency',
       currency: 'PHP',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
     }).format(amount);
   };
 
-  // Render a loading skeleton
-  if (loading || authLoading) {
+  if (loading || fetching) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2"></h1>
-          <p className="text-gray-600"></p>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-              <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-              <div className="mt-2 h-3 bg-gray-100 rounded w-2/3"></div>
-            </div>
-          ))}
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow p-6 animate-pulse">
-            <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="h-64 bg-gray-200 rounded"></div>
-            <div className="mt-4 h-4 bg-gray-100 rounded w-1/2"></div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 animate-pulse">
-            <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="space-y-3">
-              {[...Array(5)].map((_, j) => (
-                <div key={j} className="flex items-center justify-between p-2">
-                  <div className="flex items-center">
-                    <div className="h-4 bg-gray-200 rounded w-6 mr-3"></div>
-                    <div>
-                      <div className="h-4 bg-gray-200 rounded w-24 mb-1"></div>
-                      <div className="h-3 bg-gray-100 rounded w-16"></div>
-                    </div>
-                  </div>
-                  <div className="h-4 bg-gray-200 rounded w-16"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        
-        <div className="text-center text-sm text-gray-500 mt-4">
-          Fetching real-time data from Firestore database...
-        </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-red-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page title */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">Manager Dashboard</h1>
-        <p className="text-gray-600">Welcome to the cooperative management system</p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="mb-6 sm:mb-8">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-teal-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Briefcase className="h-5 w-5 sm:h-6 sm:w-6 text-teal-600" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Manager Dashboard</h1>
+            <p className="text-sm sm:text-base text-gray-500 mt-0.5 sm:mt-1 truncate">Welcome back, {user?.displayName || 'Manager'}</p>
+          </div>
+        </div>
       </div>
-      
-      {/* Stats cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div 
-          className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => router.push('/admin/manager/savings')}
-        >
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-              <Users className="h-6 w-6" />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+        <Link href="/admin/loans/records" className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 hover:border-gray-300 hover:shadow-sm transition-all">
+          <div className="flex flex-col">
+            <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center mb-3">
+              <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
-            <div className="ml-4">
-              <h2 className="text-sm font-medium text-gray-600">Total Members</h2>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalMembers.toLocaleString()}</p>
-            </div>
+            <p className="text-xs sm:text-sm font-medium text-gray-500">Active Loans</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.activeLoans}</p>
           </div>
-        </div>
-        
-        <div 
-          className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => router.push('/admin/manager/loans')}
-        >
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 text-green-600">
-              <DollarSign className="h-6 w-6" />
+        </Link>
+
+        <Link href="/admin/loans/requests" className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 hover:border-gray-300 hover:shadow-sm transition-all">
+          <div className="flex flex-col">
+            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center mb-3">
+              <Clock className="h-5 w-5 text-amber-600" />
             </div>
-            <div className="ml-4">
-              <h2 className="text-sm font-medium text-gray-600">Active Loans</h2>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeLoans}</p>
-            </div>
+            <p className="text-xs sm:text-sm font-medium text-gray-500">Pending</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.pendingRequests}</p>
           </div>
-        </div>
-        
-        <div 
-          className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => router.push('/admin/manager/loans')}
-        >
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
-              <FileText className="h-6 w-6" />
+        </Link>
+
+        <Link href="/admin/loans/records" className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 hover:border-gray-300 hover:shadow-sm transition-all">
+          <div className="flex flex-col">
+            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center mb-3">
+              <FileText className="h-5 w-5 text-blue-600" />
             </div>
-            <div className="ml-4">
-              <h2 className="text-sm font-medium text-gray-600">Pending Requests</h2>
-              <p className="text-2xl font-bold text-gray-900">{stats.pendingRequests}</p>
+            <p className="text-xs sm:text-sm font-medium text-gray-500">Completed</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.completedLoans}</p>
+          </div>
+        </Link>
+
+        <Link href="/admin/savings" className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 hover:border-gray-300 hover:shadow-sm transition-all">
+          <div className="flex flex-col">
+            <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center mb-3">
+              <DollarSign className="h-5 w-5 text-purple-600" />
             </div>
+            <p className="text-xs sm:text-sm font-medium text-gray-500">Total Savings</p>
+            <p className="text-lg sm:text-xl font-bold text-gray-900 mt-1 truncate">{formatCurrency(stats.totalSavings)}</p>
+          </div>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
+        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Monthly Loan Performance</h3>
+          <div className="h-56 sm:h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData.monthlyLoans}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value) => value >= 1000 ? `₱${(value / 1000).toFixed(0)}k` : `₱${value}`} />
+                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Bar dataKey="disbursed" fill="#EF4444" name="Disbursed" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="collected" fill="#10B981" name="Collected" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        <div 
-          className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => router.push('/admin/manager/loans')}
-        >
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-              <CheckCircle className="h-6 w-6" />
-            </div>
-            <div className="ml-4">
-              <h2 className="text-sm font-medium text-gray-600">Approved Loans</h2>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalApprovedLoans}</p>
-            </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Loan Status Distribution</h3>
+          <div className="h-56 sm:h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData.loanStatus}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value }: any) => `${name}: ${value}`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {chartData.loanStatus.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </div>
-      </div>
-      
-      {/* Business Overview Graph */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Business Overview</h2>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={[
-                { name: 'Total Members', value: stats.totalMembers, color: '#3B82F6' },
-                { name: 'Active Loans', value: stats.activeLoans, color: '#10B981' },
-                { name: 'Pending Requests', value: stats.pendingRequests, color: '#F59E0B' },
-                { name: 'Approved Loans', value: stats.totalApprovedLoans, color: '#8B5CF6' },
-              ]}
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis />
-              <Tooltip 
-                formatter={(value: number) => [value.toLocaleString(), 'Count']}
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-              />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {[
-                  { name: 'Total Members', value: stats.totalMembers, color: '#3B82F6' },
-                  { name: 'Active Loans', value: stats.activeLoans, color: '#10B981' },
-                  { name: 'Pending Requests', value: stats.pendingRequests, color: '#F59E0B' },
-                  { name: 'Approved Loans', value: stats.totalApprovedLoans, color: '#8B5CF6' },
-                ].map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-      
-      {/* Savings Leaderboard */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">Savings Leaderboard</h2>
-            <p className="text-sm text-gray-600 mt-1">Top members by total savings</p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">Filter:</span>
-            <select 
-              value={savingsFilter}
-              onChange={(e) => setSavingsFilter(e.target.value as 'monthly' | 'yearly')}
-              className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-red-500"
-            >
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Savings Growth Trend</h3>
+          <div className="h-56 sm:h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData.savingsTrend}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value) => value >= 1000 ? `₱${(value / 1000).toFixed(0)}k` : `₱${value}`} />
+                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Line type="monotone" dataKey="amount" stroke="#8B5CF6" strokeWidth={2} dot={{ fill: '#8B5CF6' }} />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
-        
-        <div className="space-y-3 max-h-80 overflow-y-auto">
-          {filteredSavings && filteredSavings.length > 0 ? (
-            filteredSavings.map((entry, index) => (
-              <div 
-                key={entry.memberId || index} 
-                className={`flex items-center justify-between p-4 rounded-lg transition-all duration-200 ${
-                  index === 0 ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 shadow-sm' : 
-                  index === 1 ? 'bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200' : 
-                  index === 2 ? 'bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200' : 
-                  'bg-gray-50 hover:bg-gray-100 border border-gray-100'
-                }`}
-              >
-                <div className="flex items-center">
-                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                    index === 0 ? 'bg-yellow-500 text-white' : 
-                    index === 1 ? 'bg-gray-400 text-white' : 
-                    index === 2 ? 'bg-amber-600 text-white' : 
-                    'bg-gray-300 text-gray-700'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <div className="ml-4">
-                    <p className="font-semibold text-gray-900">{entry.fullName}</p>
-                    <p className="text-sm text-gray-600">{entry.role}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-lg text-gray-900">{formatCurrency(entry.totalSavings)}</p>
-                  <p className="text-xs text-gray-500">
-                    {entry.totalSavings > 0 && filteredSavings[0]?.totalSavings > 0
-                      ? `${((entry.totalSavings / filteredSavings[0].totalSavings) * 100).toFixed(1)}% of leader` 
-                      : 'No savings'}
-                  </p>
-                </div>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Overview</h3>
+          <div className="space-y-3 sm:space-y-4">
+            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <span className="text-sm text-gray-700">Active Loans</span>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-12">
-              <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
-                <DollarSign className="h-12 w-12" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-1">No Savings Data</h3>
-              <p className="text-gray-500">No savings transactions found for the selected period</p>
+              <span className="font-semibold text-green-900">{stats.activeLoans}</span>
             </div>
-          )}
-        </div>
-        
-        {filteredSavings && filteredSavings.length > 0 && (
-          <div className="mt-6 pt-4 border-t border-gray-200">
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>Total Members: {filteredSavings.length}</span>
-              <span>
-                Total Savings: {formatCurrency(
-                  filteredSavings.reduce((sum, entry) => sum + entry.totalSavings, 0)
-                )}
-              </span>
+            <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Clock className="h-5 w-5 text-amber-600" />
+                <span className="text-sm text-gray-700">Pending Requests</span>
+              </div>
+              <span className="font-semibold text-amber-900">{stats.pendingRequests}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-blue-600" />
+                <span className="text-sm text-gray-700">Completed Loans</span>
+              </div>
+              <span className="font-semibold text-blue-900">{stats.completedLoans}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <DollarSign className="h-5 w-5 text-purple-600" />
+                <span className="text-sm text-gray-700">Total Savings</span>
+              </div>
+              <span className="font-semibold text-purple-900">{formatCurrency(stats.totalSavings)}</span>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { Member } from '@/lib/types/member';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { usePermissions, PermissionGuard } from '@/lib/rolePermissions';
 
 interface ReportData {
   membersSummary: {
@@ -27,6 +29,7 @@ interface ReportData {
 }
 
 export default function ReportsPage() {
+  const { hasPermission } = usePermissions();
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -78,23 +81,41 @@ export default function ReportsPage() {
       if (dateRange.start || dateRange.end) {
         loans = allLoans.filter((loan: any) => {
           // Handle various possible date fields in loan object
-          const dateValue = loan.createdAt || loan.timestamp || loan.date || loan.submittedAt;
-          if (!dateValue) return true; // If no date field exists, include the loan
+          const dateValue = loan.createdAt || loan.timestamp || loan.date || loan.submittedAt || loan.startDate;
+          if (!dateValue) return false; // Exclude loans without dates when filtering
           
-          let loanDate;
+          let loanDate: Date;
           if (typeof dateValue === 'string' || typeof dateValue === 'number') {
-            loanDate = new Date(dateValue).getTime();
+            loanDate = new Date(dateValue);
           } else if (dateValue && typeof dateValue.toDate === 'function') {
             // Firestore Timestamp
-            loanDate = dateValue.toDate().getTime();
+            loanDate = dateValue.toDate();
           } else {
-            loanDate = Date.now();
+            return false;
           }
           
-          const startDate = dateRange.start ? new Date(dateRange.start).getTime() : 0;
-          const endDate = dateRange.end ? new Date(dateRange.end).getTime() : Infinity;
+          // Normalize loan date to start of day for accurate comparison
+          const loanDay = new Date(loanDate.getFullYear(), loanDate.getMonth(), loanDate.getDate());
           
-          return loanDate >= startDate && loanDate <= endDate;
+          // Get filter date range
+          let filterStartDate: Date | null = null;
+          let filterEndDate: Date | null = null;
+          
+          if (dateRange.start) {
+            const [year, month, day] = dateRange.start.split('-').map(Number);
+            filterStartDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+          }
+          
+          if (dateRange.end) {
+            const [year, month, day] = dateRange.end.split('-').map(Number);
+            filterEndDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+          }
+          
+          // Check if loan falls within the date range
+          const afterStart = filterStartDate ? loanDay >= filterStartDate : true;
+          const beforeEnd = filterEndDate ? loanDate <= filterEndDate : true;
+          
+          return afterStart && beforeEnd;
         });
       }
       
@@ -131,22 +152,40 @@ export default function ReportsPage() {
               filteredTransactions = savingsResult.data.filter((transaction: any) => {
                 // Handle various possible date fields in transaction object
                 const dateValue = transaction.createdAt || transaction.timestamp || transaction.date || transaction.transactionDate;
-                if (!dateValue) return true; // If no date field exists, include the transaction
+                if (!dateValue) return false; // Exclude transactions without dates when filtering
                 
-                let transactionDate;
+                let transactionDate: Date;
                 if (typeof dateValue === 'string' || typeof dateValue === 'number') {
-                  transactionDate = new Date(dateValue).getTime();
+                  transactionDate = new Date(dateValue);
                 } else if (dateValue && typeof dateValue.toDate === 'function') {
                   // Firestore Timestamp
-                  transactionDate = dateValue.toDate().getTime();
+                  transactionDate = dateValue.toDate();
                 } else {
-                  transactionDate = Date.now();
+                  return false;
                 }
                 
-                const startDate = dateRange.start ? new Date(dateRange.start).getTime() : 0;
-                const endDate = dateRange.end ? new Date(dateRange.end).getTime() : Infinity;
+                // Normalize transaction date to start of day for accurate comparison
+                const transactionDay = new Date(transactionDate.getFullYear(), transactionDate.getMonth(), transactionDate.getDate());
                 
-                return transactionDate >= startDate && transactionDate <= endDate;
+                // Get filter date range
+                let filterStartDate: Date | null = null;
+                let filterEndDate: Date | null = null;
+                
+                if (dateRange.start) {
+                  const [year, month, day] = dateRange.start.split('-').map(Number);
+                  filterStartDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+                }
+                
+                if (dateRange.end) {
+                  const [year, month, day] = dateRange.end.split('-').map(Number);
+                  filterEndDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+                }
+                
+                // Check if transaction falls within the date range
+                const afterStart = filterStartDate ? transactionDay >= filterStartDate : true;
+                const beforeEnd = filterEndDate ? transactionDate <= filterEndDate : true;
+                
+                return afterStart && beforeEnd;
               });
             }
             
@@ -186,7 +225,13 @@ export default function ReportsPage() {
         }));
       
       // Process loans summary (ensure accurate calculations)
-      const activeLoans = loans.filter((loan: any) => loan.status === 'approved');
+      // Include loans that are active, approved, or disbursed (any status that means money is out)
+      const activeLoanStatuses = ['approved', 'active', 'disbursed', 'paid', 'completed'];
+      const activeLoans = loans.filter((loan: any) => {
+        const status = (loan.status || '').toLowerCase();
+        return activeLoanStatuses.includes(status);
+      });
+      
       const loanAmounts = activeLoans.map((loan: any) => {
         // Ensure amount is a valid number
         const amount = parseFloat(loan.amount) || 0;
@@ -453,6 +498,26 @@ export default function ReportsPage() {
     }
   };
   
+  // Show access denied if user doesn't have viewReports permission
+  if (!hasPermission('viewReports')) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-800">Reports & Analytics</h1>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="flex items-center gap-3">
+            <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <div>
+              <h2 className="text-lg font-semibold text-red-800">Access Denied</h2>
+              <p className="text-red-600">You do not have permission to view reports.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -469,15 +534,17 @@ export default function ReportsPage() {
           <p className="text-gray-600">Comprehensive financial reports and analytics</p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
-          >
-            <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            Print Report
-          </button>
+          {hasPermission('exportData') && (
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+            >
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              Print Report
+            </button>
+          )}
         </div>
       </div>
       
@@ -489,7 +556,7 @@ export default function ReportsPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
             <input
               type="date"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 shadow-sm"
               value={dateRange.start}
               onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
             />
@@ -498,7 +565,7 @@ export default function ReportsPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
             <input
               type="date"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 shadow-sm"
               value={dateRange.end}
               onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
             />
@@ -506,14 +573,13 @@ export default function ReportsPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Role Filter</label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 shadow-sm"
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
             >
-              <option value="all">All Roles</option>
-              <option value="member">Member</option>
-              <option value="driver">Driver</option>
-              <option value="operator">Operator</option>
+              <option value="all" className="text-gray-900">All Roles</option>
+              <option value="driver" className="text-gray-900">Driver</option>
+              <option value="operator" className="text-gray-900">Operator</option>
             </select>
           </div>
         </div>
@@ -572,20 +638,62 @@ export default function ReportsPage() {
                   </div>
                 </div>
                 
-                {/* Charts Placeholder */}
+                {/* Analytics Charts */}
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Analytics Dashboard</h3>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Member Status Distribution */}
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h4 className="font-medium text-gray-700 mb-3">Membership Growth</h4>
-                      <div className="h-64 bg-gray-50 rounded flex items-center justify-center">
-                        <p className="text-gray-500">Chart visualization would appear here</p>
+                      <h4 className="font-medium text-gray-700 mb-3">Member Status Distribution</h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Active', value: reportData.membersSummary.activeMembers, color: '#10B981' },
+                                { name: 'Inactive', value: reportData.membersSummary.inactiveMembers, color: '#F59E0B' }
+                              ].filter(item => item.value > 0)}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={(props: { name?: string; percent?: number }) => `${props.name || ''} ${((props.percent || 0) * 100).toFixed(0)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {[
+                                { name: 'Active', value: reportData.membersSummary.activeMembers, color: '#10B981' },
+                                { name: 'Inactive', value: reportData.membersSummary.inactiveMembers, color: '#F59E0B' }
+                              ].filter(item => item.value > 0).map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
                       </div>
                     </div>
+                    
+                    {/* Financial Overview */}
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h4 className="font-medium text-gray-700 mb-3">Financial Trends</h4>
-                      <div className="h-64 bg-gray-50 rounded flex items-center justify-center">
-                        <p className="text-gray-500">Chart visualization would appear here</p>
+                      <h4 className="font-medium text-gray-700 mb-3">Financial Overview</h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={[
+                              { name: 'Total Savings', amount: reportData.savingsSummary.totalSavings },
+                              { name: 'Loan Portfolio', amount: reportData.loansSummary.totalLoanAmount }
+                            ]}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                            <YAxis tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
+                            <Tooltip formatter={(value: number) => [`₱${value.toLocaleString()}`, 'Amount']} />
+                            <Bar dataKey="amount" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
                       </div>
                     </div>
                   </div>
@@ -594,7 +702,7 @@ export default function ReportsPage() {
             )}
             
             {activeTab === 'members' && (
-              <div className="p-6">
+              <div className="p-6 space-y-8">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Members Report</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                   <div className="bg-blue-50 p-4 rounded-lg">
@@ -608,6 +716,28 @@ export default function ReportsPage() {
                   <div className="bg-yellow-50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-yellow-600">{reportData.membersSummary.inactiveMembers}</div>
                     <div className="text-sm text-yellow-800">Inactive Members</div>
+                  </div>
+                </div>
+                
+                {/* Role Distribution Chart */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-700 mb-3">Role Distribution</h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={Object.entries(reportData.membersSummary.roleDistribution).map(([role, count]) => ({
+                          role,
+                          count
+                        }))}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="role" tick={{ fontSize: 12 }} />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
                 
@@ -637,7 +767,7 @@ export default function ReportsPage() {
             )}
             
             {activeTab === 'savings' && (
-              <div className="p-6">
+              <div className="p-6 space-y-8">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Savings Report</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                   <div className="bg-green-50 p-4 rounded-lg">
@@ -651,6 +781,28 @@ export default function ReportsPage() {
                   <div className="bg-purple-50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-purple-600">{reportData.savingsSummary.topSavers.length}</div>
                     <div className="text-sm text-purple-800">Top Savers</div>
+                  </div>
+                </div>
+                
+                {/* Top Savers Chart */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-700 mb-3">Top Savers Chart</h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={reportData.savingsSummary.topSavers.slice(0, 5).map(saver => ({
+                          name: saver.name.split(' ')[0],
+                          amount: saver.amount
+                        }))}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                        <YAxis tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
+                        <Tooltip formatter={(value: number) => [`₱${value.toLocaleString()}`, 'Savings']} />
+                        <Bar dataKey="amount" fill="#10B981" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
                 
@@ -681,7 +833,7 @@ export default function ReportsPage() {
             )}
             
             {activeTab === 'loans' && (
-              <div className="p-6">
+              <div className="p-6 space-y-8">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Loans Report</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                   <div className="bg-purple-50 p-4 rounded-lg">
@@ -699,6 +851,88 @@ export default function ReportsPage() {
                   <div className="bg-orange-50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-orange-600">₱{reportData.loansSummary.averageLoanAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
                     <div className="text-sm text-orange-800">Avg Loan Amount</div>
+                  </div>
+                </div>
+                
+                {/* Loan Status Distribution Chart */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-700 mb-3">Loan Status Distribution</h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={Object.entries(reportData.loansSummary.loanStatusDistribution).map(([status, count]) => {
+                            const colorMap: Record<string, string> = {
+                              'active': '#3B82F6',     // Blue
+                              'completed': '#22C55E',  // Bright Green
+                              'approved': '#10B981',   // Emerald
+                              'pending': '#F59E0B',    // Amber/Yellow
+                              'rejected': '#EF4444',   // Red
+                              'paid': '#06B6D4',       // Cyan
+                              'defaulted': '#DC2626',  // Dark Red
+                              'cancelled': '#6B7280',  // Gray
+                              'processing': '#8B5CF6', // Purple
+                              'under_review': '#F97316', // Orange
+                              'closed': '#14B8A6',     // Teal
+                              'disbursed': '#84CC16',  // Lime
+                              'fully_paid': '#8B5CF6'  // Violet
+                            };
+                            return {
+                              name: status.charAt(0).toUpperCase() + status.slice(1),
+                              value: count,
+                              color: colorMap[status.toLowerCase()] || '#6B7280'
+                            };
+                          })}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={(props: { name?: string; percent?: number }) => `${props.name || ''} ${((props.percent || 0) * 100).toFixed(0)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {Object.entries(reportData.loansSummary.loanStatusDistribution).map(([status, count], index) => {
+                            const colorMap: Record<string, string> = {
+                              'active': '#3B82F6',
+                              'completed': '#22C55E',
+                              'approved': '#10B981',
+                              'pending': '#F59E0B',
+                              'rejected': '#EF4444',
+                              'paid': '#06B6D4',
+                              'defaulted': '#DC2626',
+                              'cancelled': '#6B7280',
+                              'processing': '#8B5CF6',
+                              'under_review': '#F97316',
+                              'closed': '#14B8A6',
+                              'disbursed': '#84CC16',
+                              'fully_paid': '#8B5CF6'
+                            };
+                            return (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={colorMap[status.toLowerCase()] || '#6B7280'} 
+                                stroke="#fff"
+                                strokeWidth={2}
+                              />
+                            );
+                          })}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#fff', 
+                            border: '1px solid #e5e7eb', 
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          }}
+                        />
+                        <Legend 
+                          verticalAlign="bottom" 
+                          height={36}
+                          iconType="circle"
+                          wrapperStyle={{ paddingTop: '20px' }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
                 

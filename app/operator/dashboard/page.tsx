@@ -4,10 +4,11 @@ import { useAuth } from '@/lib/auth';
 import { useEffect, useState } from 'react';
 import ActiveSavings from '@/components/user/ActiveSavings';
 import DynamicDashboard from '@/components/user/DynamicDashboard';
-import { Bell, X, Calendar, DollarSign, CreditCard, PiggyBank, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Bell, X, Calendar, DollarSign, CreditCard, PiggyBank, AlertCircle, CheckCircle, Clock, User, Wallet, TrendingUp, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { firestore } from '@/lib/firebase';
+import { firestore, db } from '@/lib/firebase';
 import { getSavingsBalanceForMember, getMemberIdByUserId } from '@/lib/savingsService';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 interface Notification {
   id?: string;
@@ -81,9 +82,29 @@ export default function OperatorDashboardPage() {
     currentBalance: '0.00',
     totalDeposits: '0.00',
     totalWithdrawals: '0.00',
-    lastTransaction: 'None'
+    lastTransaction: 'None',
+    lastDepositDate: 'None'
   });
   const [hasMemberRecord, setHasMemberRecord] = useState(false);
+  
+  // State for member profile
+  const [memberProfile, setMemberProfile] = useState({
+    fullName: '',
+    memberType: 'Operator',
+    membershipStatus: 'Active',
+    dateJoined: ''
+  });
+  
+  // State for loans
+  const [loans, setLoans] = useState<any[]>([]);
+  const [loanRequests, setLoanRequests] = useState<any[]>([]);
+  const [totalLoanBalance, setTotalLoanBalance] = useState(0);
+  
+  // State for recent transactions
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  
+  // State for next payment
+  const [nextPayment, setNextPayment] = useState<any>(null);
   
   // Fetch savings data from member collection
   useEffect(() => {
@@ -109,6 +130,7 @@ export default function OperatorDashboardPage() {
           let totalDeposits = 0;
           let totalWithdrawals = 0;
           let lastTransactionDate = '';
+          let lastDepositDate: string | null = null;
           
           if (savingsRes.success && savingsRes.data && savingsRes.data.length > 0) {
             const savings = savingsRes.data;
@@ -120,6 +142,9 @@ export default function OperatorDashboardPage() {
               
               if (type === 'deposit') {
                 totalDeposits += amount;
+                if (record.createdAt && (!lastDepositDate || new Date(record.createdAt) > new Date(lastDepositDate))) {
+                  lastDepositDate = record.createdAt;
+                }
               } else if (type === 'withdrawal') {
                 totalWithdrawals += amount;
               }
@@ -134,7 +159,8 @@ export default function OperatorDashboardPage() {
             currentBalance: savingsBalance.toFixed(2),
             totalDeposits: totalDeposits.toFixed(2),
             totalWithdrawals: totalWithdrawals.toFixed(2),
-            lastTransaction: lastTransactionDate || 'None'
+            lastTransaction: lastTransactionDate || 'None',
+            lastDepositDate: lastDepositDate ? new Date(lastDepositDate).toLocaleDateString('en-PH') : 'None'
           });
         } else {
           // If no member record found
@@ -144,7 +170,8 @@ export default function OperatorDashboardPage() {
             currentBalance: '0.00',
             totalDeposits: '0.00',
             totalWithdrawals: '0.00',
-            lastTransaction: 'No member record'
+            lastTransaction: 'No member record',
+            lastDepositDate: 'None'
           });
         }
       } catch (error) {
@@ -154,7 +181,8 @@ export default function OperatorDashboardPage() {
           currentBalance: '0.00',
           totalDeposits: '0.00',
           totalWithdrawals: '0.00',
-          lastTransaction: 'Error loading'
+          lastTransaction: 'Error loading',
+          lastDepositDate: 'None'
         });
       }
     };
@@ -163,6 +191,172 @@ export default function OperatorDashboardPage() {
       fetchSavingsData();
     }
   }, [user]);
+
+  // Fetch member profile
+  useEffect(() => {
+    const fetchMemberProfile = async () => {
+      if (!user?.uid) return;
+      
+      try {
+        // Get member data
+        const memberResult = await firestore.getDocument('members', user.uid);
+        if (memberResult.success && memberResult.data) {
+          const memberData = memberResult.data;
+          setMemberProfile({
+            fullName: memberData.fullName || user.displayName || 'N/A',
+            memberType: user.role === 'driver' ? 'Driver' : user.role === 'operator' ? 'Operator' : 'Member',
+            membershipStatus: memberData.status || 'Active',
+            dateJoined: memberData.createdAt ? new Date(memberData.createdAt).toLocaleDateString('en-PH') : 'N/A'
+          });
+        } else {
+          // Fallback to user data
+          setMemberProfile({
+            fullName: user.displayName || 'N/A',
+            memberType: user.role === 'driver' ? 'Driver' : user.role === 'operator' ? 'Operator' : 'Member',
+            membershipStatus: 'Active',
+            dateJoined: 'N/A'
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching member profile:', error);
+      }
+    };
+    
+    if (user) {
+      fetchMemberProfile();
+    }
+  }, [user]);
+
+  // Fetch loans data
+  useEffect(() => {
+    if (!user?.uid || !db) return;
+
+    const loansQuery = query(
+      collection(db, 'loans'),
+      where('userId', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(loansQuery, (snapshot) => {
+      const loansData: any[] = [];
+      let totalBalance = 0;
+      
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const loan = {
+          id: doc.id,
+          loanId: data.loanId || doc.id,
+          amount: data.amount || 0,
+          remainingBalance: data.remainingBalance || 0,
+          status: data.status || 'active',
+          planName: data.planName || 'General Loan',
+          ...data
+        };
+        loansData.push(loan);
+        
+        if (data.status === 'active' || data.status === 'approved') {
+          totalBalance += data.remainingBalance || 0;
+        }
+      });
+      
+      setLoans(loansData);
+      setTotalLoanBalance(totalBalance);
+      
+      const activeLoan = loansData.find(l => l.status === 'active');
+      if (activeLoan && activeLoan.paymentSchedule) {
+        const nextDue = activeLoan.paymentSchedule.find((p: any) => p.status === 'pending' || p.status === 'partial');
+        if (nextDue) {
+          setNextPayment({
+            loanId: activeLoan.loanId || activeLoan.id,
+            amount: nextDue.totalPayment,
+            dueDate: nextDue.paymentDate
+          });
+        } else {
+          setNextPayment(null);
+        }
+      } else {
+        setNextPayment(null);
+      }
+    }, (error) => {
+      console.error('Error fetching loans:', error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Fetch loan requests
+  useEffect(() => {
+    if (!user?.uid || !db) return;
+
+    const loanRequestsQuery = query(
+      collection(db, 'loanRequests'),
+      where('userId', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(loanRequestsQuery, (snapshot) => {
+      const requestsData: any[] = [];
+      
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        requestsData.push({
+          id: doc.id,
+          loanId: data.loanId || doc.id,
+          planName: data.planName || 'General Loan',
+          amount: data.amount || 0,
+          status: data.status || 'pending',
+          createdAt: data.createdAt,
+          ...data
+        });
+      });
+      
+      setLoanRequests(requestsData);
+    }, (error) => {
+      console.error('Error fetching loan requests:', error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Fetch recent transactions
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const fetchRecentTransactions = async () => {
+      try {
+        const transactions: any[] = [];
+        
+        const memberId = await getMemberIdByUserId(user.uid);
+        if (memberId) {
+          const savingsRes = await firestore.getCollection(`members/${memberId}/savings`);
+          if (savingsRes.success && savingsRes.data) {
+            savingsRes.data.slice(0, 5).forEach((record: any) => {
+              const type = record.type || record.transactionType || '';
+              transactions.push({
+                id: record.id,
+                date: record.createdAt ? new Date(record.createdAt) : new Date(),
+                type: type === 'deposit' ? 'Savings Deposit' : type === 'withdrawal' ? 'Withdrawal' : 'Savings Transaction',
+                amount: parseFloat(record.amount) || 0
+              });
+            });
+          }
+        }
+        
+        transactions.sort((a, b) => b.date - a.date);
+        setRecentTransactions(transactions.slice(0, 5));
+      } catch (error) {
+        console.error('Error fetching recent transactions:', error);
+      }
+    };
+    
+    fetchRecentTransactions();
+  }, [user]);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: 'PHP',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
 
   const statusBadgeClass = (status?: string) => {
     const s = (status || '').toLowerCase();
@@ -337,11 +531,6 @@ export default function OperatorDashboardPage() {
   return (
     <DynamicDashboard>
       <div className="max-w-7xl mx-auto w-full">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Welcome</h1>
-          
-        </div>
-
         <div className="w-full">
           <div className="flex justify-end mb-4">
             <div className="relative">
@@ -365,14 +554,25 @@ export default function OperatorDashboardPage() {
                 )}
               </button>
               {showNotifications && (
-                <div className="absolute top-10 right-0 w-96 bg-white shadow-xl border border-gray-200 rounded-xl z-50 max-h-[500px] flex flex-col">
+                <div className="fixed sm:absolute top-16 sm:top-10 right-2 sm:right-0 w-[calc(100vw-1rem)] sm:w-96 max-w-sm bg-white shadow-xl border border-gray-200 rounded-xl z-50 max-h-[500px] flex flex-col">
                   <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                    <span className="font-semibold text-gray-800">Notifications</span>
-                    {hasNewNotifications && (
-                      <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">
-                        New
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-800">Notifications</span>
+                      {hasNewNotifications && (
+                        <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">
+                          New
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setShowNotifications(false)}
+                      className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                      aria-label="Close notifications"
+                    >
+                      <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
                   <div className="overflow-y-auto flex-1 max-h-[400px]">
                     {notifications.length > 0 ? (
@@ -415,41 +615,114 @@ export default function OperatorDashboardPage() {
                       </div>
                     )}
                   </div>
-                  <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-                    <button
-                      onClick={() => {
-                        setShowNotifications(false);
-                        router.push('/profile/notifications');
-                      }}
-                      className="w-full text-sm text-red-600 hover:text-red-700 font-medium"
-                    >
-                      View all notifications
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* My Savings Card - shown for all users */}
+        {/* 1. Member Profile Summary */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-700 mb-4">My Savings</h2>
           <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-800">Current Balance</h3>
-              <span className="text-2xl font-bold text-red-600">
-                ₱{savingsData.currentBalance}
-              </span>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-red-100 rounded-full">
+                <User className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800">Member Profile</h2>
+                <p className="text-sm text-gray-500">Your membership information</p>
+              </div>
             </div>
-            <div className="mt-6">
-              <button 
-                onClick={() => router.push('/savings')}
-                className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md transition duration-200"
-              >
-                View Savings Details
-              </button>
+            {/* Full Name - Full Width */}
+            <div className="bg-gray-50 rounded-lg p-3 lg:p-4 mb-3 overflow-hidden">
+              <p className="text-xs text-gray-600 truncate">Full Name</p>
+              <p className="text-base lg:text-lg font-semibold text-gray-800 truncate">{memberProfile.fullName}</p>
             </div>
+            
+            {/* Member Type, Date Joined - 2 Columns */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gray-50 rounded-lg p-3 lg:p-4 overflow-hidden">
+                <p className="text-xs text-gray-600 truncate">Member Type</p>
+                <p className="text-sm lg:text-base font-semibold text-gray-800 truncate">{memberProfile.memberType}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 lg:p-4 overflow-hidden">
+                <p className="text-xs text-gray-600 truncate">Date Joined</p>
+                <p className="text-sm lg:text-base font-semibold text-gray-800 truncate">{memberProfile.dateJoined}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Financial Overview Panel */}
+        <div className="mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="p-3 bg-blue-100 rounded-full">
+                <Wallet className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800">Financial Overview</h2>
+                <p className="text-sm text-gray-500">Your loans and savings at a glance</p>
+              </div>
+            </div>
+            
+            {/* Summary Cards - Full Width Layout */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-blue-50 rounded-lg p-3 lg:p-4 overflow-hidden">
+                <p className="text-xs text-blue-600 mb-1 truncate">Loan Balance</p>
+                <p className="text-lg lg:text-xl font-bold text-blue-800 truncate">{formatCurrency(totalLoanBalance)}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 lg:p-4 overflow-hidden">
+                <p className="text-xs text-gray-600 mb-1 truncate">Active Loans</p>
+                <p className="text-lg lg:text-xl font-bold text-gray-800 truncate">{loans.filter(l => l.status === 'active' || l.status === 'approved').length}</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3 lg:p-4 overflow-hidden">
+                <p className="text-xs text-green-600 mb-1 truncate">Total Savings</p>
+                <p className="text-lg lg:text-xl font-bold text-green-800 truncate">₱{parseFloat(savingsData.currentBalance).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 lg:p-4 overflow-hidden">
+                <p className="text-xs text-gray-600 mb-1 truncate">Total Deposits</p>
+                <p className="text-lg lg:text-xl font-bold text-gray-800 truncate">₱{parseFloat(savingsData.totalDeposits).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 5. Loan Payment Reminder */}
+        <div className="mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-red-100 rounded-full">
+                <Calendar className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800">Loan Payment Reminder</h2>
+                <p className="text-sm text-gray-500">Upcoming payment due</p>
+              </div>
+            </div>
+            
+            {nextPayment ? (
+              <div className="bg-red-50 rounded-lg p-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm text-red-600">Loan ID</p>
+                    <p className="text-lg font-semibold text-red-800">{nextPayment.loanId}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-red-600">Payment Amount</p>
+                    <p className="text-lg font-semibold text-red-800">{formatCurrency(nextPayment.amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-red-600">Due Date</p>
+                    <p className="text-lg font-semibold text-red-800">{new Date(nextPayment.dueDate).toLocaleDateString('en-PH')}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <p className="text-gray-600">No upcoming loan payments.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

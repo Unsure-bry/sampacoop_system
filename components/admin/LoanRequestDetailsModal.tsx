@@ -97,17 +97,17 @@ export default function LoanRequestDetailsModal({
     'User Not Found';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-start mb-6">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+        <div className="p-4 sm:p-6">
+          <div className="flex justify-between items-start mb-4 sm:mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">Loan Request Details</h2>
-              <p className="text-gray-600">ID: {request.id}</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-black">Loan Request Details</h2>
+              <p className="text-sm sm:text-base text-black">ID: {request.id}</p>
             </div>
             <button 
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
+              className="text-black hover:text-gray-700"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -118,36 +118,36 @@ export default function LoanRequestDetailsModal({
           {/* Request Information Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">Full Name</p>
-              <p className="font-medium">{fullName}</p>
+              <p className="text-sm text-black font-medium">Full Name</p>
+              <p className="text-black">{fullName}</p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">Email</p>
-              <p className="font-medium">{request.email}</p>
+              <p className="text-sm text-black font-medium">Email</p>
+              <p className="text-black">{request.email}</p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">Role</p>
-              <p className="font-medium">{request.role || 'N/A'}</p>
+              <p className="text-sm text-black font-medium">Role</p>
+              <p className="text-black">{request.role || 'N/A'}</p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">Phone</p>
-              <p className="font-medium">{request.phone || 'N/A'}</p>
+              <p className="text-sm text-black font-medium">Phone</p>
+              <p className="text-black">{request.phone || 'N/A'}</p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">Loan Plan</p>
-              <p className="font-medium">{request.planName || 'General Loan'}</p>
+              <p className="text-sm text-black font-medium">Loan Plan</p>
+              <p className="text-black">{request.planName || 'General Loan'}</p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">Amount</p>
-              <p className="font-medium">{formatCurrency(request.amount)}</p>
+              <p className="text-sm text-black font-medium">Amount</p>
+              <p className="text-black">{formatCurrency(request.amount)}</p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">Term</p>
-              <p className="font-medium">{request.term} month{request.term !== 1 ? 's' : ''}</p>
+              <p className="text-sm text-black font-medium">Term</p>
+              <p className="text-black">{request.term} month{request.term !== 1 ? 's' : ''}</p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">Status</p>
-              <p className="font-medium">
+              <p className="text-sm text-black font-medium">Status</p>
+              <p className="text-black">
                 <span className={`px-2 py-1 rounded-full text-xs ${
                   request.status === 'pending' 
                     ? 'bg-yellow-100 text-yellow-800' 
@@ -160,51 +160,51 @@ export default function LoanRequestDetailsModal({
               </p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
-              <p className="text-sm text-gray-600">Description</p>
-              <p className="font-medium">{request.description || 'N/A'}</p>
+              <p className="text-sm text-black font-medium">Description</p>
+              <p className="text-black">{request.description || 'N/A'}</p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
-              <p className="text-sm text-gray-600">Created At</p>
-              <p className="font-medium">{formatDate(request.createdAt)}</p>
+              <p className="text-sm text-black font-medium">Created At</p>
+              <p className="text-black">{formatDate(request.createdAt)}</p>
             </div>
             {request.status === 'rejected' && (
               <>
                 <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
-                  <p className="text-sm text-gray-600">Rejection Reason</p>
-                  <p className="font-medium">{request.rejectionReason || 'No reason provided'}</p>
+                  <p className="text-sm text-black font-medium">Rejection Reason</p>
+                  <p className="text-black">{request.rejectionReason || 'No reason provided'}</p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
-                  <p className="text-sm text-gray-600">Rejected At</p>
-                  <p className="font-medium">{request.rejectedAt ? formatDate(request.rejectedAt) : 'N/A'}</p>
+                  <p className="text-sm text-black font-medium">Rejected At</p>
+                  <p className="text-black">{request.rejectedAt ? formatDate(request.rejectedAt) : 'N/A'}</p>
                 </div>
               </>
             )}
             {request.status === 'approved' && (
               <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
-                <p className="text-sm text-gray-600">Approved At</p>
-                <p className="font-medium">{request.approvedAt ? formatDate(request.approvedAt) : 'N/A'}</p>
+                <p className="text-sm text-black font-medium">Approved At</p>
+                <p className="text-black">{request.approvedAt ? formatDate(request.approvedAt) : 'N/A'}</p>
               </div>
             )}
           </div>
 
           {/* Action Buttons - Only show for pending requests */}
           {request.status === 'pending' && (
-            <div className="flex justify-end space-x-3">
+            <div className="flex flex-col sm:flex-row justify-end gap-3">
               <button
                 onClick={onClose}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors order-2 sm:order-1"
               >
                 Cancel
               </button>
               <button
                 onClick={handleReject}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors order-1 sm:order-2"
               >
                 Reject
               </button>
               <button
                 onClick={handleApprove}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors order-0 sm:order-3"
               >
                 Approve
               </button>
@@ -214,7 +214,7 @@ export default function LoanRequestDetailsModal({
           {/* Rejection Reason Input for Pending Requests */}
           {request.status === 'pending' && (
             <div className="mt-4">
-              <label htmlFor="rejection-reason" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="rejection-reason" className="block text-sm font-medium text-black mb-1">
                 Rejection Reason (required for rejection)
               </label>
               <textarea
@@ -222,7 +222,7 @@ export default function LoanRequestDetailsModal({
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="Enter the reason for rejecting this loan request"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 text-black"
                 rows={3}
               />
             </div>
@@ -233,7 +233,7 @@ export default function LoanRequestDetailsModal({
             <div className="flex justify-end">
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                className="w-full sm:w-auto px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
                 Close
               </button>

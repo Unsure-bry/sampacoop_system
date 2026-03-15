@@ -174,7 +174,13 @@ export default function SavingsActions({ onTransactionComplete, currentBalance =
                     id="depositAmount"
                     type="number"
                     value={depositAmount}
-                    onChange={(e) => setDepositAmount(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Allow only up to 2 decimal places
+                      if (value === '' || /^\d*(\.\d{0,2})?$/.test(value)) {
+                        setDepositAmount(value);
+                      }
+                    }}
                     className="pl-8 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     placeholder="Enter deposit amount"
                     min="1"
@@ -208,7 +214,13 @@ export default function SavingsActions({ onTransactionComplete, currentBalance =
                     id="withdrawalAmount"
                     type="number"
                     value={withdrawalAmount}
-                    onChange={(e) => setWithdrawalAmount(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Allow only up to 2 decimal places
+                      if (value === '' || /^\d*(\.\d{0,2})?$/.test(value)) {
+                        setWithdrawalAmount(value);
+                      }
+                    }}
                     className="pl-8 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     placeholder="Enter withdrawal amount"
                     min="1"

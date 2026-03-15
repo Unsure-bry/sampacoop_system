@@ -12,8 +12,13 @@ import {
   addSavingsTransaction,
   getMemberIdByUserId
 } from '@/lib/savingsService';
+import { logActivity } from '@/lib/activityLogger';
+import { useAuth } from '@/lib/auth';
+import { usePermissions } from '@/lib/rolePermissions';
 
 export default function MemberSavingsPage() {
+  const { user } = useAuth();
+  const { hasPermission } = usePermissions();
   const [member, setMember] = useState<Member | null>(null);
   const [transactions, setTransactions] = useState<SavingsTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,6 +146,16 @@ export default function MemberSavingsPage() {
       
       if (result.success) {
         toast.success(`Savings ${transactionData.type} recorded successfully!`);
+        
+        // Log activity
+        await logActivity({
+          userId: user?.uid || 'unknown',
+          userEmail: user?.email || 'unknown',
+          userName: user?.displayName || 'Admin',
+          action: `Savings ${transactionData.type === 'deposit' ? 'Deposit' : 'Withdrawal'}`,
+          role: user?.role || 'admin',
+        });
+        
         setShowAddModal(false);
         // Refresh transactions
         fetchSavingsTransactions();
@@ -420,7 +435,7 @@ export default function MemberSavingsPage() {
           <div className="flex flex-col items-end">
             <div className="text-right mb-4">
               <p className="text-sm text-gray-600">Current Savings Balance</p>
-              <p className="text-3xl font-bold text-gray-800">₱{totalSavings.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-gray-800">₱{totalSavings.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -432,15 +447,17 @@ export default function MemberSavingsPage() {
                 </svg>
                 Print Report
               </button>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center"
-              >
-                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Add Transaction
-              </button>
+              {hasPermission('manageSavings') && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center"
+                >
+                  <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Add Transaction
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -498,12 +515,14 @@ export default function MemberSavingsPage() {
             {(dateFrom || dateTo) && (
               <p className="text-gray-500 text-sm mt-2">Try adjusting your date filters.</p>
             )}
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Add First Transaction
-            </button>
+            {hasPermission('manageSavings') && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Add First Transaction
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -547,10 +566,10 @@ export default function MemberSavingsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {transaction.type === 'deposit' ? '+' : '-'}₱{transaction.amount.toFixed(2)}
+                        {transaction.type === 'deposit' ? '+' : '-'}₱{transaction.amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ₱{transaction.balance.toFixed(2)}
+                        ₱{transaction.balance.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {transaction.createdAt ? new Date(transaction.createdAt).toLocaleString('en-PH', {

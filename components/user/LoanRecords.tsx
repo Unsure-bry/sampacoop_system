@@ -91,21 +91,31 @@ export default function LoanRecords() {
   const calculateAmortizationSchedule = (loan: Loan): AmortizationSchedule[] => {
     const schedule: AmortizationSchedule[] = [];
     
+    // Validate loan data
+    if (!loan.amount || !loan.term || loan.interest === undefined) {
+      console.error('Invalid loan data for amortization calculation:', loan);
+      return schedule;
+    }
+    
     // Convert loan term to days (1 month = 30 days)
     const totalDays = loan.term * 30;
     
-    // Calculate total interest: Amount × Interest Rate × Term
-    const totalInterest = (loan.amount * (loan.interest / 100)) * loan.term;
+    // Calculate total interest: Principal × Interest Rate × Term (in months)
+    // Example: 5000 × 2% × 3 months = 300
+    const totalInterest = loan.amount * (loan.interest / 100) * loan.term;
     
     // Calculate daily payment using formula: (Amount + Total Interest) / Number of days
     const dailyPayment = (loan.amount + totalInterest) / totalDays;
     
     // Calculate daily interest and principal portions
     const dailyInterest = totalInterest / totalDays;
-    const dailyPrincipal = dailyPayment - dailyInterest;
+    const dailyPrincipal = loan.amount / totalDays;
     
     let remainingBalance = loan.amount + totalInterest;
-    let currentDate = new Date(loan.startDate);
+    
+    // Use loan start date or default to today if not available
+    const startDate = loan.startDate ? new Date(loan.startDate) : new Date();
+    let currentDate = new Date(startDate);
     
     for (let day = 1; day <= totalDays; day++) {
       // Add one day for each payment date
@@ -328,7 +338,7 @@ export default function LoanRecords() {
             <div className="mt-6 border-t pt-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">
-                  Amortization Schedule for {selectedLoan.planName || 'Loan'}
+                  Amortization Schedule for {selectedLoan.planName || 'Loan'} (ID: {selectedLoan.id.match(/\d{8}/)?.[0] || selectedLoan.id.slice(-8).padStart(8, '0')})
                 </h3>
   
               </div>

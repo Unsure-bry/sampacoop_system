@@ -67,6 +67,14 @@ export default function PaginatedLoanRecords() {
           id: doc.id,
           ...doc
         }));
+        
+        // Sort loans by startDate in descending order (most recent first)
+        loansData.sort((a: any, b: any) => {
+          const dateA = new Date(a.startDate || 0);
+          const dateB = new Date(b.startDate || 0);
+          return dateB.getTime() - dateA.getTime();
+        });
+        
         setLoans(loansData);
         
         // Fetch user data for each loan
@@ -205,6 +213,15 @@ export default function PaginatedLoanRecords() {
       filtered = filtered.filter(loan => {
         const loanDate = new Date(loan.startDate);
         const today = new Date();
+        
+        // Reset hours to compare dates only
+        const loanDateOnly = new Date(loanDate.getFullYear(), loanDate.getMonth(), loanDate.getDate());
+        const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        
+        if (startDateFilter === 'today') {
+          return loanDateOnly.getTime() === todayOnly.getTime();
+        }
+        
         const diffTime = Math.abs(today.getTime() - loanDate.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           
@@ -261,12 +278,12 @@ export default function PaginatedLoanRecords() {
             <input
               type="text"
               placeholder="Search by name, email, ID, or status..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 w-full text-sm"
+              className="pl-10 pr-4 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 w-full text-sm text-gray-900 placeholder-gray-500 shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
@@ -336,6 +353,7 @@ export default function PaginatedLoanRecords() {
                       className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
                     >
                       <option value="all">All Dates</option>
+                      <option value="today">Today</option>
                       <option value="last-week">Last Week</option>
                       <option value="last-month">Last Month</option>
                       <option value="last-year">Last Year</option>

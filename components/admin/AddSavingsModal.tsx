@@ -26,7 +26,9 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
     if (!formData.amount) {
       newErrors.amount = 'Amount is required';
     } else {
-      const amount = parseFloat(formData.amount);
+      // Remove commas before parsing
+      const cleanAmount = formData.amount.replace(/,/g, '');
+      const amount = parseFloat(cleanAmount);
       if (isNaN(amount) || amount <= 0) {
         newErrors.amount = 'Amount must be a positive number';
       }
@@ -86,7 +88,7 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
     
     const success = await onAddSavings({
       type: formData.type,
-      amount: parseFloat(formData.amount),
+      amount: parseFloat(formData.amount.replace(/,/g, '')),
       remarks: formData.remarks,
       depositControlNumber
     });
@@ -128,16 +130,16 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Transaction Type</label>
+                <label className="block text-sm font-medium text-black mb-2">Transaction Type</label>
                 <select
                   name="type"
                   value={formData.type}
                   onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 text-black font-medium bg-white"
                   disabled={loading}
                 >
-                  <option value="deposit">Deposit</option>
-                  <option value="withdrawal">Withdrawal</option>
+                  <option value="deposit" className="text-black">Deposit</option>
+                  <option value="withdrawal" className="text-black">Withdrawal</option>
                 </select>
               </div>
               
@@ -145,19 +147,45 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Amount (PHP)
                 </label>
-                <input
-                  type="number"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleInputChange}
-                  className={`w-full p-2 border rounded-md focus:ring-red-500 focus:border-red-500 ${
-                    errors.amount ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter amount"
-                  min="0"
-                  step="0.01"
-                  disabled={loading}
-                />
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                    ₱
+                  </span>
+                  <input
+                    type="text"
+                    name="amount"
+                    inputMode="decimal"
+                    value={formData.amount}
+                    onChange={(e) => {
+                      const rawValue = e.target.value.replace(/,/g, '');
+                      // Allow: empty, digits only, digits with single decimal, digits with decimal and up to 2 digits after
+                      if (rawValue === '' || /^\d+$/.test(rawValue) || /^\d+\.$/.test(rawValue) || /^\d+\.\d{0,2}$/.test(rawValue)) {
+                        // Format with commas for display while preserving raw value
+                        if (rawValue === '' || rawValue === '.') {
+                          setFormData(prev => ({ ...prev, amount: rawValue }));
+                        } else if (rawValue.endsWith('.')) {
+                          // Handle trailing decimal point
+                          const numPart = rawValue.slice(0, -1);
+                          const formatted = parseFloat(numPart).toLocaleString('en-PH');
+                          setFormData(prev => ({ ...prev, amount: formatted + '.' }));
+                        } else if (rawValue.includes('.')) {
+                          // Handle number with decimal
+                          const [intPart, decPart] = rawValue.split('.');
+                          const formatted = parseFloat(intPart || '0').toLocaleString('en-PH');
+                          setFormData(prev => ({ ...prev, amount: `${formatted}.${decPart}` }));
+                        } else {
+                          // Whole number
+                          setFormData(prev => ({ ...prev, amount: parseFloat(rawValue).toLocaleString('en-PH') }));
+                        }
+                      }
+                    }}
+                    className={`w-full pl-8 p-2 border rounded-md focus:ring-red-500 focus:border-red-500 text-black ${
+                      errors.amount ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter amount"
+                    disabled={loading}
+                  />
+                </div>
                 {errors.amount && (
                   <p className="mt-1 text-sm text-red-600">{errors.amount}</p>
                 )}
@@ -176,7 +204,7 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
                     name="controlNumber"
                     value={formData.controlNumber}
                     onChange={handleInputChange}
-                    className={`w-full p-2 border rounded-md focus:ring-red-500 focus:border-red-500 ${
+                    className={`w-full p-2 border rounded-md focus:ring-red-500 focus:border-red-500 text-black ${
                       errors.controlNumber ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter control number from hardcopy receipt"
@@ -201,7 +229,7 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
                     name="withdrawalNumber"
                     value={formData.withdrawalNumber}
                     onChange={handleInputChange}
-                    className={`w-full p-2 border rounded-md focus:ring-red-500 focus:border-red-500 ${
+                    className={`w-full p-2 border rounded-md focus:ring-red-500 focus:border-red-500 text-black ${
                       errors.withdrawalNumber ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter withdrawal number from hardcopy receipt"
@@ -222,7 +250,7 @@ export default function AddSavingsModal({ isOpen, onClose, onAddSavings, current
                   name="remarks"
                   value={formData.remarks}
                   onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 text-black"
                   placeholder="Enter remarks (optional)"
                   rows={3}
                   disabled={loading}

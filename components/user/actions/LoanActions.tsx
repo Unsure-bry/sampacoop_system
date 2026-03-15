@@ -30,6 +30,17 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
   const [itemsPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
 
+  // Calculate dynamic loan amount tiles based on maxAmount
+  const calculateAmountTiles = (maxAmount: number): number[] => {
+    const percentages = [0.2, 0.4, 0.6, 0.8, 1.0];
+    const roundTo = maxAmount <= 10000 ? 100 : 500;
+    
+    return percentages.map(pct => {
+      const rawValue = maxAmount * pct;
+      return Math.round(rawValue / roundTo) * roundTo;
+    });
+  };
+
   // Listen for custom event from loan page
   useEffect(() => {
     const handleSelectLoanPlan = (event: CustomEvent<LoanPlan>) => {
@@ -48,15 +59,17 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
 
   const handleApplyClick = (plan: LoanPlan) => {
     setSelectedPlan(plan);
-    setAmount('5000'); // Default to 5000 PHP
+    const amountTiles = calculateAmountTiles(plan.maxAmount);
+    setAmount(amountTiles[4].toString()); // Default to 100% (max amount)
     setTerm(plan.termOptions[0]?.toString() || '1');
   };
 
   const calculateAmortization = (principal: number, monthlyInterestRate: number, termMonths: number) => {
     const totalDays = termMonths * 30; // 30 days per month
     
-    // Calculate total interest: Amount × Interest Rate
-    const totalInterest = (principal * (monthlyInterestRate / 100)) * (termMonths);
+    // Calculate total interest: Principal × Monthly Interest Rate × Term (in months)
+    // Example: 5000 × 2% × 3 months = 300
+    const totalInterest = principal * (monthlyInterestRate / 100) * termMonths;
     
     // Calculate daily payment using formula: (Amount + Total Interest) / Number of days
     const dailyPayment = (principal + totalInterest) / totalDays;
@@ -191,6 +204,17 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
         };
       }
       
+      // Generate Loan ID before creating the loan request
+      const loanIdResult = await firestore.generateLoanId();
+      if (!loanIdResult.success) {
+        console.error('Error generating Loan ID:', loanIdResult.error);
+        toast.error('Failed to generate Loan ID. Please try again.');
+        setLoading(false);
+        return;
+      }
+      
+      const loanId = loanIdResult.loanId!;
+      
       // Create loan request document with user info
       const loanRequest = {
         userId: user?.uid || '',
@@ -201,14 +225,15 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
         term: termValue,
         status: 'pending' as const,
         createdAt: new Date().toISOString(),
+        loanId: loanId, // Store the generated Loan ID
         // Include member information for admin visibility
         ...memberInfo,
       };
 
-      // Save to Firestore with error handling
+      // Save to Firestore with error handling - use Loan ID as document ID
       const result = await firestore.setDocument(
         'loanRequests',
-        `${user?.uid}-${selectedPlan.id}-${Date.now()}`,
+        loanId,
         loanRequest
       );
       
@@ -233,7 +258,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
             status: 'unread',
             createdAt: new Date().toISOString(),
             metadata: {
-              loanId: `${user?.uid}-${selectedPlan.id}-${Date.now()}`,
+              loanId: loanId,
               amount: amountValue,
               planName: selectedPlan.name,
               term: termValue
@@ -249,7 +274,9 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
         setTerm(selectedPlan.termOptions[0]?.toString() || '1'); // Reset to default term
         setShowVerification(false);
         setAmortizationSchedule([]);
-        // Notify parent component if needed
+        
+        // Notify parent component to refresh active loan status
+        // This prevents user from applying again until loan is rejected or completed
         if (onLoanApplied) {
           onLoanApplied();
         }
@@ -303,10 +330,10 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
           <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800">Apply for {selectedPlan.name}</h2>
+                <h2 className="text-xl font-bold text-slate-800">Apply for {selectedPlan.name}</h2>
                 <button 
                   onClick={() => setSelectedPlan(null)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-slate-500 hover:text-slate-700"
                 >
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -314,29 +341,28 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
                 </button>
               </div>
 
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                <p className="text-gray-600 text-sm">{selectedPlan.description}</p>
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                <p className="text-slate-700 text-sm">{selectedPlan.description}</p>
                 <div className="mt-2 flex justify-between">
-                  <span className="text-gray-600">Maximum Amount:</span>
-                  <span className="font-medium">{formatCurrency(selectedPlan.maxAmount)}</span>
+                  <span className="text-slate-600">Maximum Amount:</span>
+                  <span className="font-medium text-slate-900">{formatCurrency(selectedPlan.maxAmount)}</span>
                 </div>
               </div>
 
               <form onSubmit={handleSubmitApplication}>
                 <div className="mb-6">
-                  <label className="block text-gray-700 text-sm font-bold mb-3" htmlFor="amount">
+                  <label className="block text-slate-700 text-sm font-bold mb-3" htmlFor="amount">
                     Loan Amount (PHP)
                   </label>
                   <div className="grid grid-cols-5 gap-2">
-                    {[1000, 2000, 3000, 4000, 5000].map((value) => (
+                    {selectedPlan && calculateAmountTiles(selectedPlan.maxAmount).map((value) => (
                       <button
                         key={value}
                         type="button"
                         onClick={() => setAmount(value.toString())}
-                        className={`p-3 rounded-lg border-2 transition-all duration-200 text-center font-medium ${amount === value.toString() 
+                        className={`p-2 sm:p-3 rounded-lg border-2 transition-all duration-200 text-center font-medium text-xs sm:text-sm whitespace-nowrap overflow-hidden ${amount === value.toString() 
                           ? 'border-red-600 bg-red-50 text-red-700 shadow-sm' 
-                          : 'border-gray-300 hover:border-gray-400 text-gray-700 hover:bg-gray-50'}
-                        `}
+                          : 'border-slate-300 hover:border-slate-400 text-slate-700 hover:bg-slate-50'}`}
                       >
                         ₱{value.toLocaleString()}
                       </button>
@@ -344,7 +370,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
                   </div>
                   <div className="mt-3 p-2 bg-red-50 rounded-lg border border-red-100">
                     <div className="text-center">
-                      <span className="text-sm text-gray-600">Selected Amount: </span>
+                      <span className="text-sm text-slate-600">Selected Amount: </span>
                       <span className="font-bold text-red-700">
                         {formatCurrency(parseFloat(amount) || 0)}
                       </span>
@@ -353,7 +379,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="term">
+                  <label className="block text-slate-700 text-sm font-bold mb-2" htmlFor="term">
                     Loan Term
                   </label>
                   {selectedPlan.termOptions.length > 1 ? (
@@ -361,21 +387,29 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
                       id="term"
                       value={term}
                       onChange={(e) => setTerm(e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      className="w-full p-3 border-2 border-black rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-black"
+                      style={{ 
+                        color: '#000000',
+                        backgroundColor: '#ffffff'
+                      }}
                       required
                     >
-                      <option value="">Select term</option>
+                      <option value="" style={{ color: '#000000', backgroundColor: '#ffffff' }}>Select term</option>
                       {selectedPlan.termOptions.map((option) => (
-                        <option key={option} value={option}>
+                        <option 
+                          key={option} 
+                          value={option}
+                          style={{ color: '#000000', backgroundColor: '#ffffff' }}
+                        >
                           {option} month{option !== 1 ? 's' : ''}
                         </option>
                       ))}
                     </select>
                   ) : (
-                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Selected Term:</span>
-                        <span className="font-semibold text-gray-800">
+                        <span className="text-slate-600">Selected Term:</span>
+                        <span className="font-semibold text-slate-900">
                           {term} month{parseInt(term) !== 1 ? 's' : ''}
                         </span>
                       </div>
@@ -387,7 +421,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
                   <button
                     type="button"
                     onClick={() => setSelectedPlan(null)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                   >
                     Cancel
                   </button>
@@ -410,10 +444,10 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
           <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Loan Application Review</h2>
+                <h2 className="text-2xl font-bold text-slate-800">Loan Application Review</h2>
                 <button 
                   onClick={() => setShowVerification(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-slate-500 hover:text-slate-700"
                 >
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -421,159 +455,157 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                {/* Loan Details */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Loan Details</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Plan:</span>
-                      <span className="font-medium">{selectedPlan.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Amount:</span>
-                      <span className="font-medium">{formatCurrency(parseFloat(amount))}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Term:</span>
-                      <span className="font-medium">{term} month{parseInt(term) !== 1 ? 's' : ''}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Interest Rate:</span>
-                      <span className="font-medium">{selectedPlan.interestRate}% monthly</span>
-                    </div>
-                    <div className="border-t border-gray-200 pt-2 mt-2">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 font-medium">Daily Payment:</span>
-                        <span className="font-bold text-lg text-red-600">
-                          {formatCurrency(amortizationSchedule[0]?.payment || 0)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Total Interest:</span>
-                        <span className="font-medium">
-                          {formatCurrency(
-                            amortizationSchedule.reduce((sum, payment) => sum + payment.interest, 0)
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 font-medium">Total Repayment:</span>
-                        <span className="font-bold">
-                          {formatCurrency(
-                            amortizationSchedule.reduce((sum, payment) => sum + payment.payment, 0)
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Total Days:</span>
-                        <span className="font-medium">{amortizationSchedule.length} days</span>
-                      </div>
-                    </div>
+              {/* Loan Details - Full Width */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">Loan Details</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Plan</p>
+                    <p className="font-medium text-black">{selectedPlan.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Amount</p>
+                    <p className="font-medium text-black">{formatCurrency(parseFloat(amount))}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Term</p>
+                    <p className="font-medium text-black">{term} month{parseInt(term) !== 1 ? 's' : ''}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Interest Rate</p>
+                    <p className="font-medium text-black">{selectedPlan.interestRate}% monthly</p>
                   </div>
                 </div>
+                <div className="border-t border-gray-200 pt-4 mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Daily Payment</p>
+                    <p className="font-bold text-lg text-red-600">
+                      {formatCurrency(amortizationSchedule[0]?.payment || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Total Interest</p>
+                    <p className="font-medium text-black">
+                      {formatCurrency(
+                        amortizationSchedule.reduce((sum, payment) => sum + payment.interest, 0)
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Total Repayment</p>
+                    <p className="font-bold text-black">
+                      {formatCurrency(
+                        amortizationSchedule.reduce((sum, payment) => sum + payment.payment, 0)
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Total Days</p>
+                    <p className="font-medium text-black">{amortizationSchedule.length} days</p>
+                  </div>
+                </div>
+              </div>
 
-                {/* Amortization Schedule Summary with Pagination */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Payment Schedule Overview</h3>
-                  <div className="mb-3 text-sm text-gray-600">
-                    Showing {currentPayments.length} of {amortizationSchedule.length} daily payments
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-2 px-2 font-medium text-gray-700">Day</th>
-                          <th className="text-left py-2 px-2 font-medium text-gray-700">Date</th>
-                          <th className="text-right py-2 px-2 font-medium text-gray-700">Payment</th>
-                          <th className="text-right py-2 px-2 font-medium text-gray-700">Principal</th>
-                          <th className="text-right py-2 px-2 font-medium text-gray-700">Interest</th>
-                          <th className="text-right py-2 px-2 font-medium text-gray-700">Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {currentPayments.map((payment) => (
-                          <tr key={payment.period} className="border-b border-gray-100 hover:bg-gray-100">
-                            <td className="py-2 px-2">{payment.period}</td>
-                            <td className="py-2 px-2">{formatDate(payment.date)}</td>
-                            <td className="py-2 px-2 text-right font-medium">
-                              {formatCurrency(payment.payment)}
-                            </td>
-                            <td className="py-2 px-2 text-right">
-                              {formatCurrency(payment.principal)}
-                            </td>
-                            <td className="py-2 px-2 text-right">
-                              {formatCurrency(payment.interest)}
-                            </td>
-                            <td className="py-2 px-2 text-right">
-                              {formatCurrency(payment.remainingBalance)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  {/* Pagination Controls */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-4">
-                      <div className="text-sm text-gray-600">
-                        Page {currentPage} of {totalPages}
-                      </div>
-                      <div className="flex space-x-1">
-                        <button
-                          onClick={() => goToPage(currentPage - 1)}
-                          disabled={currentPage === 1}
-                          className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                        >
-                          Previous
-                        </button>
-                        
-                        {/* Page numbers */}
-                        {[...Array(totalPages)].map((_, index) => {
-                          const pageNumber = index + 1;
-                          // Show first, last, current, and nearby pages
-                          if (
-                            pageNumber === 1 ||
-                            pageNumber === totalPages ||
-                            (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
-                          ) {
-                            return (
-                              <button
-                                key={pageNumber}
-                                onClick={() => goToPage(pageNumber)}
-                                className={`px-3 py-1 text-sm border rounded-md ${
-                                  currentPage === pageNumber 
-                                    ? 'bg-red-600 text-white border-red-600' 
-                                    : 'border-gray-300 hover:bg-gray-50'
-                                }`}
-                              >
-                                {pageNumber}
-                              </button>
-                            );
-                          }
-                          // Show ellipsis for gaps
-                          if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
-                            return (
-                              <span key={pageNumber} className="px-2 py-1 text-sm text-gray-500">
-                                ...
-                              </span>
-                            );
-                          }
-                          return null;
-                        })}
-                        
-                        <button
-                          onClick={() => goToPage(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                          className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    </div>
-                  )}
+              {/* Payment Schedule Overview - Full Width Below Loan Details */}
+              <div className="bg-white border border-slate-200 rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold text-black mb-3">Payment Schedule Overview</h3>
+                <div className="mb-3 text-sm text-slate-700">
+                  Showing {currentPayments.length} of {amortizationSchedule.length} daily payments
                 </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-300">
+                        <th className="text-left py-2 px-2 font-semibold text-black">Day</th>
+                        <th className="text-left py-2 px-2 font-semibold text-black">Date</th>
+                        <th className="text-right py-2 px-2 font-semibold text-black">Payment</th>
+                        <th className="text-right py-2 px-2 font-semibold text-black">Principal</th>
+                        <th className="text-right py-2 px-2 font-semibold text-black">Interest</th>
+                        <th className="text-right py-2 px-2 font-semibold text-black">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentPayments.map((payment) => (
+                        <tr key={payment.period} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="py-2 px-2 text-black">{payment.period}</td>
+                          <td className="py-2 px-2 text-black">{formatDate(payment.date)}</td>
+                          <td className="py-2 px-2 text-right font-semibold text-black">
+                            {formatCurrency(payment.payment)}
+                          </td>
+                          <td className="py-2 px-2 text-right text-black">
+                            {formatCurrency(payment.principal)}
+                          </td>
+                          <td className="py-2 px-2 text-right text-black">
+                            {formatCurrency(payment.interest)}
+                          </td>
+                          <td className="py-2 px-2 text-right text-black">
+                            {formatCurrency(payment.remainingBalance)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="text-sm text-slate-700">
+                      Page {currentPage} of {totalPages}
+                    </div>
+                    <div className="flex space-x-1">
+                      <button
+                        onClick={() => goToPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 text-sm border border-slate-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 text-black"
+                      >
+                        Previous
+                      </button>
+                      
+                      {/* Page numbers */}
+                      {[...Array(totalPages)].map((_, index) => {
+                        const pageNumber = index + 1;
+                        // Show first, last, current, and nearby pages
+                        if (
+                          pageNumber === 1 ||
+                          pageNumber === totalPages ||
+                          (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={pageNumber}
+                              onClick={() => goToPage(pageNumber)}
+                              className={`px-3 py-1 text-sm border rounded-md ${
+                                currentPage === pageNumber 
+                                  ? 'bg-red-600 text-white border-red-600' 
+                                  : 'border-slate-300 hover:bg-slate-50 text-black'
+                              }`}
+                            >
+                              {pageNumber}
+                            </button>
+                          );
+                        }
+                        // Show ellipsis for gaps
+                        if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
+                          return (
+                            <span key={pageNumber} className="px-2 py-1 text-sm text-slate-600">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      })}
+                      
+                      <button
+                        onClick={() => goToPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Verification Message */}
@@ -604,7 +636,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
                   onClick={() => setShowVerification(false)}
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  Back to Edit
+                  Back
                 </button>
                 <button
                   type="button"

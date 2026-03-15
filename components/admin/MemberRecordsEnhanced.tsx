@@ -5,6 +5,7 @@ import { firestore } from '@/lib/firebase';
 import { ChevronLeft, ChevronRight, Search, User, Archive, RotateCcw, Eye, Filter, Calendar, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/lib/auth';
+import { getSystemSettings, formatCurrency, SystemSettings } from '@/lib/settingsService';
 
 interface Member {
   id: string;
@@ -31,7 +32,6 @@ interface Member {
 
 // Constants for archiving
 const INACTIVITY_THRESHOLD_DAYS = 180; // 6 months
-const REACTIVATION_FEE = 1500;
 
 export default function MemberRecordsEnhanced() {
   const { user } = useAuth();
@@ -43,6 +43,7 @@ export default function MemberRecordsEnhanced() {
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [archivingInProgress, setArchivingInProgress] = useState(false);
   const [autoArchiveInfo, setAutoArchiveInfo] = useState<{checked: number; archived: number} | null>(null);
+  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
   
   // Restore modal state
   const [showRestoreModal, setShowRestoreModal] = useState(false);
@@ -168,6 +169,7 @@ export default function MemberRecordsEnhanced() {
   const restoreMember = async (member: Member, receiptNum: string): Promise<boolean> => {
     try {
       const now = new Date().toISOString();
+      const reactivationFee = systemSettings?.reactivationFee || 1500;
       
       // Update member document
       const memberResult = await firestore.updateDocument('members', member.id, {
@@ -178,7 +180,7 @@ export default function MemberRecordsEnhanced() {
         previousStatus: null,
         restoredAt: now,
         restoredBy: user?.uid || 'unknown',
-        reactivationFee: REACTIVATION_FEE,
+        reactivationFee: reactivationFee,
         reactivationReceiptNumber: receiptNum,
         lastActivityAt: now,
         updatedAt: now
@@ -194,7 +196,7 @@ export default function MemberRecordsEnhanced() {
         id: transactionId,
         memberId: member.id,
         type: 'Reactivation Fee',
-        amount: REACTIVATION_FEE,
+        amount: reactivationFee,
         receiptNumber: receiptNum,
         date: now,
         processedBy: user?.uid || 'unknown',
@@ -215,7 +217,7 @@ export default function MemberRecordsEnhanced() {
         {
           id: transactionId,
           type: 'Reactivation Fee',
-          amount: REACTIVATION_FEE,
+          amount: reactivationFee,
           receiptNumber: receiptNum,
           date: now,
           processedBy: user?.uid || 'unknown',
@@ -366,7 +368,13 @@ export default function MemberRecordsEnhanced() {
 
   useEffect(() => {
     fetchMembers();
+    fetchSystemSettings();
   }, []);
+
+  const fetchSystemSettings = async () => {
+    const settings = await getSystemSettings();
+    setSystemSettings(settings);
+  };
 
   useEffect(() => {
     // Filter members based on search term and active tab
@@ -559,13 +567,13 @@ export default function MemberRecordsEnhanced() {
             )}
           </div>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
             <input
               type="text"
               placeholder="Search by name, email, phone, ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent w-full sm:w-72"
+              className="pl-10 pr-4 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 w-full sm:w-72 text-gray-900 placeholder-gray-500 shadow-sm"
             />
           </div>
         </div>
@@ -768,7 +776,7 @@ export default function MemberRecordsEnhanced() {
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4">
                   <p className="text-sm text-blue-800">
                     <AlertCircle className="h-4 w-4 inline mr-1" />
-                    Restoring this account requires a reactivation fee of ₱1,500.00. Please confirm the payment details before proceeding.
+                    Restoring this account requires a reactivation fee of {systemSettings ? formatCurrency(systemSettings.reactivationFee) : '₱1,500.00'}. Please confirm the payment details before proceeding.
                   </p>
                 </div>
                 
@@ -793,7 +801,7 @@ export default function MemberRecordsEnhanced() {
                     Reactivation Fee
                   </label>
                   <div className="px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-lg font-bold text-gray-900">
-                    ₱{REACTIVATION_FEE.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {systemSettings ? formatCurrency(systemSettings.reactivationFee) : '₱1,500.00'}
                   </div>
                 </div>
                 
@@ -886,7 +894,7 @@ export default function MemberRecordsEnhanced() {
                 </div>
                 
                 <p className="text-gray-600 text-sm mt-4">
-                  This will archive the account and move it to the Archived Members list. The member can be restored later with a reactivation fee of ₱1,500.00.
+                  This will archive the account and move it to the Archived Members list. The member can be restored later with a reactivation fee of {systemSettings ? formatCurrency(systemSettings.reactivationFee) : '₱1,500.00'}.
                 </p>
               </div>
               

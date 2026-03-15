@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Card from '@/components/shared/Card';
+import { ArrowLeft } from 'lucide-react';
 
 export default function NotificationSettingsPage() {
   const { user, loading } = useAuth();
@@ -33,12 +34,21 @@ export default function NotificationSettingsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Notification Settings</h1>
+    <div className="max-w-4xl mx-auto px-4 sm:px-0">
+      {/* Back Button */}
+      <button
+        onClick={() => router.push('/profile')}
+        className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4 transition-colors"
+      >
+        <ArrowLeft className="h-5 w-5" />
+        <span className="text-sm sm:text-base">Back to My Profile</span>
+      </button>
+
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Notification Settings</h1>
       
       <Card title="Communication Preferences">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border border-gray-200 rounded-lg gap-3">
             <div>
               <h3 className="font-medium text-gray-800">Email Notifications</h3>
               <p className="text-sm text-gray-600">Receive notifications via email</p>
@@ -55,7 +65,7 @@ export default function NotificationSettingsPage() {
             </button>
           </div>
           
-          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border border-gray-200 rounded-lg gap-3">
             <div>
               <h3 className="font-medium text-gray-800">SMS Notifications</h3>
               <p className="text-sm text-gray-600">Receive notifications via SMS</p>
@@ -72,7 +82,7 @@ export default function NotificationSettingsPage() {
             </button>
           </div>
           
-          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border border-gray-200 rounded-lg gap-3">
             <div>
               <h3 className="font-medium text-gray-800">Push Notifications</h3>
               <p className="text-sm text-gray-600">Receive notifications in the app</p>
@@ -91,9 +101,9 @@ export default function NotificationSettingsPage() {
         </div>
       </Card>
       
-      <Card title="Notification Types" className="mt-6">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+      <Card title="Notification Types" className="mt-4 sm:mt-6">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border border-gray-200 rounded-lg gap-3">
             <div>
               <h3 className="font-medium text-gray-800">Loan Updates</h3>
               <p className="text-sm text-gray-600">Updates about your loan applications and payments</p>
@@ -110,7 +120,7 @@ export default function NotificationSettingsPage() {
             </button>
           </div>
           
-          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border border-gray-200 rounded-lg gap-3">
             <div>
               <h3 className="font-medium text-gray-800">Savings Updates</h3>
               <p className="text-sm text-gray-600">Updates about your savings transactions</p>
@@ -127,7 +137,7 @@ export default function NotificationSettingsPage() {
             </button>
           </div>
           
-          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border border-gray-200 rounded-lg gap-3">
             <div>
               <h3 className="font-medium text-gray-800">Payment Reminders</h3>
               <p className="text-sm text-gray-600">Reminders for upcoming payments</p>

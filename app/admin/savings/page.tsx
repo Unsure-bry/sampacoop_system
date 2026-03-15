@@ -6,8 +6,10 @@ import { toast } from 'react-hot-toast';
 import { Member } from '@/lib/types/member';
 import { MemberSavings } from '@/lib/types/savings';
 import { useRouter } from 'next/navigation';
+import { usePermissions, PermissionGuard } from '@/lib/rolePermissions';
 
 export default function SavingsPage() {
+  const { hasPermission } = usePermissions();
   const [members, setMembers] = useState<Member[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<MemberSavings[]>([]);
   const [selectedMember, setSelectedMember] = useState<MemberSavings | null>(null);
@@ -19,8 +21,7 @@ export default function SavingsPage() {
   const [nameFilter, setNameFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [minSavingsFilter, setMinSavingsFilter] = useState('');
-  const [maxSavingsFilter, setMaxSavingsFilter] = useState('');
+  const [savingsFilter, setSavingsFilter] = useState('');
   const itemsPerPage = 10;
   const router = useRouter();
 
@@ -32,7 +33,7 @@ export default function SavingsPage() {
     filterMembers();
     // Reset to first page when any filter changes
     setCurrentPage(1);
-  }, [searchTerm, nameFilter, roleFilter, statusFilter, minSavingsFilter, maxSavingsFilter, members]);
+  }, [searchTerm, nameFilter, roleFilter, statusFilter, savingsFilter, members]);
 
   const fetchMembers = async () => {
     try {
@@ -213,13 +214,14 @@ export default function SavingsPage() {
       filteredMembers.map(async (member) => {
         const totalSavings = await fetchMemberTotalSavings(member.id);
         
-        // Apply savings amount filters
-        if (minSavingsFilter && totalSavings < parseFloat(minSavingsFilter)) {
-          return null; // Will be filtered out
-        }
-        
-        if (maxSavingsFilter && totalSavings > parseFloat(maxSavingsFilter)) {
-          return null; // Will be filtered out
+        // Apply savings amount filter
+        if (savingsFilter) {
+          if (savingsFilter === '50000+') {
+            if (totalSavings < 50000) return null;
+          } else {
+            const [min, max] = savingsFilter.split('-').map(Number);
+            if (totalSavings < min || totalSavings >= max) return null;
+          }
         }
         
         return {
@@ -242,6 +244,26 @@ export default function SavingsPage() {
   const handleViewSavings = (memberId: string) => {
     router.push(`/admin/savings/member/${memberId}`);
   };
+
+  // Show access denied if user doesn't have viewSavings permission
+  if (!hasPermission('viewSavings')) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-800">Savings Management</h1>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="flex items-center gap-3">
+            <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <div>
+              <h2 className="text-lg font-semibold text-red-800">Access Denied</h2>
+              <p className="text-red-600">You do not have permission to view savings records.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -310,7 +332,7 @@ export default function SavingsPage() {
                   <tr>
                     <td>${member.memberName}</td>
                     <td>${member.role}</td>
-                    <td>₱${member.totalSavings.toFixed(2)}</td>
+                    <td>₱${member.totalSavings.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td>${member.status}</td>
                     <td>${new Date(member.lastUpdated).toLocaleDateString()}</td>
                   </tr>
@@ -331,8 +353,7 @@ export default function SavingsPage() {
     setNameFilter('');
     setRoleFilter('');
     setStatusFilter('');
-    setMinSavingsFilter('');
-    setMaxSavingsFilter('');
+    setSavingsFilter('');
   };
 
   return (
@@ -343,15 +364,17 @@ export default function SavingsPage() {
           <p className="text-gray-600">View and manage member savings</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
-          >
-            <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            Print Report
-          </button>
+          {hasPermission('exportData') && (
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
+            >
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              Print Report
+            </button>
+          )}
           <button
             onClick={resetFilters}
             className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center"
@@ -365,12 +388,12 @@ export default function SavingsPage() {
             <input
               type="text"
               placeholder="Search members..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 w-full"
+              className="pl-10 pr-4 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 w-full text-gray-900 placeholder-gray-500 shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
@@ -379,190 +402,172 @@ export default function SavingsPage() {
       </div>
       
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        {filteredMembers.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500">
-              {searchTerm ? 'No members found matching your search.' : 'No members found.'}
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div>
-                        <div>Member Name</div>
-                        <input
-                          type="text"
-                          placeholder="Filter names..."
-                          className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
-                          value={nameFilter}
-                          onChange={(e) => setNameFilter(e.target.value)}
-                        />
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Member Name
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div>
+                    <div>Role</div>
+                    <select
+                      className="mt-1 w-full px-2 py-1 text-sm bg-white border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500 text-gray-900"
+                      value={roleFilter}
+                      onChange={(e) => setRoleFilter(e.target.value)}
+                    >
+                      <option value="" className="text-gray-900">All Roles</option>
+                      <option value="Driver" className="text-gray-900">Driver</option>
+                      <option value="Operator" className="text-gray-900">Operator</option>
+                    </select>
+                  </div>
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div>
+                    <div>Total Savings</div>
+                    <select
+                      className="mt-1 w-full px-2 py-1 text-sm bg-white border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500 text-gray-900"
+                      value={savingsFilter}
+                      onChange={(e) => setSavingsFilter(e.target.value)}
+                    >
+                      <option value="" className="text-gray-900">All Savings</option>
+                      <option value="0-1000" className="text-gray-900">₱0 - ₱1,000</option>
+                      <option value="1000-5000" className="text-gray-900">₱1,000 - ₱5,000</option>
+                      <option value="5000-10000" className="text-gray-900">₱5,000 - ₱10,000</option>
+                      <option value="10000-50000" className="text-gray-900">₱10,000 - ₱50,000</option>
+                      <option value="50000+" className="text-gray-900">₱50,000+</option>
+                    </select>
+                  </div>
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div>
+                    <div>Status</div>
+                    <select
+                      className="mt-1 w-full px-2 py-1 text-sm bg-white border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500 text-gray-900"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                      <option value="" className="text-gray-900">All Status</option>
+                      <option value="Active" className="text-gray-900">Active</option>
+                      <option value="Inactive" className="text-gray-900">Inactive</option>
+                    </select>
+                  </div>
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Last Updated
+                </th>
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredMembers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center">
+                    <p className="text-gray-500">
+                      {searchTerm ? 'No members found matching your search.' : 'No members found.'}
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                currentItems.map((member) => (
+                  <tr key={member.memberId} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {member.memberName}
                       </div>
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div>
-                        <div>Role</div>
-                        <select
-                          className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
-                          value={roleFilter}
-                          onChange={(e) => setRoleFilter(e.target.value)}
-                        >
-                          <option value="">All Roles</option>
-                          <option value="Member">Member</option>
-                          <option value="Driver">Driver</option>
-                          <option value="Operator">Operator</option>
-                        </select>
-                      </div>
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div>
-                        <div>Total Savings</div>
-                        <div className="flex space-x-1 mt-1">
-                          <input
-                            type="number"
-                            placeholder="Min"
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
-                            value={minSavingsFilter}
-                            onChange={(e) => setMinSavingsFilter(e.target.value)}
-                          />
-                          <input
-                            type="number"
-                            placeholder="Max"
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
-                            value={maxSavingsFilter}
-                            onChange={(e) => setMaxSavingsFilter(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div>
-                        <div>Status</div>
-                        <select
-                          className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
-                          value={statusFilter}
-                          onChange={(e) => setStatusFilter(e.target.value)}
-                        >
-                          <option value="">All Status</option>
-                          <option value="Active">Active</option>
-                          <option value="Inactive">Inactive</option>
-                        </select>
-                      </div>
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Last Updated
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {member.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm font-medium text-gray-900">
+                        ₱{member.totalSavings.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        member.status?.toLowerCase() === 'active'
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {member.status ? member.status.charAt(0).toUpperCase() + member.status.slice(1).toLowerCase() : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(member.lastUpdated).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleViewSavings(member.memberId)}
+                        className="text-red-600 hover:text-red-900 mr-3"
+                      >
+                        View Details
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {currentItems.map((member) => (
-                    <tr key={member.memberId} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {member.memberName}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {member.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => {
-                            setSelectedMember(member);
-                            setShowDetailsModal(true);
-                          }}
-                          className="text-sm font-medium text-red-600 hover:text-red-900 underline"
-                        >
-                          ₱{member.totalSavings.toFixed(2)}
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          member.status === 'Active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {member.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(member.lastUpdated).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleViewSavings(member.memberId)}
-                          className="text-red-600 hover:text-red-900 mr-3"
-                        >
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Pagination - only show when there are results */}
+        {filteredMembers.length > 0 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 bg-gray-50">
+            <div className="text-sm text-gray-700">
+              Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
+              <span className="font-medium">
+                {Math.min(indexOfLastItem, filteredMembers.length)}
+              </span>{' '}
+              of <span className="font-medium">{filteredMembers.length}</span> results
             </div>
             
-            {/* Pagination */}
-            <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 bg-gray-50">
-              <div className="text-sm text-gray-700">
-                Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
-                <span className="font-medium">
-                  {Math.min(indexOfLastItem, filteredMembers.length)}
-                </span>{' '}
-                of <span className="font-medium">{filteredMembers.length}</span> results
-              </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={prevPage}
+                disabled={currentPage === 1}
+                className={`px-3 py-1 rounded-md text-sm font-medium ${
+                  currentPage === 1
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Previous
+              </button>
               
-              <div className="flex space-x-2">
+              {/* Page numbers */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                 <button
-                  onClick={prevPage}
-                  disabled={currentPage === 1}
+                  key={page}
+                  onClick={() => goToPage(page)}
                   className={`px-3 py-1 rounded-md text-sm font-medium ${
-                    currentPage === 1
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    currentPage === page
+                      ? 'bg-red-600 text-white'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
-                  Previous
+                  {page}
                 </button>
-                
-                {/* Page numbers */}
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => goToPage(page)}
-                    className={`px-3 py-1 rounded-md text-sm font-medium ${
-                      currentPage === page
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                
-                <button
-                  onClick={nextPage}
-                  disabled={currentPage === totalPages}
-                  className={`px-3 py-1 rounded-md text-sm font-medium ${
-                    currentPage === totalPages
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  Next
-                </button>
-              </div>
+              ))}
+              
+              <button
+                onClick={nextPage}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-1 rounded-md text-sm font-medium ${
+                  currentPage === totalPages
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Next
+              </button>
             </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -620,7 +625,7 @@ export default function SavingsPage() {
                   <h3 className="text-lg font-semibold text-gray-800 mb-3">Financial Summary</h3>
                   <div className="text-center">
                     <p className="text-sm text-gray-600 mb-1">Total Savings Balance</p>
-                    <p className="text-3xl font-bold text-red-600">₱{selectedMember.totalSavings.toFixed(2)}</p>
+                    <p className="text-3xl font-bold text-red-600">₱{selectedMember.totalSavings.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                 </div>
 

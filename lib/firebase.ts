@@ -1,4 +1,4 @@
-import { initializeApp, getApp, getApps } from 'firebase/app';
+import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
 import { 
   getFirestore, 
   collection, 
@@ -30,7 +30,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase - only initialize once
-let app;
+let app: FirebaseApp | undefined;
 let db: Firestore | null = null;
 let auth: Auth | null = null;
 
@@ -302,6 +302,42 @@ export const firestore = {
     } catch (error: any) {
       console.error('Firestore connection test failed:', error);
       return { success: false, error: error.message || 'Connection test failed' };
+    }
+  },
+
+  // Generate unique Loan ID with incremental number
+  // Format: SMPxxxxxxmmddyy where xxxxxx is incremental, mm=month, dd=day, yy=year
+  generateLoanId: async () => {
+    const validation = validateFirestoreConnection();
+    if (!validation.isValid) {
+      return { success: false, error: validation.error };
+    }
+
+    try {
+      // Get all loan requests to determine the next incremental number
+      const loanRequestsRef = collection(db!, 'loanRequests');
+      const snapshot = await getDocs(loanRequestsRef);
+      
+      // Count existing loan requests for incremental number
+      const count = snapshot.size;
+      const nextNumber = count + 1;
+      
+      // Format incremental number with leading zeros (6 digits)
+      const incrementalNumber = nextNumber.toString().padStart(6, '0');
+      
+      // Get current date components
+      const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const year = String(now.getFullYear()).slice(-2); // Last 2 digits of year
+      
+      // Generate Loan ID
+      const loanId = `SMP${incrementalNumber}${month}${day}${year}`;
+      
+      return { success: true, loanId };
+    } catch (error: any) {
+      console.error('Error generating Loan ID:', error);
+      return { success: false, error: error.message || 'Failed to generate Loan ID' };
     }
   }
 };

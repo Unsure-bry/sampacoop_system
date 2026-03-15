@@ -284,19 +284,30 @@ export default function AddSavingsTransactionModal({ isOpen, onClose, onAddSavin
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Amount (PHP)
                 </label>
-                <input
-                  type="number"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleInputChange}
-                  className={`w-full p-2 border rounded-md focus:ring-red-500 focus:border-red-500 ${
-                    errors.amount ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter amount"
-                  min="0"
-                  step="0.01"
-                  disabled={loading}
-                />
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                    ₱
+                  </span>
+                  <input
+                    type="number"
+                    name="amount"
+                    step="0.01"
+                    min="0.01"
+                    value={formData.amount}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Allow only up to 2 decimal places
+                      if (value === '' || /^\d*(\.\d{0,2})?$/.test(value)) {
+                        setFormData(prev => ({ ...prev, amount: value }));
+                      }
+                    }}
+                    className={`w-full pl-8 p-2 border rounded-md focus:ring-red-500 focus:border-red-500 text-black ${
+                      errors.amount ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter amount"
+                    disabled={loading}
+                  />
+                </div>
                 {errors.amount && (
                   <p className="mt-1 text-sm text-red-600">{errors.amount}</p>
                 )}
@@ -312,7 +323,7 @@ export default function AddSavingsTransactionModal({ isOpen, onClose, onAddSavin
                   name="date"
                   value={formData.date}
                   onChange={handleInputChange}
-                  className={`w-full p-2 border rounded-md focus:ring-red-500 focus:border-red-500 ${
+                  className={`w-full p-2 border rounded-md focus:ring-red-500 focus:border-red-500 text-black ${
                     errors.date ? 'border-red-500' : 'border-gray-300'
                   }`}
                   disabled={loading}
@@ -328,7 +339,7 @@ export default function AddSavingsTransactionModal({ isOpen, onClose, onAddSavin
                   name="remarks"
                   value={formData.remarks}
                   onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 text-black"
                   placeholder="Enter remarks (optional)"
                   rows={3}
                   disabled={loading}

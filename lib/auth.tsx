@@ -2,10 +2,11 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { firestore } from '@/lib/firebase';
+import { firestore, app } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { clearAllAuthData } from '@/lib/logoutUtils';
 import { trackLogin, trackLogout, trackProfileUpdate } from '@/lib/userActionTracker';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 // User shape for this app (stored in Firestore)
 export interface AppUser {
@@ -327,6 +328,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Track the login action
       trackLogin(user);
+
+      // Create a session document for active session tracking
+      try {
+        if (app) {
+          const db = getFirestore(app);
+          if (db && user.uid) {
+            const sessionsRef = collection(db, 'users', user.uid, 'sessions');
+            await addDoc(sessionsRef, {
+              device: navigator.platform || 'Unknown Device',
+              browser: navigator.userAgent.includes('Chrome') ? 'Chrome' : 
+                       navigator.userAgent.includes('Firefox') ? 'Firefox' : 
+                       navigator.userAgent.includes('Safari') ? 'Safari' : 'Web Browser',
+              location: 'Unknown', // Could be enhanced with IP geolocation
+              lastActive: serverTimestamp(),
+              isCurrent: true,
+              createdAt: serverTimestamp(),
+            });
+          }
+        }
+      } catch (sessionError) {
+        console.error('Error creating session:', sessionError);
+        // Don't fail login if session creation fails
+      }
 
       // Automatically redirect user to their correct dashboard based on role
       // Use setTimeout to ensure state is properly set before redirecting

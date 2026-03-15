@@ -104,22 +104,25 @@ export default function MemberEditModal({
   
   // Handle dynamic plate number fields
   useEffect(() => {
-    if (numberOfJeepneys && numberOfJeepneys > 0) {
-      const currentPlateNumbers = plateNumbers || [];
-      const newPlateNumbers: string[] = [...currentPlateNumbers];
-      
-      // Adjust array size based on numberOfJeepneys
-      if (newPlateNumbers.length > numberOfJeepneys) {
-        newPlateNumbers.splice(numberOfJeepneys);
-      } else {
-        while (newPlateNumbers.length < numberOfJeepneys) {
-          newPlateNumbers.push('');
-        }
+  if (!numberOfJeepneys || numberOfJeepneys <= 0) return;
+
+  const currentPlateNumbers = plateNumbers || [];
+
+  if (currentPlateNumbers.length !== numberOfJeepneys) {
+    const newPlateNumbers = [...currentPlateNumbers];
+
+    if (newPlateNumbers.length > numberOfJeepneys) {
+      newPlateNumbers.splice(numberOfJeepneys);
+    } else {
+      while (newPlateNumbers.length < numberOfJeepneys) {
+        newPlateNumbers.push('');
       }
-      
-      setValue('plateNumbers' , newPlateNumbers);
     }
-  },[numberOfJeepneys, plateNumbers, setValue]);
+
+    setValue('plateNumbers', newPlateNumbers);
+  }
+
+}, [numberOfJeepneys]); // ✅ only depend on this
 
 
 

@@ -38,40 +38,69 @@ export default function OfficerDashboard({ role }: { role: string }) {
         
         // Fetch total members from members collection
         const membersResult = await firestore.getCollection('members');
-        if (!membersResult.success) {
-          throw new Error(`Failed to fetch members: ${membersResult.error || 'Unknown error'}`);
-        }
-        const totalMembers = membersResult.data ? membersResult.data.length : 0;
+        const totalMembers = membersResult.success && membersResult.data ? membersResult.data.length : 0;
 
-        // Fetch active loans from loans collection where status is "active"
-        const activeLoansResult = await firestore.queryDocuments(
-          'loans',
-          [{ field: 'status', operator: '==', value: 'active' }]
-        );
-        if (!activeLoansResult.success) {
-          throw new Error(`Failed to fetch active loans: ${activeLoansResult.error || 'Unknown error'}`);
+        // Fetch active loans from loans collection - fallback to client-side filtering
+        let activeLoans = 0;
+        try {
+          const activeLoansResult = await firestore.queryDocuments(
+            'loans',
+            [{ field: 'status', operator: '==', value: 'active' }]
+          );
+          if (activeLoansResult.success && activeLoansResult.data) {
+            activeLoans = activeLoansResult.data.length;
+          } else {
+            // Fallback: get all loans and filter client-side
+            const allLoans = await firestore.getCollection('loans');
+            if (allLoans.success && allLoans.data) {
+              activeLoans = allLoans.data.filter((loan: any) => loan.status === 'active').length;
+            }
+          }
+        } catch (error) {
+          // Fallback: get all loans and filter client-side
+          const allLoans = await firestore.getCollection('loans');
+          if (allLoans.success && allLoans.data) {
+            activeLoans = allLoans.data.filter((loan: any) => loan.status === 'active').length;
+          }
         }
-        const activeLoans = activeLoansResult.data ? activeLoansResult.data.length : 0;
 
-        // Fetch pending loan requests from loanRequests collection where status is "pending"
-        const loanRequestsResult = await firestore.queryDocuments(
-          'loanRequests',
-          [{ field: 'status', operator: '==', value: 'pending' }]
-        );
-        if (!loanRequestsResult.success) {
-          throw new Error(`Failed to fetch loan requests: ${loanRequestsResult.error || 'Unknown error'}`);
+        // Fetch pending loan requests - fallback to client-side filtering
+        let loanRequests = 0;
+        try {
+          const loanRequestsResult = await firestore.queryDocuments(
+            'loanRequests',
+            [{ field: 'status', operator: '==', value: 'pending' }]
+          );
+          if (loanRequestsResult.success && loanRequestsResult.data) {
+            loanRequests = loanRequestsResult.data.length;
+          } else {
+            // Fallback: get all and filter client-side
+            const allRequests = await firestore.getCollection('loanRequests');
+            if (allRequests.success && allRequests.data) {
+              loanRequests = allRequests.data.filter((req: any) => req.status === 'pending').length;
+            }
+          }
+        } catch (error) {
+          // Fallback: get all and filter client-side
+          const allRequests = await firestore.getCollection('loanRequests');
+          if (allRequests.success && allRequests.data) {
+            loanRequests = allRequests.data.filter((req: any) => req.status === 'pending').length;
+          }
         }
-        const loanRequests = loanRequestsResult.data ? loanRequestsResult.data.length : 0;
 
-        // Check loans collection for pending status as well, and combine with loanRequests if needed
-        const pendingLoansResult = await firestore.queryDocuments(
-          'loans',
-          [{ field: 'status', operator: '==', value: 'pending' }]
-        );
-        if (!pendingLoansResult.success) {
-          throw new Error(`Failed to fetch pending loans: ${pendingLoansResult.error || 'Unknown error'}`);
+        // Check loans collection for pending status
+        let pendingLoans = 0;
+        try {
+          const pendingLoansResult = await firestore.queryDocuments(
+            'loans',
+            [{ field: 'status', operator: '==', value: 'pending' }]
+          );
+          if (pendingLoansResult.success && pendingLoansResult.data) {
+            pendingLoans = pendingLoansResult.data.length;
+          }
+        } catch (error) {
+          // Ignore error - pendingLoans stays 0
         }
-        const pendingLoans = pendingLoansResult.data ? pendingLoansResult.data.length : 0;
         
         // Use the sum of loan requests and pending loans
         const totalLoanRequests = loanRequests + pendingLoans;

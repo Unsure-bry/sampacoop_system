@@ -167,17 +167,22 @@ export default function AddLoanPlanModal({ isOpen, onClose, onPlanAdded, editing
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Maximum Amount (PHP)</label>
-                  <input 
-                    type="number" 
-                    name="maxAmount"
-                    value={formData.maxAmount}
-                    onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                    placeholder="Enter maximum amount"
-                    min="0"
-                    step="0.01"
-                    required
-                  />
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                      ₱
+                    </span>
+                    <input 
+                      type="number" 
+                      name="maxAmount"
+                      value={formData.maxAmount}
+                      onChange={handleInputChange}
+                      className="w-full pl-8 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Enter maximum amount"
+                      min="0"
+                      step="0.01"
+                      required
+                    />
+                  </div>
                 </div>
                 
                 <div>

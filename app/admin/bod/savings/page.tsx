@@ -76,7 +76,7 @@ export default function BODSavingsPage() {
           const membersData = result.data
             .filter((doc: any) => {
               const role = doc.role?.toLowerCase();
-              return role && ['member', 'driver', 'operator'].includes(role);
+              return role && ['driver', 'operator'].includes(role);
             })
             .map((doc: any) => ({
               id: doc.id,
@@ -84,7 +84,7 @@ export default function BODSavingsPage() {
               lastName: doc.lastName || doc.fullName?.split(' ').slice(-1)[0] || 'User',
               middleName: doc.middleName || '',
               suffix: doc.suffix || '',
-              role: doc.role || 'Member',
+              role: doc.role || 'Driver',
               email: doc.email || '',
               phoneNumber: doc.contactNumber || doc.phoneNumber || '',
               birthdate: doc.birthdate || '',
@@ -124,7 +124,7 @@ export default function BODSavingsPage() {
             lastName,
             middleName: doc.middleName || '',
             suffix: doc.suffix || '',
-            role: doc.role || 'Member',
+            role: doc.role || 'Driver',
             email: doc.email || '',
             phoneNumber: doc.contactNumber || doc.phoneNumber || '',
             birthdate: doc.birthdate || '',
@@ -173,7 +173,7 @@ export default function BODSavingsPage() {
         return {
           memberId: member.id,
           memberName: `${member.firstName || ''} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName || ''}${member.suffix ? ' ' + member.suffix : ''}`.trim(),
-          role: fullMember?.role || 'Member',
+          role: fullMember?.role || 'Driver',
           totalSavings,
           status: member.status || 'Active',
           lastUpdated: member.createdAt || new Date().toISOString()
@@ -250,7 +250,7 @@ export default function BODSavingsPage() {
         return {
           memberId: member.id,
           memberName: `${member.firstName || ''} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName || ''}${member.suffix ? ' ' + member.suffix : ''}`.trim(),
-          role: member.role || 'Member',
+          role: member.role || 'Driver',
           totalSavings,
           status: member.status || 'Active',
           lastUpdated: member.createdAt || new Date().toISOString()
@@ -473,7 +473,6 @@ export default function BODSavingsPage() {
                           onChange={(e) => setRoleFilter(e.target.value)}
                         >
                           <option value="">All Roles</option>
-                          <option value="Member">Member</option>
                           <option value="Driver">Driver</option>
                           <option value="Operator">Operator</option>
                         </select>
@@ -486,6 +485,7 @@ export default function BODSavingsPage() {
                           <input
                             type="number"
                             placeholder="Min"
+                            step="0.01"
                             className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
                             value={minSavingsFilter}
                             onChange={(e) => setMinSavingsFilter(e.target.value)}
@@ -493,6 +493,7 @@ export default function BODSavingsPage() {
                           <input
                             type="number"
                             placeholder="Max"
+                            step="0.01"
                             className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 focus:border-red-500"
                             value={maxSavingsFilter}
                             onChange={(e) => setMaxSavingsFilter(e.target.value)}

@@ -3,11 +3,11 @@
 import { useAuth } from '@/lib/auth';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Card from '@/components/shared/Card';
 import { ProfileActions } from '@/components';
 import ProfilePhotoUpload from '@/components/user/ProfilePhotoUpload';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
+import { User, Mail, Phone, MapPin, Calendar, CreditCard, FileText, Edit3, Shield, Bell } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user, loading } = useAuth();
@@ -204,93 +204,126 @@ export default function ProfilePage() {
 
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">My Profile</h1>
+    <div className="max-w-3xl mx-auto px-4 py-4 sm:py-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">My Profile</h1>
+        <button 
+          onClick={() => router.push('/profile/edit')}
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium w-full sm:w-auto"
+        >
+          <Edit3 className="h-4 w-4" />
+          Edit Profile
+        </button>
+      </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-1">
-          <Card title="Profile Picture" className="text-center">
+      {/* Profile Card */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+        {/* Profile Header with Photo */}
+        <div className="bg-gradient-to-r from-red-50 to-white p-6 flex items-center gap-4">
+          <div className="shrink-0">
             <ProfilePhotoUpload />
-          </Card>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl font-bold text-gray-800 truncate">{getFullName()}</h2>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 mt-1">
+              {memberData?.role || user?.role || 'Member'}
+            </span>
+          </div>
         </div>
         
-        <div className="lg:col-span-2">
-          <Card title="Personal Information">
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-gray-500">Full Name</label>
-                  <p className="font-medium">{getFullName()}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Email Address</label>
-                  <p className="font-medium">{memberData?.email || user?.email || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Role</label>
-                  <p className="font-medium">
-                    <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
-                      {memberData?.role || user?.role || 'Member'}
-                    </span>
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Phone Number</label>
-                  <p className="font-medium">{memberData?.phoneNumber || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Member Since</label>
-                  <p className="font-medium">{getMemberSince()}</p>
-                </div>
+        {/* Profile Information */}
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Email */}
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-gray-50 rounded-lg shrink-0">
+                <Mail className="h-4 w-4 text-gray-500" />
               </div>
-              <div>
-                <label className="text-sm text-gray-500">Address</label>
-                <p className="font-medium">{getAddress()}</p>
-              </div>
-              
-              {/* Additional Information for Driver/Operator */}
-              {getLicenseInfo() && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
-                  <div>
-                    <label className="text-sm text-gray-500">License Number</label>
-                    <p className="font-medium">{getLicenseInfo()?.licenseNumber || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500">TIN ID</label>
-                    <p className="font-medium">{getLicenseInfo()?.tinId || 'N/A'}</p>
-                  </div>
-                </div>
-              )}
-              
-              <div className="flex justify-end pt-4">
-                <button 
-                  onClick={() => router.push('/profile/edit')}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Edit Profile
-                </button>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Email</p>
+                <p className="text-sm font-medium text-gray-800 truncate">{memberData?.email || user?.email || 'N/A'}</p>
               </div>
             </div>
-          </Card>
+            
+            {/* Phone */}
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-gray-50 rounded-lg shrink-0">
+                <Phone className="h-4 w-4 text-gray-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Phone</p>
+                <p className="text-sm font-medium text-gray-800">{memberData?.phoneNumber || 'Not provided'}</p>
+              </div>
+            </div>
+            
+            {/* Member Since */}
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-gray-50 rounded-lg shrink-0">
+                <Calendar className="h-4 w-4 text-gray-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Member Since</p>
+                <p className="text-sm font-medium text-gray-800">{getMemberSince()}</p>
+              </div>
+            </div>
+            
+            {/* Address */}
+            <div className="flex items-start gap-3 md:col-span-2">
+              <div className="p-2 bg-gray-50 rounded-lg shrink-0">
+                <MapPin className="h-4 w-4 text-gray-500" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Address</p>
+                <p className="text-sm font-medium text-gray-800">{getAddress()}</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* License Info for Driver/Operator */}
+          {getLicenseInfo() && (
+            <div className="mt-6 pt-6 border-t border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-gray-500" />
+                Additional Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-gray-50 rounded-lg shrink-0">
+                    <CreditCard className="h-4 w-4 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">License Number</p>
+                    <p className="text-sm font-medium text-gray-800">{getLicenseInfo()?.licenseNumber || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-gray-50 rounded-lg shrink-0">
+                    <FileText className="h-4 w-4 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">TIN ID</p>
+                    <p className="text-sm font-medium text-gray-800">{getLicenseInfo()?.tinId || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       
-
-      
-      {/* Account Settings using the new ProfileActions component */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Account Settings</h2>
-        <ProfileActions />
+      {/* Account Settings */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <Shield className="h-5 w-5 text-gray-500" />
+            Account Settings
+          </h2>
+        </div>
+        <div className="p-4">
+          <ProfileActions />
+        </div>
       </div>
-      
-
     </div>
   );
 }
-
-// Simple SVG Icon Component
-const UserIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-  </svg>
-);

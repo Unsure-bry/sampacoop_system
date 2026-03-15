@@ -20,10 +20,22 @@ export default function LoanApplicationModal({ isOpen, onClose, loanPlan }: Loan
   const [term, setTerm] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Calculate dynamic loan amount tiles based on maxAmount
+  const calculateAmountTiles = (maxAmount: number): number[] => {
+    const percentages = [0.2, 0.4, 0.6, 0.8, 1.0];
+    const roundTo = maxAmount <= 10000 ? 100 : 500;
+    
+    return percentages.map(pct => {
+      const rawValue = maxAmount * pct;
+      return Math.round(rawValue / roundTo) * roundTo;
+    });
+  };
+
   useEffect(() => {
     if (loanPlan && isOpen) {
       // Set default values when modal opens
-      setAmount('5000'); // Default to 5000 PHP
+      const amountTiles = calculateAmountTiles(loanPlan.maxAmount);
+      setAmount(amountTiles[4].toString()); // Default to 100% (max amount)
       setTerm(loanPlan.termOptions[0]?.toString() || '1');
     }
   }, [loanPlan, isOpen]);
@@ -53,6 +65,17 @@ export default function LoanApplicationModal({ isOpen, onClose, loanPlan }: Loan
 
 
 
+      // Generate Loan ID before creating the loan request
+      const loanIdResult = await firestore.generateLoanId();
+      if (!loanIdResult.success) {
+        console.error('Error generating Loan ID:', loanIdResult.error);
+        toast.error('Failed to generate Loan ID. Please try again.');
+        setLoading(false);
+        return;
+      }
+      
+      const loanId = loanIdResult.loanId!;
+
       // Create loan request document with user info
       const loanRequest = {
         userId: user?.uid || '',
@@ -64,12 +87,13 @@ export default function LoanApplicationModal({ isOpen, onClose, loanPlan }: Loan
         term: termValue,
         status: 'pending' as const,
         createdAt: new Date().toISOString(),
+        loanId: loanId, // Store the generated Loan ID
       };
 
-      // Save to Firestore with error handling
+      // Save to Firestore with error handling - use Loan ID as document ID
       const result = await firestore.setDocument(
         'loanRequests',
-        `${user?.uid}-${loanPlan.id}-${Date.now()}`,
+        loanId,
         loanRequest
       );
       
@@ -123,29 +147,28 @@ export default function LoanApplicationModal({ isOpen, onClose, loanPlan }: Loan
             </button>
           </div>
 
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-gray-600 text-sm">{loanPlan.description}</p>
+          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+            <p className="text-slate-700 text-sm">{loanPlan.description}</p>
             <div className="mt-2 flex justify-between">
-              <span className="text-gray-600">Maximum Amount:</span>
-              <span className="font-medium">{formatCurrency(loanPlan.maxAmount)}</span>
+              <span className="text-slate-600">Maximum Amount:</span>
+              <span className="font-medium text-slate-900">{formatCurrency(loanPlan.maxAmount)}</span>
             </div>
           </div>
 
           <form onSubmit={handleSubmit}>
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-bold mb-3" htmlFor="amount">
+              <label className="block text-slate-700 text-sm font-bold mb-3" htmlFor="amount">
                 Loan Amount (PHP)
               </label>
               <div className="grid grid-cols-5 gap-2">
-                {[1000, 2000, 3000, 4000, 5000].map((value) => (
+                {loanPlan && calculateAmountTiles(loanPlan.maxAmount).map((value) => (
                   <button
                     key={value}
                     type="button"
                     onClick={() => setAmount(value.toString())}
-                    className={`p-3 rounded-lg border-2 transition-all duration-200 text-center font-medium ${amount === value.toString() 
+                    className={`p-2 sm:p-3 rounded-lg border-2 transition-all duration-200 text-center font-medium text-xs sm:text-sm whitespace-nowrap overflow-hidden ${amount === value.toString() 
                       ? 'border-red-600 bg-red-50 text-red-700 shadow-sm' 
-                      : 'border-gray-300 hover:border-gray-400 text-gray-700 hover:bg-gray-50'}
-                    `}
+                      : 'border-slate-300 hover:border-slate-400 text-slate-700 hover:bg-slate-50'}`}
                   >
                     ₱{value.toLocaleString()}
                   </button>
@@ -153,7 +176,7 @@ export default function LoanApplicationModal({ isOpen, onClose, loanPlan }: Loan
               </div>
               <div className="mt-3 p-2 bg-red-50 rounded-lg border border-red-100">
                 <div className="text-center">
-                  <span className="text-sm text-gray-600">Selected Amount: </span>
+                  <span className="text-sm text-slate-600">Selected Amount: </span>
                   <span className="font-bold text-red-700">
                     {formatCurrency(parseFloat(amount) || 0)}
                   </span>
@@ -162,7 +185,7 @@ export default function LoanApplicationModal({ isOpen, onClose, loanPlan }: Loan
             </div>
 
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="term">
+              <label className="block text-slate-700 text-sm font-bold mb-2" htmlFor="term">
                 Loan Term
               </label>
               {loanPlan.termOptions.length > 1 ? (
@@ -170,20 +193,34 @@ export default function LoanApplicationModal({ isOpen, onClose, loanPlan }: Loan
                   id="term"
                   value={term}
                   onChange={(e) => setTerm(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full p-3 border-2 border-black rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-black"
+                  style={{ 
+                    color: '#000000',
+                    backgroundColor: '#ffffff',
+                    WebkitAppearance: 'menulist',
+                    appearance: 'menulist'
+                  }}
                   required
                 >
                   {loanPlan.termOptions.map((option) => (
-                    <option key={option} value={option}>
+                    <option 
+                      key={option} 
+                      value={option} 
+                      style={{ 
+                        color: '#000000', 
+                        backgroundColor: '#ffffff',
+                        fontWeight: 'bold'
+                      }}
+                    >
                       {option} month{option !== 1 ? 's' : ''}
                     </option>
                   ))}
                 </select>
               ) : (
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Selected Term:</span>
-                    <span className="font-semibold text-gray-800">
+                    <span className="text-slate-600">Selected Term:</span>
+                    <span className="font-semibold text-slate-900">
                       {term} month{parseInt(term) !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -195,7 +232,7 @@ export default function LoanApplicationModal({ isOpen, onClose, loanPlan }: Loan
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
               >
                 Cancel
               </button>

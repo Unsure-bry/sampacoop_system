@@ -119,18 +119,18 @@ export default function CollapsibleSidebar({
 
   return (
     <aside className={`flex flex-col bg-white shadow-lg h-full transition-all duration-300 ease-in-out ${
-      collapsed ? 'w-20' : 'w-64'
+      collapsed ? 'w-16 sm:w-20' : 'w-64'
     }`}>
       {/* Sidebar header with toggle button */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="flex items-center justify-between p-2 sm:p-4 border-b border-gray-200 bg-gray-50">
         {!collapsed && (
-          <h1 className="text-xl font-bold text-red-600">SAMPA COOP</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-red-600 hidden sm:block">SAMPA COOP</h1>
         )}
         <button 
           onClick={onToggle}
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          className={`p-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center ${collapsed ? 'mx-auto' : ''}`}
         >
-          <MenuIcon className="h-6 w-6 text-gray-600" />
+          <MenuIcon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600" />
         </button>
       </div>
       
@@ -144,15 +144,15 @@ export default function CollapsibleSidebar({
                 <li key={item.path}>
                   <Link
                     href={item.path}
-                    className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
+                    className={`flex items-center px-2 sm:px-4 py-2 sm:py-3 rounded-lg transition-all duration-200 ${
                       pathname === item.path
                         ? 'bg-red-600 text-white font-semibold shadow-md border-l-4 border-red-800'
                         : 'text-gray-700 hover:bg-gray-100 hover:text-red-600'
-                    }`}
+                    } ${collapsed ? 'justify-center px-1 sm:px-2' : ''}`}
                   >
                     <Icon className={`h-5 w-5 ${pathname === item.path ? 'text-white' : ''}`} />
                     {!collapsed && (
-                      <span className="ml-3">{item.name}</span>
+                      <span className="ml-2 sm:ml-3 text-sm sm:text-base">{item.name}</span>
                     )}
                   </Link>
                 </li>
@@ -162,14 +162,14 @@ export default function CollapsibleSidebar({
         </nav>
         
         {/* Logout button at the bottom */}
-        <div className="p-2 border-t border-gray-200">
+        <div className="p-1 sm:p-2 border-t border-gray-200">
           <button
             onClick={handleLogout}
-            className="flex items-center w-full px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+            className={`flex items-center w-full px-2 sm:px-4 py-2 sm:py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors ${collapsed ? 'justify-center px-1 sm:px-2' : ''}`}
           >
             <LogoutIcon className="h-5 w-5" />
             {!collapsed && (
-              <span className="ml-3">Sign out</span>
+              <span className="ml-2 sm:ml-3 text-sm sm:text-base">Sign out</span>
             )}
           </button>
         </div>

@@ -17,6 +17,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SAMPA COOP",
   description: "SAMPA Cooperative Financial Services",
+  icons: {
+    icon: '/favicon.png',
+    shortcut: '/favicon.png',
+    apple: '/favicon.png',
+  },
 };
 
 export default function RootLayout({
@@ -26,6 +31,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" type="image/png" href="/favicon.png?v=4" />
+        <link rel="shortcut icon" type="image/png" href="/favicon.png?v=4" />
+        <link rel="apple-touch-icon" href="/favicon.png?v=4" />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AuthProvider>
           <Toaster position="top-right" />

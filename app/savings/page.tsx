@@ -224,30 +224,30 @@ export default function UserSavingsPage() {
     <DynamicDashboard>
       <div className="max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-1 gap-6">
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <p className="text-sm text-gray-600">Current Savings Balance</p>
-                <p className="text-4xl font-bold text-green-600">{formatCurrency(totalSavings)}</p>
+          <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="mb-2 sm:mb-0">
+                <p className="text-xs sm:text-sm text-gray-600 mb-1">Current Savings Balance</p>
+                <p className="text-2xl sm:text-4xl font-bold text-green-600">{formatCurrency(totalSavings)}</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <p className="text-xs text-gray-500">Transactions</p>
-                  <p className="text-lg font-semibold text-gray-800">{transactions.length}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3">
+                  <p className="text-xs text-gray-500 mb-1">Transactions</p>
+                  <p className="text-base sm:text-lg font-semibold text-gray-800">{transactions.length}</p>
                 </div>
-                <div className="text-center">
-                  <p className="text-xs text-gray-500">Last Updated</p>
-                  <p className="text-sm font-medium text-gray-800">
+                <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3">
+                  <p className="text-xs text-gray-500 mb-1">Last Updated</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-800">
                     {lastUpdated ? formatDate(lastUpdated) : '—'}
                   </p>
                 </div>
-                <div className="text-center">
-                  <p className="text-xs text-gray-500">Total Deposits</p>
-                  <p className="text-lg font-semibold text-green-600">{formatCurrency(totalDeposits)}</p>
+                <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3">
+                  <p className="text-xs text-gray-500 mb-1">Total Deposits</p>
+                  <p className="text-base sm:text-lg font-semibold text-green-600">{formatCurrency(totalDeposits)}</p>
                 </div>
-                <div className="text-center">
-                  <p className="text-xs text-gray-500">Total Withdrawals</p>
-                  <p className="text-lg font-semibold text-red-600">{formatCurrency(totalWithdrawals)}</p>
+                <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3">
+                  <p className="text-xs text-gray-500 mb-1">Total Withdrawals</p>
+                  <p className="text-base sm:text-lg font-semibold text-red-600">{formatCurrency(totalWithdrawals)}</p>
                 </div>
               </div>
             </div>
@@ -270,20 +270,20 @@ export default function UserSavingsPage() {
               </div>
             ) : (
               <div className="overflow-hidden">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto -mx-4 sm:-mx-6">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           Date
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           Type
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           Amount
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden sm:table-cell">
                           Balance
                         </th>
                       </tr>
@@ -291,11 +291,11 @@ export default function UserSavingsPage() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {paginatedTransactions.map((transaction) => (
                         <tr key={transaction.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-700">
                             {formatDate(transaction.date)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
+                            <span className={`inline-block px-2 py-1 text-xs font-bold rounded-full ${
                               transaction.type === 'deposit' 
                                 ? 'bg-green-100 text-green-800' 
                                 : 'bg-red-100 text-red-800'
@@ -303,12 +303,12 @@ export default function UserSavingsPage() {
                               {transaction.type === 'deposit' ? 'Deposit' : 'Withdrawal'}
                             </span>
                           </td>
-                          <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                          <td className={`px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-bold ${
                             transaction.type === 'deposit' ? 'text-green-600' : 'text-red-600'
                           }`}>
                             {transaction.type === 'deposit' ? '+' : '-'}{formatCurrency(transaction.amount)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900 hidden sm:table-cell">
                             {formatCurrency(transaction.balance)}
                           </td>
                         </tr>
@@ -316,43 +316,69 @@ export default function UserSavingsPage() {
                     </tbody>
                   </table>
                 </div>
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-gray-600">
+                <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-3">
+                  <div className="text-xs sm:text-sm text-gray-600">
                     Page {currentPage} of {totalPages} • Showing {paginatedTransactions.length} of {transactions.length}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <button
-                      className="px-3 py-1 rounded border border-gray-300 text-gray-700 disabled:opacity-50"
+                      className="px-2 sm:px-3 py-1 rounded border border-gray-300 text-gray-700 disabled:opacity-50 text-xs sm:text-sm"
                       disabled={currentPage === 1}
                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     >
-                      Previous
+                      Prev
                     </button>
-                    {Array.from({ length: totalPages }).map((_, idx) => {
-                      const page = idx + 1;
-                      return (
+                    {totalPages <= 5 ? (
+                      Array.from({ length: totalPages }).map((_, idx) => {
+                        const page = idx + 1;
+                        return (
+                          <button
+                            key={page}
+                            className={`px-2 sm:px-3 py-1 rounded border text-xs sm:text-sm ${
+                              currentPage === page
+                                ? 'border-red-600 bg-red-600 text-white'
+                                : 'border-gray-300 text-gray-700'
+                            }`}
+                            onClick={() => setCurrentPage(page)}
+                          >
+                            {page}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <>
                         <button
-                          key={page}
-                          className={`px-3 py-1 rounded border ${
-                            currentPage === page
-                              ? 'border-red-600 bg-red-600 text-white'
-                              : 'border-gray-300 text-gray-700'
-                          }`}
-                          onClick={() => setCurrentPage(page)}
+                          className={`px-2 sm:px-3 py-1 rounded border text-xs sm:text-sm ${currentPage === 1 ? 'border-red-600 bg-red-600 text-white' : 'border-gray-300 text-gray-700'}`}
+                          onClick={() => setCurrentPage(1)}
                         >
-                          {page}
+                          1
                         </button>
-                      );
-                    })}
+                        {currentPage > 3 && <span className="px-1">...</span>}
+                        {currentPage > 2 && currentPage < totalPages && (
+                          <button
+                            className="px-2 sm:px-3 py-1 rounded border border-red-600 bg-red-600 text-white text-xs sm:text-sm"
+                          >
+                            {currentPage}
+                          </button>
+                        )}
+                        {currentPage < totalPages - 2 && <span className="px-1">...</span>}
+                        <button
+                          className={`px-2 sm:px-3 py-1 rounded border text-xs sm:text-sm ${currentPage === totalPages ? 'border-red-600 bg-red-600 text-white' : 'border-gray-300 text-gray-700'}`}
+                          onClick={() => setCurrentPage(totalPages)}
+                        >
+                          {totalPages}
+                        </button>
+                      </>
+                    )}
                     <button
-                      className="px-3 py-1 rounded border border-gray-300 text-gray-700 disabled:opacity-50"
+                      className="px-2 sm:px-3 py-1 rounded border border-gray-300 text-gray-700 disabled:opacity-50 text-xs sm:text-sm"
                       disabled={currentPage === totalPages}
                       onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     >
                       Next
                     </button>
                     <select
-                      className="ml-2 px-2 py-1 border border-gray-300 rounded text-gray-700"
+                      className="ml-1 sm:ml-2 px-2 py-1 border border-gray-300 rounded text-gray-700 text-xs sm:text-sm"
                       value={pageSize}
                       onChange={(e) => {
                         const size = parseInt(e.target.value, 10);

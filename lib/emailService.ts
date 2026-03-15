@@ -141,3 +141,141 @@ SAMPA Cooperative Team`
   const config = getEmailJSConfig();
   return sendEmail(config.templateId, emailData);
 };
+
+// Send certificate generation notification email
+export const sendCertificateNotificationEmail = async (
+  email: string, 
+  name: string, 
+  membershipId: string,
+  certificateDownloadUrl: string
+) => {
+  const emailData = {
+    to_name: name,
+    email: email,
+    membership_id: membershipId,
+    certificate_url: certificateDownloadUrl,
+    subject: 'Your Official Membership Certificate - SAMPA Cooperative',
+    message: `Dear ${name},
+
+Congratulations! Your official membership certificate has been generated and is ready for download.
+
+Membership ID: ${membershipId}
+
+You can download your certificate using the following link:
+${certificateDownloadUrl}
+
+Please keep this certificate for your records. If you have any questions or need corrections, please contact our support team.
+
+Best regards,
+SAMPA Cooperative Team`
+  };
+
+  const config = getEmailJSConfig();
+  return sendEmail(config.templateId, emailData);
+
+};
+
+// Loan Payment Message//
+export const sendPaymentMessage = async (
+  email: string, 
+  name: string, 
+  receiptNumber: number,
+  amountReceived: number,
+  remainingBalance: number
+) => {
+  const emailData = {
+    to_name: name,
+    email: email,
+    subject: 'Your Official Payment Receipt - SAMPA Cooperative',
+    message: `Dear ${name},
+
+    Hi! ${name},
+
+    I hope you're doing well!
+
+    Thank you for your payment. We are pleased to confirm that we have successfully received your payment of [Amount] on [Date] for your [Loan Type] loan.
+    
+    Receipt Number: ${receiptNumber}
+    Amount Received: ${amountReceived}
+    Remaining Balance: ${remainingBalance}
+
+    Best Regards,
+    SAMPA Cooperative Team`
+  };
+
+  const config = getEmailJSConfig();
+  return sendEmail(config.templateId, emailData);
+
+};
+
+// Approved Loan Application//
+export const approvedloanMessage = async (
+  email: string, 
+  name: string, 
+  loanamount: number,
+  interestRate: number,
+  loanTerm: number,
+  monthlyPayment: number
+) => {
+  const emailData = {
+    to_name: name,
+    email: email,
+    subject: 'Loan Application Approved',
+    message: `Dear ${name},
+
+    Hi! ${name},
+
+    I hope you're doing well!
+
+    Thank you for your loan application. We are pleased to confirm that your loan application has been approved.
+    
+    Loan Amount: ${loanamount}
+    Interest Rate: ${interestRate}%
+    Loan Term: ${loanTerm}
+    Monthly Payment: ${monthlyPayment}
+
+    Best Regards,
+    SAMPA Cooperative Team`
+  };
+
+  const config = getEmailJSConfig();
+  return sendEmail(config.templateId, emailData);
+
+};
+
+// Rejected Loan Application//
+export const rejectedLoanMessage = async (
+  email: string, 
+  name: string, 
+  loanamount: number,
+  interestRate: number,
+  loanTerm: number,
+  monthlyPayment: number,
+  reasonsForRejection: string,
+) => {
+  const emailData = {
+    to_name: name,
+    email: email,
+    subject: 'Loan Application Rejected',
+    message: `Dear ${name},
+
+    Hi! ${name},
+
+    I hope you're doing well!
+
+    Thank you for your loan application. We are pleased to confirm that your loan application has been rejected.
+    
+    Loan Amount: ${loanamount}
+    Interest Rate: ${interestRate}%
+    Loan Term: ${loanTerm}
+    Monthly Payment: ${monthlyPayment}
+    Reasons for Rejection: ${reasonsForRejection}
+
+    Best Regards,
+    SAMPA Cooperative Team`
+  };
+
+  const config = getEmailJSConfig();
+  return sendEmail(config.templateId, emailData);
+
+};

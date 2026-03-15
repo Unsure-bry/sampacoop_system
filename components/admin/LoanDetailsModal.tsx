@@ -106,9 +106,9 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
     // Convert loan term to days (1 month = 30 days)
     const totalDays = loan.term * 30;
     
-    // Step 1: Calculate interest amount (Principal × Interest Rate)
-    // Example: 3000 × 5% = 150
-    const interestAmount = loan.amount * (loan.interest / 100);
+    // Step 1: Calculate interest amount (Principal × Interest Rate × Term)
+    // Example: 5000 × 2% × 3 months = 300
+    const interestAmount = loan.amount * (loan.interest / 100) * loan.term;
     
     // Step 2: Calculate total amount (Principal + Interest)
     // Example: 3000 + 150 = 3150
@@ -296,11 +296,20 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
 
   // Function to handle payment confirmation
   const handlePaymentConfirmation = () => {
-    const amount = parseFloat(paymentAmount);
+    // Remove all non-numeric characters except decimal point, then parse
+    const cleanAmount = paymentAmount.replace(/[^\d.]/g, '');
+    const amount = parseFloat(cleanAmount);
+    const remainingBalance = getExactRemainingBalance();
     
     // Validate payment amount
     if (!paymentAmount || isNaN(amount) || amount <= 0) {
       toast.error('Please enter a valid payment amount');
+      return;
+    }
+    
+    // Validate payment amount does not exceed remaining balance (with small tolerance for floating point)
+    if (amount > remainingBalance + 0.01) {
+      toast.error(`Payment amount cannot exceed the remaining balance of ${formatCurrency(remainingBalance)}`);
       return;
     }
     
@@ -320,7 +329,7 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
     setPaymentLoading(true);
 
     try {
-      const amount = parseFloat(paymentAmount);
+      const amount = parseFloat(paymentAmount.replace(/,/g, ''));
       
       // Find unpaid payments that can be covered by this payment
       let remainingPayment = amount;
@@ -586,12 +595,12 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
           <div className="p-6">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-800">Loan Details</h2>
-                <p className="text-gray-600">ID: {loan.id}</p>
+                <h2 className="text-2xl font-bold text-black">Loan Details</h2>
+                <p className="text-black">ID: {loan.id}</p>
               </div>
               <button 
                 onClick={onClose}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-black hover:text-gray-700"
               >
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -602,20 +611,20 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
             {/* Loan Information Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">Member Name</p>
-                <p className="font-medium">{loan.fullName}</p>
+                <p className="text-sm text-black">Member Name</p>
+                <p className="font-medium text-black">{loan.fullName}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">Role</p>
-                <p className="font-medium">{loan.role}</p>
+                <p className="text-sm text-black">Role</p>
+                <p className="font-medium text-black">{loan.role}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">Loan Amount</p>
-                <p className="font-medium">{formatCurrency(loan.amount)}</p>
+                <p className="text-sm text-black">Loan Amount</p>
+                <p className="font-medium text-black">{formatCurrency(loan.amount)}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">Status</p>
-                <p className="font-medium">
+                <p className="text-sm text-black">Status</p>
+                <p className="font-medium text-black">
                   <span className={`px-2 py-1 rounded-full text-xs ${
                     loan.status === 'active' 
                       ? 'bg-green-100 text-green-800' 
@@ -628,23 +637,22 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                 </p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">Interest Rate</p>
-                <p className="font-medium">{loan.interest}%</p>
+                <p className="text-sm text-black">Interest Rate</p>
+                <p className="font-medium text-black">{loan.interest}%</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">Term</p>
-                <p className="font-medium">{loan.term} months</p>
+                <p className="text-sm text-black">Term</p>
+                <p className="font-medium text-black">{loan.term} months</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">Start Date</p>
-                <p className="font-medium">{formatDate(loan.startDate)}</p>
+                <p className="text-sm text-black">Start Date</p>
+                <p className="font-medium text-black">{formatDate(loan.startDate)}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">Remaining Balance</p>
-                <p className="font-medium">
+                <p className="text-sm text-black">Remaining Balance</p>
+                <p className="font-medium text-black">
                   {formatCurrency(getExactRemainingBalance())}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Exact balance from database</p>
               </div>
             </div>
 
@@ -670,18 +678,23 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
               </button>
               <button
                 onClick={() => setShowPaymentModal(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                disabled={loan.status === 'completed'}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center ${
+                  loan.status === 'completed'
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
-                Make Payment
+                {loan.status === 'completed' ? 'Loan Completed' : 'Make Payment'}
               </button>
             </div>
 
             {/* Amortization Schedule */}
             <div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Amortization Schedule</h3>
+              <h3 className="text-xl font-semibold text-black mb-4">Amortization Schedule</h3>
               
               {loading ? (
                 <div className="flex justify-center items-center h-32">
@@ -694,34 +707,34 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                           Day
                         </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                           Payment Date
                         </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                           Principal
                         </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                           Interest Amount
                         </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                           Total Payment
                         </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                           Remaining Balance
                         </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                           Status
                         </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                           Paid Amount
                         </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                           Receipt No.
                         </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                           Processed Date
                         </th>
                       </tr>
@@ -729,22 +742,22 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                     <tbody className="bg-white divide-y divide-gray-200">
                       {currentItems.map((item, index) => (
                         <tr key={indexOfFirstItem + index} className={`hover:bg-gray-50 ${item.status === 'paid' ? 'bg-green-50' : item.status === 'partial' ? 'bg-yellow-50' : ''}`}>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-black">
                             {item.day || ''}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-black">
                             {formatDate(item.paymentDate)}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-black">
                             {formatCurrency(item.principal)}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-black">
                             {formatCurrency(item.interest)}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-black">
                             {formatCurrency(item.totalPayment)}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-black">
                             {formatCurrency(item.remainingBalance)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
@@ -758,18 +771,18 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                               {item.status || 'pending'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-black">
                             {item.paidAmount ? formatCurrency(item.paidAmount) : '-'}
                             {item.status === 'partial' && item.paidAmount && (
-                              <span className="text-xs text-gray-500 ml-1">
+                              <span className="text-xs text-black ml-1">
                                 / {formatCurrency(item.totalPayment)}
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-black">
                             {item.receiptNumber || '-'}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-black">
                             {item.paymentDateProcessed 
                               ? new Date(item.paymentDateProcessed).toLocaleString('en-PH', {
                                   year: 'numeric',
@@ -789,7 +802,7 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                   {/* Pagination Controls */}
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
-                      <div className="text-sm text-gray-700">
+                      <div className="text-sm text-black">
                         Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
                         <span className="font-medium">
                           {Math.min(indexOfLastItem, amortizationSchedule.length)}
@@ -810,7 +823,7 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                           Previous
                         </button>
                         
-                        <span className="px-3 py-1 text-sm font-medium text-gray-700">
+                        <span className="px-3 py-1 text-sm font-medium text-black">
                           Page {currentPage} of {totalPages}
                         </span>
                         
@@ -841,10 +854,10 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
           <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">Make Loan Payment</h3>
+                <h3 className="text-xl font-semibold text-black">Make Loan Payment</h3>
                 <button 
                   onClick={() => setShowPaymentModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-black hover:text-gray-700"
                 >
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -853,34 +866,59 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
               </div>
               
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Receipt Number <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-black mb-1">
+                  Control No. <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={receiptNumber}
                   onChange={(e) => setReceiptNumber(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                  placeholder="Enter receipt number from hardcopy"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
+                  placeholder="Enter Control No."
                 />
-                <p className="text-xs text-gray-500 mt-1">Enter the receipt number from your hardcopy receipt</p>
               </div>
               
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                  placeholder="Enter payment amount"
-                />
+                <label className="block text-sm font-medium text-black mb-1">Payment Amount</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                    ₱
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={paymentAmount}
+                    onChange={(e) => {
+                      const rawValue = e.target.value.replace(/,/g, '');
+                      // Allow: empty, digits only, digits with single decimal, digits with decimal and up to 2 digits after
+                      if (rawValue === '' || /^\d+$/.test(rawValue) || /^\d+\.$/.test(rawValue) || /^\d+\.\d{0,2}$/.test(rawValue)) {
+                        // Format with commas for display while preserving raw value
+                        if (rawValue === '' || rawValue === '.') {
+                          setPaymentAmount(rawValue);
+                        } else if (rawValue.endsWith('.')) {
+                          // Handle trailing decimal point
+                          const numPart = rawValue.slice(0, -1);
+                          const formatted = parseFloat(numPart).toLocaleString('en-PH');
+                          setPaymentAmount(formatted + '.');
+                        } else if (rawValue.includes('.')) {
+                          // Handle number with decimal
+                          const [intPart, decPart] = rawValue.split('.');
+                          const formatted = parseFloat(intPart || '0').toLocaleString('en-PH');
+                          setPaymentAmount(`${formatted}.${decPart}`);
+                        } else {
+                          // Whole number
+                          setPaymentAmount(parseFloat(rawValue).toLocaleString('en-PH'));
+                        }
+                      }
+                    }}
+                    className="w-full pl-8 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
+                    placeholder="Enter payment amount"
+                  />
+                </div>
               </div>
               
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600">
+              <div className=" mb-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-black">
                   <span className="font-medium">Remaining Balance:</span> {formatCurrency(getExactRemainingBalance())}
                 </p>
               </div>
@@ -889,16 +927,16 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                 <button
                   onClick={() => setShowPaymentModal(false)}
                   disabled={paymentLoading}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  className="px-4 py-2 border border-gray-300 text-black rounded-lg hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handlePaymentConfirmation}
-                  disabled={paymentLoading || !paymentAmount || parseFloat(paymentAmount) <= 0 || !receiptNumber.trim()}
+                  disabled={paymentLoading || !paymentAmount || parseFloat(paymentAmount.replace(/,/g, '')) <= 0 || !receiptNumber.trim()}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {paymentLoading ? 'Processing...' : 'Continue to Confirmation'}
+                  {paymentLoading ? 'Processing...' : 'Next'}
                 </button>
               </div>
             </div>
@@ -912,10 +950,10 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
           <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">Confirm Payment</h3>
+                <h3 className="text-xl font-semibold text-black">Confirm Payment</h3>
                 <button 
                   onClick={() => setShowConfirmationModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-black hover:text-gray-700"
                 >
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -935,14 +973,14 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                   </div>
                 </div>
                 
-                <div className="space-y-2 text-sm text-green-700">
+                <div className="space-y-2 text-sm text-black">
                   <div className="flex justify-between">
                     <span>Receipt Number:</span>
                     <span className="font-medium">{receiptNumber}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Amount:</span>
-                    <span className="font-medium">{formatCurrency(parseFloat(paymentAmount))}</span>
+                    <span className="font-medium">{formatCurrency(parseFloat(paymentAmount.replace(/,/g, '')))}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Member:</span>
@@ -956,7 +994,7 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
               </div>
               
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-700">
+                <p className="text-sm text-black">
                   <span className="font-medium">Note:</span> This payment will be processed immediately and a notification will be sent to the member.
                 </p>
               </div>
@@ -965,7 +1003,7 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                 <button
                   onClick={() => setShowConfirmationModal(false)}
                   disabled={paymentLoading}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  className="px-4 py-2 border border-gray-300 text-black rounded-lg hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancel
                 </button>

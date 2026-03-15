@@ -105,12 +105,12 @@ export default function LoanTable({
       }
       
       // Calculate amortization schedule
-      // Logic: Total Amount = Principal + (Principal × Interest Rate), then divide by days
-      // Example: 3000 + (3000 × 5%) = 3150, then 3150 / 30 = 105 per day
+      // Logic: Total Amount = Principal + (Principal × Interest Rate × Term), then divide by days
+      // Example: 5000 + (5000 × 2% × 3) = 5300, then 5300 / 90 = 58.89 per day
       const totalDays = requestData.term * 30;
       
-      // Calculate flat interest amount: Principal × Interest Rate (as is, not divided)
-      const interestAmount = requestData.amount * (interestRate / 100);
+      // Calculate interest amount: Principal × Interest Rate × Term
+      const interestAmount = requestData.amount * (interestRate / 100) * requestData.term;
       
       // Calculate total amount: Principal + Interest
       const totalAmount = requestData.amount + interestAmount;
@@ -148,7 +148,11 @@ export default function LoanTable({
         });
       }
       
+      // Use the existing loanId from the loan request (generated when user submitted)
+      const loanId = requestId;
+      
       // Create approved loan document in the loans collection with member details
+      const now = new Date();
       const loanData = {
         userId: userId,
         fullName: fullName,
@@ -156,15 +160,16 @@ export default function LoanTable({
         amount: requestData.amount,
         term: requestData.term,
         planName: requestData.planName || 'General Loan',
-        startDate: new Date().toISOString(),
+        startDate: now.toISOString(),
         interest: interestRate, // Interest rate from loan plan
         status: 'active',
-        paymentSchedule: paymentSchedule
+        paymentSchedule: paymentSchedule,
+        loanId: loanId // Preserve the original Loan ID
       };
 
       const loanResult = await firestore.setDocument(
         'loans',
-        `${userId}-${requestId}`,
+        loanId,
         loanData
       );
 
@@ -183,7 +188,7 @@ export default function LoanTable({
             status: 'unread',
             createdAt: new Date().toISOString(),
             metadata: {
-              loanId: `${userId}-${requestId}`,
+              loanId: loanId,
               amount: requestData.amount,
               planName: requestData.planName || 'General Loan',
               term: requestData.term

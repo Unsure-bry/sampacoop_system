@@ -20,12 +20,48 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate password length
-    if (newPassword.length < 6) {
+    // Validate password requirements (8+ chars, uppercase, lowercase, number)
+    if (newPassword.length < 8) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'New password must be at least 6 characters long' 
+          error: 'Password must be at least 8 characters long' 
+        }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Password must contain at least one uppercase letter' 
+        }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Password must contain at least one lowercase letter' 
+        }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Password must contain at least one number' 
         }),
         { 
           status: 400,

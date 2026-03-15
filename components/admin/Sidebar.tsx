@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { getSidebarConfig } from '@/lib/sidebarConfig';
+import { getSidebarConfig, filterSidebarByPermissions } from '@/lib/sidebarConfig';
 import { handleAdminLogout } from '@/lib/logoutUtils';
+import { usePermissions } from '@/lib/rolePermissions';
 
 // Icons for navigation items
 const DashboardIcon = ({ className }: { className?: string }) => (
@@ -68,6 +69,22 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Document: DocumentIcon,
 };
 
+// Section icons for dropdown headers
+const sectionIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  'Loan Manager': LoanIcon,
+  'Profile': ({ className }: { className?: string }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  ),
+  'Admin Settings': ({ className }: { className?: string }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  ),
+};
+
 interface AdminSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -96,22 +113,19 @@ export default function AdminSidebar({
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const { logout } = useAuth();
+  const { permissions, loading } = usePermissions();
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
-  // Get sidebar configuration based on user role
-  const navigationSections = getSidebarConfig(role);
+  // Get sidebar configuration based on user role and filter by permissions
+  const rawNavigationSections = getSidebarConfig(role);
+  const navigationSections = filterSidebarByPermissions(rawNavigationSections, permissions);
 
   // Handle user logout
   const handleLogout = () => {
-    try {
-      // Call logout function to clear user state
-      logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      // Perform immediate admin logout with proper redirection
-      handleAdminLogout();
-    }
+    // Perform immediate redirect first to avoid loading state
+    handleAdminLogout();
+    // Then clear auth state (fire and forget)
+    logout().catch(error => console.error('Logout error:', error));
   };
 
   // Toggle section expansion
@@ -129,17 +143,18 @@ export default function AdminSidebar({
       }`}
     >
       {/* Sidebar header with logo and toggle button */}
-      <div className="flex items-center justify-between p-4 border-b">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
         {!collapsed && (
           <h1 className="text-xl font-bold text-red-600">
             {role.charAt(0).toUpperCase() + role.slice(1)} Panel
           </h1>
         )}
-        <button 
+        <button
           onClick={onToggle}
-          className="p-2 rounded-md hover:bg-gray-200"
+          className={`p-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center ${collapsed ? 'mx-auto' : ''}`}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
@@ -156,18 +171,26 @@ export default function AdminSidebar({
                   <button
                     onClick={() => toggleSection(section.title)}
                     className={`flex items-center justify-between w-full px-4 py-3 rounded-md transition-colors ${
-                      expandedSections[section.title] 
-                        ? 'bg-red-50 text-red-600 font-medium' 
+                      expandedSections[section.title]
+                        ? 'bg-red-50 text-red-600 font-medium'
                         : 'text-gray-700 hover:bg-gray-200'
                     }`}
                   >
                     <div className="flex items-center">
+                      {sectionIconMap[section.title] && (
+                        <span className="mr-3">
+                          {(() => {
+                            const SectionIcon = sectionIconMap[section.title];
+                            return <SectionIcon className="h-5 w-5" />;
+                          })()}
+                        </span>
+                      )}
                       <span>{section.title}</span>
                     </div>
-                    <ChevronDownIcon 
+                    <ChevronDownIcon
                       className={`h-4 w-4 transform transition-transform ${
                         expandedSections[section.title] ? 'rotate-180' : ''
-                      }`} 
+                      }`}
                     />
                   </button>
                   
@@ -202,9 +225,17 @@ export default function AdminSidebar({
                 <div className="px-2">
                   <button
                     onClick={() => toggleSection(section.title)}
-                    className="flex items-center justify-center w-full p-3 rounded-md text-gray-700 hover:bg-gray-200"
+                    className="flex items-center justify-center w-full p-3 rounded-md text-gray-700 hover:bg-gray-200 mx-auto"
+                    title={section.title}
                   >
-                    <ChevronDownIcon className="h-4 w-4" />
+                    {sectionIconMap[section.title] ? (
+                      (() => {
+                        const SectionIcon = sectionIconMap[section.title];
+                        return <SectionIcon className="h-6 w-6" />;
+                      })()
+                    ) : (
+                      <ChevronDownIcon className="h-4 w-4" />
+                    )}
                   </button>
                   
                   {/* Dropdown menu when collapsed */}
@@ -247,7 +278,7 @@ export default function AdminSidebar({
                             isActive
                               ? 'bg-red-600 text-white font-medium'
                               : 'text-gray-700 hover:bg-gray-200'
-                          }`}
+                          } ${collapsed ? 'justify-center' : ''}`}
                         >
                           <Icon className="h-6 w-6" />
                           {!collapsed && (
@@ -267,7 +298,7 @@ export default function AdminSidebar({
         <div className="p-2 border-t border-gray-200">
           <button
             onClick={handleLogout}
-            className="flex items-center w-full p-3 rounded-md text-gray-700 hover:bg-gray-200 transition-colors"
+            className={`flex items-center w-full p-3 rounded-md text-gray-700 hover:bg-gray-200 transition-colors ${collapsed ? 'justify-center' : ''}`}
           >
             <LogoutIcon className="h-6 w-6" />
             {!collapsed && <span className="ml-3">Sign out</span>}

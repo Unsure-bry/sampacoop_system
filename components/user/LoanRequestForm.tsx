@@ -95,6 +95,17 @@ export default function LoanRequestForm({ onLoanSubmitted }: LoanRequestFormProp
         };
       }
 
+      // Generate Loan ID before creating the loan request
+      const loanIdResult = await firestore.generateLoanId();
+      if (!loanIdResult.success) {
+        console.error('Error generating Loan ID:', loanIdResult.error);
+        toast.error('Failed to generate Loan ID. Please try again.');
+        setLoading(false);
+        return;
+      }
+      
+      const loanId = loanIdResult.loanId!;
+
       // Create loan request document
       const loanRequest = {
         userId: user?.uid || '',
@@ -105,12 +116,13 @@ export default function LoanRequestForm({ onLoanSubmitted }: LoanRequestFormProp
         description: description || '',
         status: 'pending' as const,
         createdAt: new Date().toISOString(),
+        loanId: loanId, // Store the generated Loan ID
       };
 
-      // Save to Firestore with error handling
+      // Save to Firestore with error handling - use Loan ID as document ID
       const result = await firestore.setDocument(
         'loanRequests',
-        `${user?.uid}-${Date.now()}`,
+        loanId,
         loanRequest
       );
       
@@ -161,7 +173,7 @@ export default function LoanRequestForm({ onLoanSubmitted }: LoanRequestFormProp
               className="pl-8 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
               placeholder="Enter loan amount"
               min="1"
-              step="1"
+              step="0.01"
               required
             />
           </div>

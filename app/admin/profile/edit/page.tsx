@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { CameraIcon } from 'lucide-react';
 import { trackProfileUpdate } from '@/lib/userActionTracker';
+import Link from 'next/link';
 
 export default function AdminProfileEditPage() {
   const { user, loading, updateProfile } = useAuth();
@@ -23,7 +24,6 @@ export default function AdminProfileEditPage() {
     if (!loading && !user) {
       router.push('/admin/login');
     } else if (user && user.role !== 'admin' && !user.role?.includes('admin')) {
-      // Check if user has admin role
       const adminRoles = ['admin', 'secretary', 'chairman', 'vice chairman', 'manager', 'treasurer', 'board of directors'];
       const normalizedRole = user.role?.toLowerCase() || '';
       if (!adminRoles.includes(normalizedRole)) {
@@ -31,13 +31,12 @@ export default function AdminProfileEditPage() {
       }
     }
     
-    // Set initial form data
     if (user) {
       setFormData({
-        fullName: user.displayName || 'Admin User',
+        fullName: user.displayName || '',
         email: user.email || '',
-        phone: '+63 912 345 6789', // This would come from admin profile data in a real app
-        role: user.role || 'Administrator',
+        phone: '',
+        role: user.role || '',
       });
     }
   }, [user, loading, router]);
@@ -66,7 +65,6 @@ export default function AdminProfileEditPage() {
     setIsSaving(true);
     
     try {
-      // Update profile using the auth context
       if (user) {
         const updateResult = await updateProfile({
           displayName: formData.fullName,
@@ -75,11 +73,7 @@ export default function AdminProfileEditPage() {
         
         if (updateResult.success) {
           toast.success('Profile updated successfully!');
-          
-          // Track the profile update action
-          if (user) {
-            trackProfileUpdate(user);
-          }
+          trackProfileUpdate(user);
         } else {
           toast.error(updateResult.error || 'Failed to update profile');
         }
@@ -94,59 +88,74 @@ export default function AdminProfileEditPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-red-600"></div>
       </div>
     );
   }
 
+  const getRoleLabel = (role: string) => {
+    const normalizedRole = role?.toLowerCase() || '';
+    if (normalizedRole === 'admin') return 'Administrator';
+    if (normalizedRole === 'vice chairman') return 'Vice Chairman';
+    if (normalizedRole === 'board of directors') return 'Board of Directors';
+    return role?.charAt(0).toUpperCase() + role?.slice(1) || 'Unknown';
+  };
+
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-gray-800">Edit Profile</h1>
-          <p className="text-gray-600 mt-1">Update your personal information and profile details</p>
+    <div className="max-w-2xl mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+          <Link href="/admin/profile" className="hover:text-gray-700">Profile</Link>
+          <span>/</span>
+          <span className="text-gray-900">Edit Profile</span>
         </div>
-      
-      <form onSubmit={handleSubmit}>
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="flex flex-col md:flex-row items-center mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Edit Profile</h1>
+        <p className="text-gray-500 mt-1">Update your personal information</p>
+      </div>
+
+      {/* Profile Card */}
+      <div className="bg-white border border-gray-200 rounded-lg">
+        {/* Photo Section */}
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex items-center gap-4">
             <div className="relative">
-              <div className="w-24 h-24 rounded-full bg-red-100 flex items-center justify-center overflow-hidden">
+              <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
                 {photoPreview ? (
-                  <img 
-                    src={photoPreview} 
-                    alt="Profile Preview" 
+                  <img
+                    src={photoPreview}
+                    alt="Profile Preview"
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <svg className="h-12 w-12 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 )}
               </div>
-              
-              <label className="absolute bottom-0 right-0 bg-red-600 rounded-full p-2 cursor-pointer hover:bg-red-700 transition-colors">
+              <label className="absolute bottom-0 right-0 w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-800 transition-colors">
                 <CameraIcon className="h-4 w-4 text-white" />
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
                   onChange={handlePhotoChange}
                 />
               </label>
             </div>
-            
-            <div className="mt-4 md:mt-0 md:ml-6 text-center md:text-left">
-              <h2 className="text-2xl font-bold text-gray-800">{formData.fullName}</h2>
-              <p className="text-gray-600">{formData.role}</p>
-              <p className="text-sm text-gray-500 mt-1">Click the camera icon to change photo</p>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">{formData.fullName || 'Your Name'}</h2>
+              <p className="text-sm text-gray-500">{getRoleLabel(formData.role)}</p>
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        </div>
+
+        {/* Form Section */}
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="space-y-5">
             <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
                 Full Name
               </label>
               <input
@@ -155,12 +164,13 @@ export default function AdminProfileEditPage() {
                 name="fullName"
                 value={formData.fullName}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                placeholder="Enter your full name"
               />
             </div>
-            
+
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address
               </label>
               <input
@@ -169,12 +179,13 @@ export default function AdminProfileEditPage() {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                placeholder="Enter your email address"
               />
             </div>
-            
+
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
                 Contact Number
               </label>
               <input
@@ -183,43 +194,53 @@ export default function AdminProfileEditPage() {
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                placeholder="Enter your contact number"
               />
             </div>
-            
+
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
                 Role
               </label>
               <input
                 type="text"
                 id="role"
                 name="role"
-                value={formData.role}
+                value={getRoleLabel(formData.role)}
                 readOnly
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed"
               />
+              <p className="text-xs text-gray-400 mt-1">Role can only be changed by an administrator</p>
             </div>
           </div>
-        </div>
-        
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </button>
-        </div>
-      </form>
+
+          <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
+            <Link
+              href="/admin/profile"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="px-6 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSaving ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </span>
+              ) : (
+                'Save Changes'
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

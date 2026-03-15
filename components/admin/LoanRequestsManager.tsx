@@ -6,6 +6,10 @@ import { toast } from 'react-hot-toast';
 import { collection, query, where, orderBy, onSnapshot, limit, startAfter } from 'firebase/firestore';
 import LoanRequestDetailsModal from './LoanRequestDetailsModal';
 import Pagination from './Pagination';
+import { logActivity } from '@/lib/activityLogger';
+import { useAuth } from '@/lib/auth';
+import { approvedloanMessage } from '@/lib/emailService';
+import { usePermissions, PermissionGuard } from '@/lib/rolePermissions';
 
 /*
  * NOTE: This component requires specific Firestore composite indexes to function properly.
@@ -62,6 +66,8 @@ interface User {
 }
 
 export default function LoanRequestsManager() {
+  const { user } = useAuth();
+  const { hasPermission } = usePermissions();
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const [pendingRequests, setPendingRequests] = useState<LoanRequest[]>([]);
   const [approvedRequests, setApprovedRequests] = useState<LoanRequest[]>([]);
@@ -69,6 +75,21 @@ export default function LoanRequestsManager() {
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<LoanRequest | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Rejection modal state
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectRequestId, setRejectRequestId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  
+  // Approval modal state
+  const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
+  const [approveRequestData, setApproveRequestData] = useState<{
+    requestId: string;
+    userId: string;
+    planName: string;
+    amount: number;
+    term: number;
+  } | null>(null);
   
   // Pagination state
   const [pendingCurrentPage, setPendingCurrentPage] = useState(1);
@@ -348,7 +369,11 @@ export default function LoanRequestsManager() {
           });
         }
         
+        // Use the existing loanId from the loan request (generated when user submitted)
+        const loanId = requestId;
+        
         // Create approved loan document in the loans collection with member details
+        const now = new Date();
         const loanData = {
           userId: userId,
           fullName: memberData.fullName,
@@ -356,20 +381,39 @@ export default function LoanRequestsManager() {
           amount: amount,
           term: term,
           planName: planName,
-          startDate: new Date().toISOString(),
+          startDate: now.toISOString(),
           interest: interestRate, // Interest rate from loan plan
           status: 'active',
-          paymentSchedule: paymentSchedule
+          paymentSchedule: paymentSchedule,
+          loanId: loanId // Preserve the original Loan ID
         };
 
         const loanResult = await firestore.setDocument(
           'loans',
-          `${userId}-${requestId}`,
+          loanId,
           loanData
         );
 
         if (loanResult.success) {
           toast.success('Loan request approved successfully!');
+          
+          // Log activity
+          await logActivity({
+            userId: user?.uid || 'unknown',
+            userEmail: user?.email || 'unknown',
+            userName: user?.displayName || 'Admin',
+            action: 'Loan Approved',
+            role: user?.role || 'admin',
+          });
+          const email = user?.email || 'unknown';
+          const emailSent = await approvedloanMessage(
+            'theonesama03@gmail.com',
+            memberData.fullName,
+            amount,
+            interestRate,
+            term,
+            dailyPayment
+          );
           
           // Create approval notification for the user
           try {
@@ -384,7 +428,7 @@ export default function LoanRequestsManager() {
               status: 'unread',
               createdAt: new Date().toISOString(),
               metadata: {
-                loanId: `${userId}-${requestId}`,
+                loanId: loanId,
                 amount: amount,
                 planName: planName,
                 term: term
@@ -421,6 +465,15 @@ export default function LoanRequestsManager() {
 
       if (result.success) {
         toast.success('Loan request rejected');
+        
+        // Log activity
+        await logActivity({
+          userId: user?.uid || 'unknown',
+          userEmail: user?.email || 'unknown',
+          userName: user?.displayName || 'Admin',
+          action: 'Loan Rejected',
+          role: user?.role || 'admin',
+        });
         
         // Create rejection notification for the user
         try {
@@ -590,30 +643,43 @@ export default function LoanRequestsManager() {
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
             {status === 'pending' && (
-              <>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Show a prompt for rejection reason
-                    const reason = prompt('Enter rejection reason:');
-                    if (reason) {
-                      handleReject(request.id, reason);
-                    }
-                  }}
-                  className="text-red-600 hover:text-red-900 mr-3"
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleApprove(request.id, request.userId, request.planName || 'General Loan', request.amount, request.term);
-                  }}
-                  className="text-green-600 hover:text-green-900"
-                >
-                  Approve
-                </button>
-              </>
+              <div className="flex justify-end gap-2">
+                {hasPermission('rejectLoans') && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Open rejection modal
+                      setRejectRequestId(request.id);
+                      setRejectionReason('');
+                      setIsRejectModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 bg-red-600 text-white border-2 border-red-800 rounded-md hover:bg-red-700 transition-colors font-bold text-xs uppercase tracking-wide shadow-sm"
+                    aria-label="Reject loan request"
+                  >
+                    Reject
+                  </button>
+                )}
+                {hasPermission('approveLoans') && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Open approval confirmation modal
+                      setApproveRequestData({
+                        requestId: request.id,
+                        userId: request.userId,
+                        planName: request.planName || 'General Loan',
+                        amount: request.amount,
+                        term: request.term
+                      });
+                      setIsApproveModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 bg-green-600 text-white border-2 border-green-800 rounded-md hover:bg-green-700 transition-colors font-bold text-xs uppercase tracking-wide shadow-sm"
+                    aria-label="Approve loan request"
+                  >
+                    Approve
+                  </button>
+                )}
+              </div>
             )}
             {status === 'rejected' && (
               <span className="text-xs text-red-600">
@@ -625,6 +691,23 @@ export default function LoanRequestsManager() {
       );
     });
   };
+
+  // Show access denied if user doesn't have viewLoans permission
+  if (!hasPermission('viewLoans')) {
+    return (
+      <div className="bg-white rounded-lg shadow overflow-hidden p-6">
+        <div className="flex items-center gap-3">
+          <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <div>
+            <h2 className="text-lg font-semibold text-red-800">Access Denied</h2>
+            <p className="text-red-600">You do not have permission to view loan requests.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -763,6 +846,170 @@ export default function LoanRequestsManager() {
         onApprove={handleApprove}
         onReject={handleReject}
       />
+
+      {/* Approval Confirmation Modal */}
+      {isApproveModalOpen && approveRequestData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-black">Approve Loan Request</h2>
+                <button 
+                  onClick={() => {
+                    setIsApproveModalOpen(false);
+                    setApproveRequestData(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="mb-6">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-green-700">
+                        Please confirm that you want to approve this loan application.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Loan Plan:</span>
+                    <span className="font-medium text-black">{approveRequestData.planName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Amount:</span>
+                    <span className="font-medium text-black">{formatCurrency(approveRequestData.amount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Term:</span>
+                    <span className="font-medium text-black">{approveRequestData.term} month{approveRequestData.term !== 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+
+                <p className="text-sm text-gray-500 mt-4">
+                  Once approved, a loan account will be created and the applicant will be notified.
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsApproveModalOpen(false);
+                    setApproveRequestData(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleApprove(
+                      approveRequestData.requestId,
+                      approveRequestData.userId,
+                      approveRequestData.planName,
+                      approveRequestData.amount,
+                      approveRequestData.term
+                    );
+                    setIsApproveModalOpen(false);
+                    setApproveRequestData(null);
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Confirm Approval
+
+
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Reason Modal */}
+      {isRejectModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-black">Reject Loan Request</h2>
+                <button 
+                  onClick={() => {
+                    setIsRejectModalOpen(false);
+                    setRejectRequestId(null);
+                    setRejectionReason('');
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-black text-sm font-medium mb-2" htmlFor="rejectionReason">
+                  Reason for Rejection <span className="text-red-600">*</span>
+                </label>
+                <textarea
+                  id="rejectionReason"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Enter the reason for rejecting this loan request..."
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black resize-none"
+                  rows={4}
+                  required
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  This reason will be shared with the applicant.
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRejectModalOpen(false);
+                    setRejectRequestId(null);
+                    setRejectionReason('');
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (rejectRequestId && rejectionReason.trim()) {
+                      handleReject(rejectRequestId, rejectionReason);
+                      setIsRejectModalOpen(false);
+                      setRejectRequestId(null);
+                      setRejectionReason('');
+                    }
+                  }}
+                  disabled={!rejectionReason.trim()}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Confirm Rejection
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
