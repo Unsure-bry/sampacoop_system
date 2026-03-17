@@ -10,6 +10,8 @@ import { createLinkedUserMember, checkEmailExists } from '@/lib/userMemberServic
 import { logActivity } from '@/lib/activityLogger';
 import { useAuth } from '@/lib/auth';
 import { getSystemSettings, formatCurrency, SystemSettings } from '@/lib/settingsService';
+import CertificatePreviewModal from './CertificatePreviewModal';
+import { generateShareCertificate } from '@/lib/certificateService';
 
 interface PersonalInfo {
   firstName: string;
@@ -105,6 +107,9 @@ export default function MemberRegistrationModal({
   const [isPaid, setIsPaid] = useState(false); // Payment confirmation checkbox
   const [controlNumber, setControlNumber] = useState(''); // Receipt control number
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
+  const [showCertificatePreview, setShowCertificatePreview] = useState(false);
+  const [isGeneratingCertificate, setIsGeneratingCertificate] = useState(false);
+  const [registeredMemberData, setRegisteredMemberData] = useState<any>(null);
   const { register, handleSubmit, watch, setValue, formState: { errors }, reset, trigger } = useForm<FormData>();
 
   // Fetch system settings when modal opens
@@ -361,6 +366,22 @@ export default function MemberRegistrationModal({
       });
 
       if (success) {
+        // Store registered member data for certificate generation
+        const memberData = {
+          id: normalizedEmail, // Temporary ID until we get the actual Firestore ID
+          firstName: data.firstName,
+          lastName: data.lastName,
+          middleName: data.middleName,
+          suffix: data.suffix,
+          role: data.role,
+          email: normalizedEmail,
+          phoneNumber: data.phoneNumber,
+          createdAt: new Date().toISOString(),
+          driverInfo: driverInfo || undefined,
+          operatorInfo: operatorInfo || undefined
+        };
+        setRegisteredMemberData(memberData);
+        
         // Send welcome email
         const emailSent = await sendMemberRegistrationEmail(normalizedEmail, `${data.firstName} ${data.lastName}`); // Use normalized email
         
@@ -379,12 +400,8 @@ export default function MemberRegistrationModal({
           role: user?.role || 'admin',
         });
         
-        reset();
-        setCurrentStep(1);
-        setRole(null);
-        setLicenseNumberValid(null); // Reset license number validation state
-        onClose();
-        onMemberAdded(); // This will trigger the success message in the Membership page
+        // Show certificate preview modal
+        setShowCertificatePreview(true);
       } else {
         toast.error('Failed to register member. Please try again.');
       }
@@ -402,6 +419,63 @@ export default function MemberRegistrationModal({
     setValue('role', selectedRole, { shouldValidate: true });
     // Reset license number validation when role changes
     setLicenseNumberValid(null);
+  };
+
+  // Handle certificate generation
+  const handleGenerateCertificate = async (certificateData: any) => {
+    if (!registeredMemberData) return;
+    
+    setIsGeneratingCertificate(true);
+    try {
+      const result = await generateShareCertificate(registeredMemberData, {
+        certificateNumber: certificateData.certificateNumber,
+        shares: certificateData.shares,
+        shareCapital: certificateData.shareCapital,
+        cooperativeName: certificateData.cooperativeName,
+        day: certificateData.day,
+        month: certificateData.month,
+        year: certificateData.year,
+        secretaryName: certificateData.secretaryName,
+        chairmanName: certificateData.chairmanName
+      });
+      
+      if (result.success) {
+        toast.success('Certificate generated and sent successfully!');
+        setShowCertificatePreview(false);
+        
+        // Reset form and close modal
+        reset();
+        setCurrentStep(1);
+        setRole(null);
+        setLicenseNumberValid(null);
+        setControlNumber('');
+        setRegisteredMemberData(null);
+        onClose();
+        onMemberAdded();
+      } else {
+        toast.error('Failed to generate certificate. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error generating certificate:', error);
+      toast.error('An error occurred while generating the certificate');
+    } finally {
+      setIsGeneratingCertificate(false);
+    }
+  };
+
+  // Handle closing certificate preview without generating
+  const handleCloseCertificatePreview = () => {
+    setShowCertificatePreview(false);
+    
+    // Reset form and close modal
+    reset();
+    setCurrentStep(1);
+    setRole(null);
+    setLicenseNumberValid(null);
+    setControlNumber('');
+    setRegisteredMemberData(null);
+    onClose();
+    onMemberAdded();
   };
   
   // We no longer need handlePlateNumberChange since we're using register for plate numbers
@@ -1238,7 +1312,10 @@ export default function MemberRegistrationModal({
                 </div>
                 
                 <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-                  <h4 className="font-medium text-black mb-3">Payment Details</h4>
+                  <h4 className="font-medium text-black mb-3">Payment Details & Certificate</h4>
+                  <p className="text-sm text-gray-600 mb-3">
+                    After confirming, you will be able to preview and generate the member&apos;s share certificate.
+                  </p>
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-black">Selected Role:</span>
@@ -1313,6 +1390,15 @@ export default function MemberRegistrationModal({
           </form>
         </div>
       </div>
+
+      {/* Certificate Preview Modal */}
+      <CertificatePreviewModal
+        isOpen={showCertificatePreview}
+        onClose={handleCloseCertificatePreview}
+        onConfirm={handleGenerateCertificate}
+        memberData={registeredMemberData}
+        isGenerating={isGeneratingCertificate}
+      />
     </div>
   );
 }
