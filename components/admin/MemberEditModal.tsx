@@ -338,7 +338,7 @@ export default function MemberEditModal({
                     <input
                       type="text"
                       {...register('firstName', { required: 'First name is required' })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900 ${
                         errors.firstName ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter first name"
@@ -355,7 +355,7 @@ export default function MemberEditModal({
                     <input
                       type="text"
                       {...register('lastName', { required: 'Last name is required' })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900 ${
                         errors.lastName ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter last name"
@@ -372,7 +372,7 @@ export default function MemberEditModal({
                     <input
                       type="text"
                       {...register('middleName')}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900"
                       placeholder="Enter middle name"
                     />
                   </div>
@@ -384,7 +384,7 @@ export default function MemberEditModal({
                     <input
                       type="text"
                       {...register('suffix')}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900"
                       placeholder="e.g., Jr., Sr., III"
                     />
                   </div>
@@ -402,7 +402,7 @@ export default function MemberEditModal({
                           message: 'Invalid email address'
                         }
                       })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900 ${
                         errors.email ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter email address"
@@ -425,7 +425,7 @@ export default function MemberEditModal({
                           message: 'Invalid phone number format'
                         }
                       })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900 ${
                         errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter phone number"
@@ -443,7 +443,7 @@ export default function MemberEditModal({
                       <input
                         type="date"
                         {...register('birthdate', { required: 'Birthdate is required' })}
-                        className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                        className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900 ${
                           errors.birthdate ? 'border-red-500' : 'border-gray-300'
                         }`}
                       />
@@ -469,7 +469,7 @@ export default function MemberEditModal({
                         min: { value: 0, message: 'Age must be 0 or greater' },
                         max: { value: 120, message: 'Age must be realistic' }
                       })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900 ${
                         errors.age ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Age will be calculated automatically"
@@ -491,11 +491,11 @@ export default function MemberEditModal({
                         className={`p-4 border rounded-lg text-center transition-colors ${
                           role === 'Driver' 
                             ? 'border-red-500 bg-red-50 ring-2 ring-red-200' 
-                            : 'border-gray-300 hover:border-gray-400'
+                            : 'border-gray-300 hover:border-gray-400 bg-white'
                         }`}
                       >
-                        <div className="font-medium">Driver</div>
-                        <div className="text-sm text-gray-500 mt-1">For jeepney drivers</div>
+                        <div className={`font-medium ${role === 'Driver' ? 'text-red-700' : 'text-gray-900'}`}>Driver</div>
+                        <div className={`text-sm mt-1 ${role === 'Driver' ? 'text-red-600' : 'text-gray-600'}`}>For jeepney drivers</div>
                       </button>
                       <button
                         type="button"
@@ -503,11 +503,11 @@ export default function MemberEditModal({
                         className={`p-4 border rounded-lg text-center transition-colors ${
                           role === 'Operator' 
                             ? 'border-red-500 bg-red-50 ring-2 ring-red-200' 
-                            : 'border-gray-300 hover:border-gray-400'
+                            : 'border-gray-300 hover:border-gray-400 bg-white'
                         }`}
                       >
-                        <div className="font-medium">Operator</div>
-                        <div className="text-sm text-gray-500 mt-1">For jeepney operators</div>
+                        <div className={`font-medium ${role === 'Operator' ? 'text-red-700' : 'text-gray-900'}`}>Operator</div>
+                        <div className={`text-sm mt-1 ${role === 'Operator' ? 'text-red-600' : 'text-gray-600'}`}>For jeepney operators</div>
                       </button>
                     </div>
                     {role === null && (
@@ -526,7 +526,7 @@ export default function MemberEditModal({
                         <input
                           type="text"
                           {...register(role === 'Driver' ? 'driverHouseNumber' : 'operatorHouseNumber')}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900"
                           placeholder="Enter house number"
                         />
                       </div>
@@ -538,7 +538,7 @@ export default function MemberEditModal({
                         <input
                           type="text"
                           {...register(role === 'Driver' ? 'driverBlockNumber' : 'operatorBlockNumber')}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900"
                           placeholder="Enter block number"
                         />
                       </div>
@@ -550,7 +550,7 @@ export default function MemberEditModal({
                         <input
                           type="text"
                           {...register(role === 'Driver' ? 'driverLotNumber' : 'operatorLotNumber')}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900"
                           placeholder="Enter lot number"
                         />
                       </div>
@@ -562,7 +562,7 @@ export default function MemberEditModal({
                         <input
                           type="text"
                           {...register(role === 'Driver' ? 'driverStreet' : 'operatorStreet')}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900"
                           placeholder="Enter street"
                         />
                       </div>
@@ -574,7 +574,7 @@ export default function MemberEditModal({
                         <input
                           type="text"
                           {...register(role === 'Driver' ? 'driverBarangay' : 'operatorBarangay')}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900"
                           placeholder="Enter barangay"
                         />
                       </div>
@@ -586,7 +586,7 @@ export default function MemberEditModal({
                         <input
                           type="text"
                           {...register(role === 'Driver' ? 'driverCity' : 'operatorCity')}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900"
                           placeholder="Enter city"
                         />
                       </div>
@@ -622,7 +622,7 @@ export default function MemberEditModal({
                     <input
                       type="text"
                       {...register(role === 'Driver' ? 'driverLicenseNumber' : 'operatorLicenseNumber', { required: 'License number is required' })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900 ${
                         role === 'Driver' 
                           ? (errors.driverLicenseNumber ? 'border-red-500' : 'border-gray-300')
                           : (errors.operatorLicenseNumber ? 'border-red-500' : 'border-gray-300')
@@ -644,7 +644,7 @@ export default function MemberEditModal({
                     <input
                       type="text"
                       {...register(role === 'Driver' ? 'driverTinId' : 'operatorTinId', { required: 'TIN ID is required' })}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900 ${
                         role === 'Driver' 
                           ? (errors.driverTinId ? 'border-red-500' : 'border-gray-300')
                           : (errors.operatorTinId ? 'border-red-500' : 'border-gray-300')
@@ -673,7 +673,7 @@ export default function MemberEditModal({
                             valueAsNumber: true,
                             min: 1
                           })}
-                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                          className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900 ${
                             errors.numberOfJeepneys ? 'border-red-500' : 'border-gray-300'
                           }`}
                           placeholder="Enter number of jeepneys"
@@ -697,7 +697,7 @@ export default function MemberEditModal({
                                   type="text"
                                   value={plateNumbers[index] || ''}
                                   onChange={(e) => handlePlateNumberChange(index, e.target.value)}
-                                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900"
                                   placeholder={`Enter plate number for jeepney ${index + 1}`}
                                 />
                               </div>
@@ -740,51 +740,51 @@ export default function MemberEditModal({
               <div className="space-y-6">
                 <h3 className="text-lg font-semibold text-gray-800">Confirm Member Information</h3>
                 
-                <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <h4 className="font-medium text-gray-700">Personal Information</h4>
-                      <div className="mt-2 space-y-1 text-sm">
-                        <p><span className="text-gray-600">Name:</span> {watch('firstName')} {watch('middleName')} {watch('lastName')} {watch('suffix')}</p>
-                        <p><span className="text-gray-600">Email:</span> {watch('email')}</p>
-                        <p><span className="text-gray-600">Phone:</span> {watch('phoneNumber')}</p>
-                        <p><span className="text-gray-600">Birthdate:</span> {watch('birthdate')}</p>
-                        <p><span className="text-gray-600">Age:</span> {watch('age')}</p>
-                        <p><span className="text-gray-600">Role:</span> {watch('role')}</p>
+                      <h4 className="font-medium text-gray-900">Personal Information</h4>
+                      <div className="mt-2 space-y-1 text-sm text-gray-900">
+                        <p><span className="font-medium text-gray-700">Name:</span> {watch('firstName')} {watch('middleName')} {watch('lastName')} {watch('suffix')}</p>
+                        <p><span className="font-medium text-gray-700">Email:</span> {watch('email')}</p>
+                        <p><span className="font-medium text-gray-700">Phone:</span> {watch('phoneNumber')}</p>
+                        <p><span className="font-medium text-gray-700">Birthdate:</span> {watch('birthdate')}</p>
+                        <p><span className="font-medium text-gray-700">Age:</span> {watch('age')}</p>
+                        <p><span className="font-medium text-gray-700">Role:</span> {watch('role')}</p>
                       </div>
                     </div>
                     
                     <div>
-                      <h4 className="font-medium text-gray-700">Address Information</h4>
-                      <div className="mt-2 space-y-1 text-sm">
-                        <p><span className="text-gray-600">House No.:</span> {role === 'Driver' ? watch('driverHouseNumber') : watch('operatorHouseNumber')}</p>
-                        <p><span className="text-gray-600">Block No.:</span> {role === 'Driver' ? watch('driverBlockNumber') : watch('operatorBlockNumber')}</p>
-                        <p><span className="text-gray-600">Lot No.:</span> {role === 'Driver' ? watch('driverLotNumber') : watch('operatorLotNumber')}</p>
-                        <p><span className="text-gray-600">Street:</span> {role === 'Driver' ? watch('driverStreet') : watch('operatorStreet')}</p>
-                        <p><span className="text-gray-600">Barangay:</span> {role === 'Driver' ? watch('driverBarangay') : watch('operatorBarangay')}</p>
-                        <p><span className="text-gray-600">City:</span> {role === 'Driver' ? watch('driverCity') : watch('operatorCity')}</p>
+                      <h4 className="font-medium text-gray-900">Address Information</h4>
+                      <div className="mt-2 space-y-1 text-sm text-gray-900">
+                        <p><span className="font-medium text-gray-700">House No.:</span> {role === 'Driver' ? watch('driverHouseNumber') : watch('operatorHouseNumber')}</p>
+                        <p><span className="font-medium text-gray-700">Block No.:</span> {role === 'Driver' ? watch('driverBlockNumber') : watch('operatorBlockNumber')}</p>
+                        <p><span className="font-medium text-gray-700">Lot No.:</span> {role === 'Driver' ? watch('driverLotNumber') : watch('operatorLotNumber')}</p>
+                        <p><span className="font-medium text-gray-700">Street:</span> {role === 'Driver' ? watch('driverStreet') : watch('operatorStreet')}</p>
+                        <p><span className="font-medium text-gray-700">Barangay:</span> {role === 'Driver' ? watch('driverBarangay') : watch('operatorBarangay')}</p>
+                        <p><span className="font-medium text-gray-700">City:</span> {role === 'Driver' ? watch('driverCity') : watch('operatorCity')}</p>
                       </div>
                     </div>
                     
                     {role === 'Driver' && (
                       <div>
-                        <h4 className="font-medium text-gray-700">Driver Information</h4>
-                        <div className="mt-2 space-y-1 text-sm">
-                          <p><span className="text-gray-600">License:</span> {watch('driverLicenseNumber')}</p>
-                          <p><span className="text-gray-600">TIN ID:</span> {watch('driverTinId')}</p>
+                        <h4 className="font-medium text-gray-900">Driver Information</h4>
+                        <div className="mt-2 space-y-1 text-sm text-gray-900">
+                          <p><span className="font-medium text-gray-700">License:</span> {watch('driverLicenseNumber')}</p>
+                          <p><span className="font-medium text-gray-700">TIN ID:</span> {watch('driverTinId')}</p>
                         </div>
                       </div>
                     )}
                     
                     {role === 'Operator' && (
                       <div>
-                        <h4 className="font-medium text-gray-700">Operator Information</h4>
-                        <div className="mt-2 space-y-1 text-sm">
-                          <p><span className="text-gray-600">License:</span> {watch('operatorLicenseNumber')}</p>
-                          <p><span className="text-gray-600">TIN ID:</span> {watch('operatorTinId')}</p>
-                          <p><span className="text-gray-600">Jeepneys:</span> {watch('numberOfJeepneys')}</p>
+                        <h4 className="font-medium text-gray-900">Operator Information</h4>
+                        <div className="mt-2 space-y-1 text-sm text-gray-900">
+                          <p><span className="font-medium text-gray-700">License:</span> {watch('operatorLicenseNumber')}</p>
+                          <p><span className="font-medium text-gray-700">TIN ID:</span> {watch('operatorTinId')}</p>
+                          <p><span className="font-medium text-gray-700">Jeepneys:</span> {watch('numberOfJeepneys')}</p>
                           <div>
-                            <span className="text-gray-600">Plate Numbers:</span>
+                            <span className="font-medium text-gray-700">Plate Numbers:</span>
                             <div className="ml-2">
                               {Array.isArray(watch('plateNumbers')) && 
                                 watch('plateNumbers')?.map((plate: string, index: number) => (

@@ -5,6 +5,7 @@ export interface LoanPlan {
   maxAmount: number;
   interestRate: number;
   termOptions: number[];
+  applicableTo: 'Driver' | 'Operator' | 'All Members';
   createdAt?: string;
 }
 

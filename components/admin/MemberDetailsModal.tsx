@@ -55,6 +55,11 @@ export default function MemberDetailsModal({
 
   if (!isClient || !isOpen || !member) return null;
 
+  // Debug: Log member certificate data
+  console.log('MemberDetailsModal - member:', member);
+  console.log('MemberDetailsModal - shareCertificate:', member.shareCertificate);
+  console.log('MemberDetailsModal - shareCertificateGenerated:', member.shareCertificateGenerated);
+
   const getFullName = () => {
     return `${member.firstName} ${member.middleName ? member.middleName + ' ' : ''}${member.lastName}${member.suffix ? ' ' + member.suffix : ''}`;
   };
@@ -228,18 +233,18 @@ export default function MemberDetailsModal({
           {/* Certificate Section */}
           <div className="mt-8 pt-6 border-t border-gray-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-black">Membership Certificate</h3>
+              <h3 className="text-lg font-semibold text-black">Share Certificate</h3>
               <button
                 onClick={async () => {
                   // Toggle the certificate view
                   setShowCertificate(!showCertificate);
                 }}
                 className={`px-4 py-2 rounded-lg hover:transition-colors ${
-                  member.certificateGenerated 
+                  member.shareCertificateGenerated || member.certificateGenerated
                     ? 'bg-blue-600 text-white hover:bg-blue-700' 
                     : 'bg-gray-400 text-white cursor-not-allowed'
                 }`}
-                disabled={!member.certificateGenerated}
+                disabled={!member.shareCertificateGenerated && !member.certificateGenerated}
               >
                 {showCertificate ? 'Hide Certificate' : 'View Certificate'}
               </button>
@@ -247,37 +252,149 @@ export default function MemberDetailsModal({
             
             {showCertificate && (
               <div className="bg-gray-50 p-4 rounded-lg border border-gray-300">
+                {/* Certificate Visual Display */}
                 <div className="flex justify-center mb-4">
-                  <iframe
-                    src={`/api/certificate/${encodeURIComponent(member.id)}`}
-                    width="100%"
-                    height="500px"
-                    title="Membership Certificate"
-                    className="border border-gray-300 rounded bg-white"
-                  ></iframe>
-                </div>
-                <div className="flex justify-center space-x-4">
-                  <button
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = `/api/certificate/${encodeURIComponent(member.id)}`;
-                      link.download = `membership-certificate-${member.id}.pdf`;
-                      link.click();
+                  <div 
+                    className="relative bg-white shadow-xl"
+                    style={{ 
+                      width: '100%',
+                      maxWidth: '800px',
+                      aspectRatio: '800 / 566',
+                      backgroundImage: 'url(/SAMPA%20TRANSPORT%20SERVICE%20COOPERATIVE.png)',
+                      backgroundSize: 'contain',
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat',
                     }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                   >
-                    Download Certificate
-                  </button>
-                  <button
-                    onClick={() => {
-                      const win = window.open(`/api/certificate/${encodeURIComponent(member.id)}`, '_blank');
-                      if (win) win.focus();
-                    }}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                  >
-                    Open in New Tab
-                  </button>
+                    {/* Text Overlays - Using certificate data from Firestore */}
+                    <div className="absolute inset-0">
+                      {/* Full Name */}
+                      <div
+                        className="absolute text-center font-serif font-bold text-gray-900"
+                        style={{
+                          top: '31%',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: '50%',
+                          fontSize: 'clamp(14px, 3vw, 22px)',
+                        }}
+                      >
+                        {member.shareCertificate?.fullName || `${member.firstName} ${member.middleName || ''} ${member.lastName} ${member.suffix || ''}`.trim()}
+                      </div>
+
+                      {/* Share Capital Amount */}
+                      <div
+                        className="absolute font-serif font-semibold text-gray-900 text-center"
+                        style={{
+                          top: '38%',
+                          left: '26%',
+                          width: '15%',
+                          fontSize: 'clamp(12px, 2.5vw, 18px)',
+                        }}
+                      >
+                        {member.shareCertificate?.shares ? `₱${Number(member.shareCertificate.shares).toLocaleString('en-PH')}` : '₱100'}
+                      </div>
+
+                      {/* Day */}
+                      <div
+                        className="absolute font-serif text-gray-900 text-center"
+                        style={{
+                          top: '60%',
+                          left: '19%',
+                          width: '5%',
+                          fontSize: 'clamp(10px, 2vw, 14px)',
+                        }}
+                      >
+                        {member.shareCertificate?.issueDate 
+                          ? new Date(member.shareCertificate.issueDate).getDate()
+                          : new Date().getDate()}
+                      </div>
+
+                      {/* Month */}
+                      <div
+                        className="absolute font-serif text-gray-900 text-center"
+                        style={{
+                          top: '60%',
+                          left: '34%',
+                          width: '9%',
+                          fontSize: 'clamp(10px, 2vw, 14px)',
+                        }}
+                      >
+                        {member.shareCertificate?.issueDate 
+                          ? new Date(member.shareCertificate.issueDate).toLocaleString('en-US', { month: 'long' })
+                          : new Date().toLocaleString('en-US', { month: 'long' })}
+                      </div>
+
+                      {/* Year */}
+                      <div
+                        className="absolute font-serif text-gray-900 text-center"
+                        style={{
+                          top: '60%',
+                          left: '56%',
+                          width: '7%',
+                          fontSize: 'clamp(10px, 2vw, 14px)',
+                        }}
+                      >
+                        {member.shareCertificate?.issueDate 
+                          ? new Date(member.shareCertificate.issueDate).getFullYear()
+                          : new Date().getFullYear()}
+                      </div>
+
+                      {/* Secretary Name */}
+                      <div
+                        className="absolute font-serif text-gray-900 text-center whitespace-nowrap"
+                        style={{
+                          top: '79%',
+                          left: '20%',
+                          width: '16%',
+                          fontSize: 'clamp(8px, 1.5vw, 11px)',
+                        }}
+                      >
+                        {member.shareCertificate?.secretaryName || ''}
+                      </div>
+
+                      {/* Chairman Name */}
+                      <div
+                        className="absolute font-serif text-gray-900 text-center whitespace-nowrap"
+                        style={{
+                          top: '79%',
+                          left: '65%',
+                          width: '16%',
+                          fontSize: 'clamp(8px, 1.5vw, 11px)',
+                        }}
+                      >
+                        {member.shareCertificate?.chairmanName || ''}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Certificate Details Summary */}
+                <div className="mb-4 bg-white p-4 rounded-lg border border-gray-200">
+                  <h4 className="font-semibold text-black mb-2">Certificate Details</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <span className="text-black">Certificate Number:</span>
+                    <span className="font-medium text-black">{member.shareCertificate?.certificateNumber || 'N/A'}</span>
+                    
+                    <span className="text-black">Shares:</span>
+                    <span className="font-medium text-black">{member.shareCertificate?.shares || 'N/A'}</span>
+                    
+                    <span className="text-black">Issue Date:</span>
+                    <span className="font-medium text-black">
+                      {member.shareCertificate?.issueDate 
+                        ? new Date(member.shareCertificate.issueDate).toLocaleDateString()
+                        : 'N/A'}
+                    </span>
+                    
+                    <span className="text-black">Secretary:</span>
+                    <span className="font-medium text-black">{member.shareCertificate?.secretaryName || 'N/A'}</span>
+                    
+                    <span className="text-black">Chairman:</span>
+                    <span className="font-medium text-black">{member.shareCertificate?.chairmanName || 'N/A'}</span>
+                  </div>
+                </div>
+
+
               </div>
             )}
           </div>

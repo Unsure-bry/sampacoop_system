@@ -155,25 +155,49 @@ export default function LoanPage() {
       const result = await firestore.getCollection('loanPlans');
       
       if (result.success && result.data) {
-        if (result.data.length === 0) {
+        // Get user's role and normalize it
+        const userRole = user?.role || '';
+        const normalizedRole = userRole.toLowerCase().trim();
+        const isDriver = normalizedRole === 'driver';
+        const isOperator = normalizedRole === 'operator';
+        
+        // Filter plans based on applicableTo field
+        let plansData = result.data.map((doc: any) => ({
+          id: doc.id,
+          ...doc
+        }));
+        
+        // Apply role-based filtering
+        plansData = plansData.filter((plan: LoanPlan) => {
+          const applicableTo = plan.applicableTo || 'All Members';
+          
+          if (applicableTo === 'All Members') {
+            return true; // Show to everyone
+          } else if (applicableTo === 'Driver') {
+            return isDriver; // Show only to drivers
+          } else if (applicableTo === 'Operator') {
+            return isOperator; // Show only to operators
+          }
+          return true;
+        });
+        
+        if (plansData.length === 0 && result.data.length > 0) {
+          // If no plans match the user's role, show a message but don't create samples
+          console.log('No loan plans available for your role');
+        } else if (result.data.length === 0) {
           // Create sample loan plans if none exist
           await createSampleLoanPlans();
           // Fetch again after creating sample plans
           const newResult = await firestore.getCollection('loanPlans');
           if (newResult.success && newResult.data) {
-            const plansData = newResult.data.map((doc: any) => ({
+            plansData = newResult.data.map((doc: any) => ({
               id: doc.id,
               ...doc
             }));
-            setLoanPlans(plansData);
           }
-        } else {
-          const plansData = result.data.map((doc: any) => ({
-            id: doc.id,
-            ...doc
-          }));
-          setLoanPlans(plansData);
         }
+        
+        setLoanPlans(plansData);
       } else {
         console.error('Failed to load loan plans:', result.error);
         toast.error('Failed to load loan plans. Please try again later.');
@@ -196,6 +220,7 @@ export default function LoanPage() {
           maxAmount: 5000,
           interestRate: 3,
           termOptions: [1, 2],
+          applicableTo: 'All Members',
         },
         {
           name: 'Emergency Loan',
@@ -203,6 +228,7 @@ export default function LoanPage() {
           maxAmount: 3000,
           interestRate: 3,
           termOptions: [1, 2],
+          applicableTo: 'All Members',
         }
       ];
 

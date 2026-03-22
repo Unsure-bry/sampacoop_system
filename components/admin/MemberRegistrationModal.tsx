@@ -351,7 +351,7 @@ export default function MemberRegistrationModal({
       }
       
       // Use the new user-member service to create linked records
-      const { success, error } = await createLinkedUserMember({
+      const { success, userId, memberId, error } = await createLinkedUserMember({
         email: normalizedEmail, // Use normalized email
         firstName: data.firstName,
         lastName: data.lastName,
@@ -365,10 +365,10 @@ export default function MemberRegistrationModal({
         paymentInfo: paymentData
       });
 
-      if (success) {
+      if (success && memberId) {
         // Store registered member data for certificate generation
         const memberData = {
-          id: normalizedEmail, // Temporary ID until we get the actual Firestore ID
+          id: memberId, // Use the actual Firestore document ID
           firstName: data.firstName,
           lastName: data.lastName,
           middleName: data.middleName,

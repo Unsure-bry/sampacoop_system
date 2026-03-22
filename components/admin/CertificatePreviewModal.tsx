@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, FileText, Send, AlertCircle, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, FileText, Send, CheckCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { firestore } from '@/lib/firebase';
 
 interface CertificateData {
   memberId: string;
@@ -55,6 +58,7 @@ export default function CertificatePreviewModal({
   memberData,
   isGenerating
 }: CertificatePreviewModalProps) {
+  const certificateRef = useRef<HTMLDivElement>(null);
   const [certificateData, setCertificateData] = useState<CertificateData>({
     memberId: '',
     fullName: '',
@@ -72,13 +76,49 @@ export default function CertificatePreviewModal({
   });
   
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [officers, setOfficers] = useState<{secretary: string; chairman: string}>({ secretary: '', chairman: '' });
 
+  // Fetch officers from Officer Management
+  useEffect(() => {
+    const fetchOfficers = async () => {
+      try {
+        const result = await firestore.getCollection('users');
+        if (result.success && result.data) {
+          const users = result.data;
+          
+          // Find secretary
+          const secretary = users.find((u: any) => 
+            u.role?.toLowerCase() === 'secretary' && u.status === 'active'
+          );
+          
+          // Find chairman
+          const chairman = users.find((u: any) => 
+            u.role?.toLowerCase() === 'chairman' && u.status === 'active'
+          );
+          
+          setOfficers({
+            secretary: secretary ? `${(secretary as any).firstName || ''} ${(secretary as any).lastName || ''}`.trim() : '',
+            chairman: chairman ? `${(chairman as any).firstName || ''} ${(chairman as any).lastName || ''}`.trim() : ''
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching officers:', error);
+      }
+    };
+
+    if (isOpen) {
+      fetchOfficers();
+    }
+  }, [isOpen]);
+
+  // Update certificate data when memberData or officers change
   useEffect(() => {
     if (memberData && isOpen) {
       const fullName = `${memberData.firstName} ${memberData.middleName || ''} ${memberData.lastName} ${memberData.suffix || ''}`.trim();
       const now = new Date();
       
-      setCertificateData({
+      setCertificateData(prev => ({
+        ...prev,
         memberId: memberData.id,
         fullName: fullName,
         certificateNumber: `SC-${Date.now().toString().slice(-8)}`,
@@ -94,11 +134,20 @@ export default function CertificatePreviewModal({
         day: now.getDate().toString(),
         month: now.toLocaleString('en-US', { month: 'long' }),
         year: now.getFullYear().toString(),
-        secretaryName: certificateData.secretaryName,
-        chairmanName: certificateData.chairmanName
-      });
+      }));
     }
   }, [memberData, isOpen]);
+
+  // Update officer names when officers data changes
+  useEffect(() => {
+    if (officers.secretary || officers.chairman) {
+      setCertificateData(prev => ({
+        ...prev,
+        secretaryName: officers.secretary || prev.secretaryName,
+        chairmanName: officers.chairman || prev.chairmanName
+      }));
+    }
+  }, [officers]);
 
   const handleInputChange = (field: keyof CertificateData, value: string) => {
     setCertificateData(prev => ({ ...prev, [field]: value }));
@@ -118,359 +167,443 @@ export default function CertificatePreviewModal({
     }
   };
 
+  const handlePrint = async () => {
+    if (!certificateRef.current) return;
+
+    try {
+      // Use html2canvas to capture the certificate as an image
+      const canvas = await html2canvas(certificateRef.current, {
+        scale: 3,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: 1123,
+        height: 794,
+        imageTimeout: 0,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.getElementById('certificate-preview');
+          if (clonedElement) {
+            clonedElement.style.colorScheme = 'light';
+            const allElements = clonedElement.querySelectorAll('*');
+            allElements.forEach((el) => {
+              const htmlEl = el as HTMLElement;
+              htmlEl.style.color = '#171717';
+            });
+          }
+        },
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        toast.error('Please allow popups to print the certificate');
+        return;
+      }
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Share Certificate - ${certificateData.fullName}</title>
+            <style>
+              * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+              }
+              @page {
+                size: A4 landscape;
+                margin: 0;
+              }
+              html, body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+              }
+              body {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background: white;
+              }
+              img {
+                width: 297mm;
+                height: 210mm;
+                object-fit: contain;
+              }
+              @media print {
+                body {
+                  -webkit-print-color-adjust: exact;
+                  print-color-adjust: exact;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <img src="${imgData}" alt="Certificate" />
+            <script>
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                  window.close();
+                }, 500);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      toast.success('Opening print dialog...');
+    } catch (error) {
+      console.error('Error printing certificate:', error);
+      toast.error('Failed to print certificate');
+    }
+  };
+
+  const downloadPDF = async () => {
+    if (!certificateRef.current) return;
+
+    try {
+      // Get the actual displayed dimensions of the certificate
+      const rect = certificateRef.current.getBoundingClientRect();
+      const displayWidth = rect.width;
+      const displayHeight = rect.height;
+      
+      // Use scale 6 for maximum quality capture
+      const scale = 6;
+      
+      const canvas = await html2canvas(certificateRef.current, {
+        scale: scale,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: 1123,
+        height: 794,
+        imageTimeout: 0,
+        removeContainer: true,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.getElementById('certificate-preview');
+          if (clonedElement) {
+            clonedElement.style.colorScheme = 'light';
+            // Force all text to use hex colors instead of lab()
+            const allElements = clonedElement.querySelectorAll('*');
+            allElements.forEach((el) => {
+              const htmlEl = el as HTMLElement;
+              htmlEl.style.color = '#171717';
+            });
+          }
+        },
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Convert pixel dimensions to mm (96 DPI: 1px = 0.264583mm)
+      const pxToMm = 0.264583;
+      const certWidthMm = 1123 * pxToMm; // ~297mm (A4 width)
+      const certHeightMm = 794 * pxToMm; // ~210mm (A4 height)
+      
+      // Create PDF with exact certificate dimensions
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: [certWidthMm, certHeightMm],
+      });
+      
+      // Add image to fill entire PDF page exactly
+      pdf.addImage(imgData, 'PNG', 0, 0, certWidthMm, certHeightMm, undefined, 'NONE');
+      pdf.save(`certificate-${certificateData.fullName.replace(/\s+/g, '_')}.pdf`);
+      toast.success('Certificate downloaded successfully');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF');
+    }
+  };
+
   if (!isOpen || !memberData) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[98vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-green-200 flex justify-between items-center bg-green-800">
-          <div className="flex items-center">
-            <FileText className="h-5 w-5 text-white mr-3" />
+        <div className="px-8 py-5 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-green-800 to-green-700">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <FileText className="h-5 w-5 text-white" />
+            </div>
             <div>
-              <h2 className="text-lg font-medium text-white">Share Certificate Preview</h2>
-              <p className="text-green-100 text-sm">Review and edit certificate details before generation</p>
+              <h2 className="text-xl font-semibold text-white">Share Certificate</h2>
+              <p className="text-green-100 text-sm">Preview and customize certificate details</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-green-100 hover:text-white transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/20 transition-colors"
             disabled={isGenerating}
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5 text-white" />
           </button>
         </div>
 
-        <div className="p-4">
-          {/* Share Certificate Preview - Traditional Formal Design */}
-          <div className="bg-white border-4 border-green-700 rounded-sm p-6 mb-6 shadow-lg relative" style={{ aspectRatio: '1.4/1' }}>
-            {/* Inner Border */}
-            <div className="absolute inset-2 border-2 border-green-600 pointer-events-none"></div>
-            
-            {/* Certificate Content */}
-            <div className="relative z-10 h-full flex flex-col py-4 px-6">
-              
-              {/* Top Section - Number, Header, Shares */}
-              <div className="flex justify-between items-start mb-4">
-                {/* Number Box */}
-                <div className="border-2 border-green-800 bg-white px-3 py-2 min-w-[100px]">
-                  <p className="text-xs text-green-900 font-bold uppercase text-center border-b border-green-800 pb-1 mb-1">Number</p>
-                  <input
-                    type="text"
-                    value={certificateData.certificateNumber}
-                    onChange={(e) => handleInputChange('certificateNumber', e.target.value)}
-                    className="w-full text-center text-sm font-bold text-green-900 bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-green-500 rounded"
-                  />
-                </div>
-                
-                {/* Center Header */}
-                <div className="text-center flex-1 mx-4">
-                  <div className="border-2 border-green-800 rounded-full px-6 py-2 bg-green-50 inline-block">
-                    <p className="text-xs text-green-900 font-bold uppercase tracking-wide">
-                      Incorporated under the Laws of the Philippines
-                    </p>
-                    <p className="text-xs text-green-800">
-                      The Philippine Cooperative Code - RA 9520
-                    </p>
-                    <p className="text-xs text-green-900 font-bold uppercase">Authorized Capital</p>
+        <div className="flex-1 overflow-y-auto flex flex-col">
+          {/* Certificate Preview Section */}
+          <div className="flex-shrink-0 flex justify-center p-2 bg-gray-50 overflow-x-auto">
+            {/* Certificate - A4 Landscape (297mm x 210mm at 96 DPI = 1123px x 794px) */}
+            <div 
+              ref={certificateRef}
+              id="certificate-preview"
+              className="relative bg-white shadow-xl flex-shrink-0"
+              style={{ 
+                width: '1123px',
+                height: '794px',
+                minWidth: '1123px',
+                minHeight: '794px',
+                backgroundImage: 'url(/SAMPA%20TRANSPORT%20SERVICE%20COOPERATIVE.png)',
+                backgroundSize: '100% 100%',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                color: '#171717',
+              }}
+            >
+                {/* Text Overlays Container - Above Image */}
+                <div className="absolute inset-0 z-10">
+                  {/* Full Name - Positioned under "This certifies that" */}
+                  <div
+                    className="absolute text-center font-serif font-bold text-gray-900"
+                    style={{
+                      top: '245px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: '500px',
+                      fontSize: '28px',
+                    }}
+                  >
+                    {certificateData.fullName}
                   </div>
-                </div>
-                
-                {/* Shares Box */}
-                <div className="border-2 border-green-800 bg-white px-3 py-2 min-w-[100px]">
-                  <p className="text-xs text-green-900 font-bold uppercase text-center border-b border-green-800 pb-1 mb-1">Shares</p>
-                  <input
-                    type="text"
-                    value={certificateData.shares}
-                    onChange={(e) => handleInputChange('shares', e.target.value)}
-                    className="w-full text-center text-sm font-bold text-green-900 bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-green-500 rounded"
-                  />
-                </div>
-              </div>
 
-              {/* Main Title Section */}
-              <div className="text-center mb-6">
-                <h1 className="text-3xl font-bold text-green-900" style={{ fontFamily: 'serif' }}>
-                  This Certifies that
-                </h1>
-              </div>
-              
-              {/* Member Name - Large Underlined */}
-              <div className="mb-4">
-                <input
-                  type="text"
-                  value={certificateData.fullName}
-                  onChange={(e) => handleInputChange('fullName', e.target.value)}
-                  className="w-full text-center text-2xl font-bold text-green-900 bg-transparent border-b-2 border-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 rounded px-4 py-2"
-                  placeholder="Member Full Name"
-                  style={{ fontFamily: 'serif' }}
-                />
-              </div>
-              
-              {/* is the owner of */}
-              <div className="text-center mb-3">
-                <span className="text-lg text-green-800 italic" style={{ fontFamily: 'serif' }}>
-                  is the owner of
-                </span>
-              </div>
-              
-              {/* Shares Input */}
-              <div className="flex justify-center mb-3">
-                <input
-                  type="text"
-                  value={certificateData.shares}
-                  onChange={(e) => handleInputChange('shares', e.target.value)}
-                  className="w-24 text-center text-xl font-bold text-green-900 bg-green-50 border-2 border-green-700 rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-              
-              {/* Common Share Capital of */}
-              <div className="text-center mb-3">
-                <span className="text-xl text-green-800 italic" style={{ fontFamily: 'serif' }}>
-                  Common Share Capital of
-                </span>
-              </div>
-              
-              {/* Cooperative Name */}
-              <div className="mb-6">
-                <input
-                  type="text"
-                  value={certificateData.cooperativeName}
-                  onChange={(e) => handleInputChange('cooperativeName', e.target.value)}
-                  className="w-full max-w-lg mx-auto block text-center text-2xl font-bold text-green-900 bg-transparent border-b-2 border-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 rounded px-4 py-1"
-                  style={{ fontFamily: 'serif' }}
-                />
-              </div>
-
-              {/* Legal Text */}
-              <div className="text-center mb-4 px-4">
-                <p className="text-sm text-green-800 italic leading-relaxed" style={{ fontFamily: 'serif' }}>
-                  transferable only on the books of the Cooperative by the holder hereof in person or by 
-                  <span className="font-bold not-italic"> Attorney </span> 
-                  upon surrender of this Certificate properly endorsed.
-                </p>
-              </div>
-
-              {/* Witness Clause */}
-              <div className="text-center mb-4 px-4">
-                <p className="text-sm text-green-800 italic leading-relaxed" style={{ fontFamily: 'serif' }}>
-                  In Witness Whereof, the said Cooperative has caused this Certificate to be signed by its duly authorized officers and so be sealed with the Seal of the Cooperative this
-                </p>
-                <div className="flex items-center justify-center gap-2 mt-2">
-                  <input
-                    type="text"
-                    value={certificateData.day}
-                    onChange={(e) => handleInputChange('day', e.target.value)}
-                    className="w-16 text-center text-base text-green-900 bg-green-50 border-2 border-green-700 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="Day"
-                  />
-                  <span className="text-green-800 text-base" style={{ fontFamily: 'serif' }}>day of</span>
-                  <input
-                    type="text"
-                    value={certificateData.month}
-                    onChange={(e) => handleInputChange('month', e.target.value)}
-                    className="w-28 text-center text-base text-green-900 bg-green-50 border-2 border-green-700 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="Month"
-                  />
-                  <span className="text-green-800 text-base" style={{ fontFamily: 'serif' }}>A.D. 20</span>
-                  <input
-                    type="text"
-                    value={certificateData.year.slice(-2)}
-                    onChange={(e) => handleInputChange('year', '20' + e.target.value)}
-                    className="w-12 text-center text-base text-green-900 bg-green-50 border-2 border-green-700 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="YY"
-                  />
-                </div>
-              </div>
-
-              {/* Signatures and Seal Section */}
-              <div className="flex justify-between items-end px-4 mt-auto">
-                {/* Green Starburst Seal */}
-                <div className="flex-shrink-0">
-                  <div className="w-28 h-28 relative">
-                    <svg viewBox="0 0 100 100" className="w-full h-full">
-                      <polygon 
-                        points="50,0 58,35 95,25 68,50 95,75 58,65 50,100 42,65 5,75 32,50 5,25 42,35" 
-                        fill="#22c55e"
-                        stroke="#15803d"
-                        strokeWidth="1"
-                      />
-                      <circle cx="50" cy="50" r="30" fill="#16a34a" />
-                      <text x="50" y="45" textAnchor="middle" fill="white" fontSize="8" fontWeight="bold">OFFICIAL</text>
-                      <text x="50" y="58" textAnchor="middle" fill="white" fontSize="8" fontWeight="bold">SEAL</text>
-                    </svg>
+                  {/* Share Capital Amount - Positioned after "the owner of" */}
+                  <div
+                    className="absolute font-serif font-semibold text-gray-900 text-center"
+                    style={{
+                      top: '305px',
+                      left: '300px',
+                      width: '140px',
+                      fontSize: '22px',
+                    }}
+                  >
+                    {certificateData.shares ? `₱${Number(certificateData.shares).toLocaleString('en-PH')}` : ''}
                   </div>
-                </div>
-                
-                {/* Signatures */}
-                <div className="flex-1 flex justify-between items-end ml-8">
-                  {/* Secretary */}
-                  <div className="text-center flex-1">
-                    <input
-                      type="text"
-                      value={certificateData.secretaryName}
-                      onChange={(e) => handleInputChange('secretaryName', e.target.value)}
-                      className="w-full max-w-[180px] mx-auto block text-center text-sm font-bold text-green-900 bg-transparent border-b-2 border-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 rounded px-2 py-1 mb-1"
-                      placeholder="Secretary Name"
-                      style={{ fontFamily: 'serif' }}
-                    />
-                    <p className="text-xs font-bold text-green-900 uppercase tracking-wider">Secretary</p>
-                  </div>
-                  
-                  {/* Chairman */}
-                  <div className="text-center flex-1">
-                    <input
-                      type="text"
-                      value={certificateData.chairmanName}
-                      onChange={(e) => handleInputChange('chairmanName', e.target.value)}
-                      className="w-full max-w-[180px] mx-auto block text-center text-sm font-bold text-green-900 bg-transparent border-b-2 border-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 rounded px-2 py-1 mb-1"
-                      placeholder="Chairman Name"
-                      style={{ fontFamily: 'serif' }}
-                    />
-                    <p className="text-xs font-bold text-green-900 uppercase tracking-wider">Chairman</p>
-                  </div>
-                </div>
-              </div>
 
-              {/* Footer - Shares and Each */}
-              <div className="mt-4 pt-3 border-t-2 border-green-800">
-                <div className="flex justify-center items-center gap-16">
-                  <div className="text-center border-2 border-green-800 px-4 py-2">
-                    <p className="text-xs text-green-900 font-bold uppercase">Shares</p>
-                    <input
-                      type="text"
-                      value={certificateData.shares}
-                      onChange={(e) => handleInputChange('shares', e.target.value)}
-                      className="w-16 text-center text-base font-bold text-green-900 bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-green-500 rounded"
-                    />
+                  {/* Day */}
+                  <div
+                    className="absolute font-serif text-gray-900 text-center"
+                    style={{
+                      top: '475px',
+                      left: '215px',
+                      width: '50px',
+                      fontSize: '18px',
+                    }}
+                  >
+                    {certificateData.day}
                   </div>
-                  <div className="text-center">
-                    <p className="text-xs text-green-900 font-bold uppercase">Each</p>
-                    <p className="text-green-900 font-bold text-base">PHP 100.00</p>
+
+                  {/* Month */}
+                  <div
+                    className="absolute font-serif text-gray-900 text-center"
+                    style={{
+                      top: '475px',
+                      left: '390px',
+                      width: '90px',
+                      fontSize: '18px',
+                    }}
+                  >
+                    {certificateData.month}
+                  </div>
+
+                  {/* Year */}
+                  <div
+                    className="absolute font-serif text-gray-900 text-center"
+                    style={{
+                      top: '475px',
+                      left: '615px',
+                      width: '70px',
+                      fontSize: '18px',
+                    }}
+                  >
+                    {certificateData.year}
+                  </div>
+
+                  {/* Secretary Name */}
+                  <div
+                    className="absolute font-serif text-gray-900 text-center whitespace-nowrap"
+                    style={{
+                      top: '630px',
+                      left: '230px',
+                      width: '160px',
+                      fontSize: '15px',
+                    }}
+                  >
+                    {certificateData.secretaryName}
+                  </div>
+
+                  {/* Chairman Name */}
+                  <div
+                    className="absolute font-serif text-gray-900 text-center whitespace-nowrap"
+                    style={{
+                      top: '630px',
+                      left: '730px',
+                      width: '160px',
+                      fontSize: '15px',
+                    }}
+                  >
+                    {certificateData.chairmanName}
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Editable Fields Section */}
-          <div className="bg-green-50 rounded-lg p-5 mb-6 border border-green-200">
-            <h3 className="text-sm font-bold text-green-800 mb-4 uppercase tracking-wider">
-              Edit Certificate Details
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs text-green-700 mb-1">
-                  Certificate Number
-                </label>
-                <input
-                  type="text"
-                  value={certificateData.certificateNumber}
-                  onChange={(e) => handleInputChange('certificateNumber', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                />
-              </div>
+          {/* Certificate Details Form - Horizontal Layout */}
+          <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4">
+            <div className="max-w-6xl mx-auto">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wider">
+                Certificate Details
+              </h3>
               
-              <div>
-                <label className="block text-xs text-green-700 mb-1">
-                  Number of Shares
-                </label>
-                <input
-                  type="text"
-                  value={certificateData.shares}
-                  onChange={(e) => handleInputChange('shares', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs text-green-700 mb-1">
-                  Cooperative Name
-                </label>
-                <input
-                  type="text"
-                  value={certificateData.cooperativeName}
-                  onChange={(e) => handleInputChange('cooperativeName', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs text-green-700 mb-1">
-                  Secretary Name
-                </label>
-                <input
-                  type="text"
-                  value={certificateData.secretaryName}
-                  onChange={(e) => handleInputChange('secretaryName', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                  placeholder="Enter Secretary name"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs text-green-700 mb-1">
-                  Chairman Name
-                </label>
-                <input
-                  type="text"
-                  value={certificateData.chairmanName}
-                  onChange={(e) => handleInputChange('chairmanName', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                  placeholder="Enter Chairman name"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs text-green-700 mb-1">
-                  Issue Date
-                </label>
-                <input
-                  type="date"
-                  value={certificateData.issueDate}
-                  onChange={(e) => {
-                    const date = new Date(e.target.value);
-                    handleInputChange('issueDate', e.target.value);
-                    handleInputChange('day', date.getDate().toString());
-                    handleInputChange('month', date.toLocaleString('en-US', { month: 'long' }));
-                    handleInputChange('year', date.getFullYear().toString());
-                  }}
-                  className="w-full px-3 py-2 text-sm border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                />
-              </div>
-            </div>
-          </div>
+              <div className="grid grid-cols-6 gap-4">
+                {/* Full Name */}
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={certificateData.fullName}
+                    onChange={(e) => handleInputChange('fullName', e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-gray-900"
+                  />
+                </div>
+                
+                {/* Number of Shares */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Shares
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₱</span>
+                    <input
+                      type="text"
+                      value={certificateData.shares ? Number(certificateData.shares).toLocaleString('en-PH') : ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '');
+                        handleInputChange('shares', value);
+                      }}
+                      className="w-full pl-7 pr-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-gray-900"
+                    />
+                  </div>
+                </div>
+                
+                {/* Issue Date */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Issue Date
+                  </label>
+                  <input
+                    type="date"
+                    value={certificateData.issueDate}
+                    onChange={(e) => {
+                      const date = new Date(e.target.value);
+                      handleInputChange('issueDate', e.target.value);
+                      handleInputChange('day', date.getDate().toString());
+                      handleInputChange('month', date.toLocaleString('en-US', { month: 'long' }));
+                      handleInputChange('year', date.getFullYear().toString());
+                    }}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-gray-900"
+                  />
+                </div>
+                
+                {/* Secretary Name */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Secretary
+                  </label>
+                  <input
+                    type="text"
+                    value={certificateData.secretaryName}
+                    onChange={(e) => handleInputChange('secretaryName', e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-gray-900"
+                    placeholder="Name"
+                  />
+                </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-3">
-            <button
-              onClick={onClose}
-              disabled={isGenerating}
-              className="px-5 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
-            >
-              Skip for now
-            </button>
-            <button
-              onClick={handleGenerateClick}
-              disabled={isGenerating || !certificateData.secretaryName || !certificateData.chairmanName}
-              className="px-5 py-2 text-sm bg-green-700 text-white rounded hover:bg-green-800 transition-colors disabled:opacity-50 flex items-center"
-            >
-              {isGenerating ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                {/* Chairman Name */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Chairman
+                  </label>
+                  <input
+                    type="text"
+                    value={certificateData.chairmanName}
+                    onChange={(e) => handleInputChange('chairmanName', e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-gray-900"
+                    placeholder="Name"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-4 flex gap-3 justify-end">
+                <button
+                  onClick={onClose}
+                  disabled={isGenerating}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                
+                <button
+                  onClick={handlePrint}
+                  className="px-4 py-2 text-sm font-medium bg-white border-2 border-gray-200 text-gray-700 rounded-lg hover:border-blue-500 hover:text-blue-700 transition-all flex items-center gap-2"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                   </svg>
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Generate Certificate
-                </>
-              )}
-            </button>
+                  Print
+                </button>
+                
+                <button
+                  onClick={downloadPDF}
+                  className="px-4 py-2 text-sm font-medium bg-white border-2 border-gray-200 text-gray-700 rounded-lg hover:border-green-500 hover:text-green-700 transition-all flex items-center gap-2"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download PDF
+                </button>
+                
+                <button
+                  onClick={handleGenerateClick}
+                  disabled={isGenerating || !certificateData.secretaryName || !certificateData.chairmanName}
+                  className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-green-700 to-green-600 text-white rounded-lg hover:from-green-800 hover:to-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-green-200"
+                >
+                  {isGenerating ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4" />
+                      Save Certificate
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

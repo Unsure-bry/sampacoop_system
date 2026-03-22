@@ -12,6 +12,7 @@ interface LoanPlan {
   maxAmount: number;
   interestRate: number;
   termOptions: number[];
+  applicableTo: 'Driver' | 'Operator' | 'All Members';
   createdAt?: string;
 }
 
@@ -296,6 +297,7 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
     interestRate: '',
     termOptions: '',
     description: '',
+    applicableTo: 'All Members' as 'Driver' | 'Operator' | 'All Members',
   });
 
   useEffect(() => {
@@ -315,6 +317,7 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
           maxAmount: doc.maxAmount || 0,
           interestRate: doc.interestRate || 0,
           termOptions: doc.termOptions || [],
+          applicableTo: doc.applicableTo || 'All Members',
           createdAt: doc.createdAt || '',
         }));
         setLoanPlans(plans);
@@ -343,6 +346,7 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
         maxAmount: parseFloat(formData.maxAmount) || 0,
         interestRate: parseFloat(formData.interestRate) || 0,
         termOptions: termOptions.length > 0 ? termOptions : [6, 12, 24],
+        applicableTo: formData.applicableTo,
         createdAt: new Date().toISOString(),
       };
 
@@ -351,7 +355,7 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
       if (result.success) {
         toast.success('Loan plan added successfully');
         setIsAddModalOpen(false);
-        setFormData({ name: '', maxAmount: '', interestRate: '', termOptions: '', description: '' });
+        setFormData({ name: '', maxAmount: '', interestRate: '', termOptions: '', description: '', applicableTo: 'All Members' });
         fetchLoanPlans();
       } else {
         toast.error('Failed to add loan plan');
@@ -379,6 +383,7 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
         maxAmount: parseFloat(formData.maxAmount) || 0,
         interestRate: parseFloat(formData.interestRate) || 0,
         termOptions: termOptions.length > 0 ? termOptions : [6, 12, 24],
+        applicableTo: formData.applicableTo,
         updatedAt: new Date().toISOString(),
       };
 
@@ -426,6 +431,7 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
       interestRate: plan.interestRate.toString(),
       termOptions: plan.termOptions.join(', '),
       description: plan.description || '',
+      applicableTo: plan.applicableTo,
     });
     setIsEditModalOpen(true);
   };
@@ -456,7 +462,10 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
         </div>
         {isAdmin && (
           <button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => {
+              setFormData({ name: '', maxAmount: '', interestRate: '', termOptions: '', description: '', applicableTo: 'All Members' });
+              setIsAddModalOpen(true);
+            }}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center"
           >
             <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -524,7 +533,7 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
                 )}
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-blue-50 rounded-lg p-4">
                   <p className="text-sm text-blue-600 font-medium mb-1">Maximum Amount</p>
                   <p className="text-2xl font-bold text-blue-800">
@@ -542,6 +551,12 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
                   <p className="text-2xl font-bold text-purple-800">
                     {selectedPlan ? selectedPlan.termOptions.join(', ') : '—'} 
                     {selectedPlan && <span className="text-sm font-normal text-purple-600"> months</span>}
+                  </p>
+                </div>
+                <div className="bg-orange-50 rounded-lg p-4">
+                  <p className="text-sm text-orange-600 font-medium mb-1">Applicable To</p>
+                  <p className="text-2xl font-bold text-orange-800">
+                    {selectedPlan ? selectedPlan.applicableTo : '—'}
                   </p>
                 </div>
               </div>
@@ -576,7 +591,7 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
                   <input
                     type="text"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 placeholder-gray-600 text-gray-900"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g., Emergency Loan"
@@ -593,7 +608,7 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
                       required
                       min="0"
                       step="0.01"
-                      className="w-full pl-8 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      className="w-full pl-8 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 placeholder-gray-600 text-gray-900"
                       value={formData.maxAmount}
                       onChange={(e) => setFormData({ ...formData, maxAmount: e.target.value })}
                       placeholder="Enter maximum amount"
@@ -609,7 +624,7 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
                       min="0"
                       max="100"
                       step="0.01"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 placeholder-gray-600 text-gray-900"
                       value={formData.interestRate}
                       onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })}
                       placeholder="e.g., 5"
@@ -620,7 +635,7 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
                     <input
                       type="text"
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 placeholder-gray-600 text-gray-900"
                       value={formData.termOptions}
                       onChange={(e) => setFormData({ ...formData, termOptions: e.target.value })}
                       placeholder="e.g., 6, 12, 24"
@@ -628,9 +643,21 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
                   </div>
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Applicable To</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900"
+                    value={formData.applicableTo}
+                    onChange={(e) => setFormData({ ...formData, applicableTo: e.target.value as 'Driver' | 'Operator' | 'All Members' })}
+                  >
+                    <option value="Driver">Driver</option>
+                    <option value="Operator">Operator</option>
+                    <option value="All Members">All Members</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
                   <textarea
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 placeholder-gray-600 text-gray-900"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Enter plan description"
@@ -677,9 +704,10 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
                   <input
                     type="text"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 placeholder-gray-600 text-gray-900"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="e.g., Emergency Loan"
                   />
                 </div>
                 <div>
@@ -693,9 +721,10 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
                       required
                       min="0"
                       step="0.01"
-                      className="w-full pl-8 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      className="w-full pl-8 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 placeholder-gray-600 text-gray-900"
                       value={formData.maxAmount}
                       onChange={(e) => setFormData({ ...formData, maxAmount: e.target.value })}
+                      placeholder="Enter maximum amount"
                     />
                   </div>
                 </div>
@@ -708,9 +737,10 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
                       min="0"
                       max="100"
                       step="0.01"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 placeholder-gray-600 text-gray-900"
                       value={formData.interestRate}
                       onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })}
+                      placeholder="e.g., 5"
                     />
                   </div>
                   <div>
@@ -718,19 +748,33 @@ function LoanPlansSection({ isAdmin }: { isAdmin: boolean }) {
                     <input
                       type="text"
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 placeholder-gray-600 text-gray-900"
                       value={formData.termOptions}
                       onChange={(e) => setFormData({ ...formData, termOptions: e.target.value })}
+                      placeholder="e.g., 6, 12, 24"
                     />
                   </div>
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Applicable To</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900"
+                    value={formData.applicableTo}
+                    onChange={(e) => setFormData({ ...formData, applicableTo: e.target.value as 'Driver' | 'Operator' | 'All Members' })}
+                  >
+                    <option value="Driver">Driver</option>
+                    <option value="Operator">Operator</option>
+                    <option value="All Members">All Members</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
                   <textarea
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 placeholder-gray-600 text-gray-900"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={3}
+                    placeholder="Enter plan description"
                   />
                 </div>
                 <div className="flex space-x-3 pt-4">
