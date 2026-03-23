@@ -1,6 +1,7 @@
 import { firestore } from '@/lib/firebase';
 import { SavingsTransaction } from '@/lib/types/savings';
 import { sendSavingsDepositReceipt } from '@/lib/transactionReceiptService';
+import { logActivity } from './activityLogger';
 
 /**
  * Service for handling savings transactions with atomic updates
@@ -406,6 +407,22 @@ export async function addSavingsTransaction(
         console.error('Error sending savings deposit receipt:', emailError);
         // Don't fail the transaction if email sending fails
       }
+    }
+
+    // Log the savings transaction activity
+    try {
+      const memberInfo = await getMemberInfoByUserId(userId);
+      await logActivity({
+        userId: userId,
+        userEmail: memberInfo?.email || 'unknown',
+        userName: transactionData.memberName || 'Unknown Member',
+        action: `Savings ${transactionData.type === 'deposit' ? 'Deposit' : 'Withdrawal'} - ${transactionData.memberName || 'Unknown'} (Member: ${memberId}, Amount: ₱${transactionData.amount})`,
+        role: memberInfo?.role || 'member'
+      });
+      console.log(`Activity logged: Savings ${transactionData.type} for member ${memberId}`);
+    } catch (activityError) {
+      console.error('Failed to log savings activity:', activityError);
+      // Don't fail the transaction if activity logging fails
     }
 
     return { success: true, transactionId: newTransaction.id };

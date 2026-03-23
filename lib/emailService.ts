@@ -1,15 +1,48 @@
 import emailjs from '@emailjs/browser';
+import { firestore } from './firebase';
 
-// EmailJS Configuration - fetch from environment variables
-const getEmailJSConfig = () => {
-  // For client-side rendering
+// Cache for EmailJS configuration
+let cachedConfig: {
+  publicKey: string;
+  serviceId: string;
+  templateId: string;
+  receiptTemplateId?: string;
+} | null = null;
+
+// EmailJS Configuration - fetch from Firestore with environment variable fallback
+const getEmailJSConfig = async () => {
+  // Return cached config if available
+  if (cachedConfig) {
+    return cachedConfig;
+  }
+
+  // For client-side rendering, try Firestore first
   if (typeof window !== 'undefined') {
+    try {
+      const result = await firestore.getDocument('systemConfig', 'emailjs');
+      if (result.success && result.data) {
+        const config = {
+          publicKey: result.data.publicKey || process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '',
+          serviceId: result.data.serviceId || process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
+          templateId: result.data.templateId || process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || '',
+          receiptTemplateId: result.data.receiptTemplateId || ''
+        };
+        // Cache the config
+        cachedConfig = config;
+        return config;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch EmailJS config from Firestore:', error);
+    }
+
+    // Fallback to environment variables
     return {
       publicKey: process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '',
       serviceId: process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
       templateId: process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || ''
     };
   }
+
   // For server-side, return empty strings
   return {
     publicKey: '',
@@ -19,9 +52,9 @@ const getEmailJSConfig = () => {
 };
 
 // Initialize EmailJS on client side only
-const initEmailJS = () => {
+const initEmailJS = async () => {
   if (typeof window !== 'undefined') {
-    const config = getEmailJSConfig();
+    const config = await getEmailJSConfig();
     if (config.publicKey) {
       emailjs.init(config.publicKey);
       console.log('EmailJS initialized successfully');
@@ -44,7 +77,7 @@ interface EmailData {
 
 export const sendEmail = async (templateId: string, emailData: EmailData): Promise<boolean> => {
   try {
-    const config = getEmailJSConfig();
+    const config = await getEmailJSConfig();
     if (!config.serviceId || !templateId || !config.publicKey) {
       console.error('EmailJS configuration is missing');
       return false;
@@ -90,7 +123,7 @@ Best regards,
 SAMPA Cooperative Team`
   };
 
-  const config = getEmailJSConfig();
+  const config = await getEmailJSConfig();
   return sendEmail(config.templateId, emailData);
 };
 
@@ -116,7 +149,7 @@ Best regards,
 SAMPA Cooperative Team`
   };
 
-  const config = getEmailJSConfig();
+  const config = await getEmailJSConfig();
   return sendEmail(config.templateId, emailData);
 };
 
@@ -138,7 +171,7 @@ Best regards,
 SAMPA Cooperative Team`
   };
 
-  const config = getEmailJSConfig();
+  const config = await getEmailJSConfig();
   return sendEmail(config.templateId, emailData);
 };
 
@@ -170,7 +203,7 @@ Best regards,
 SAMPA Cooperative Team`
   };
 
-  const config = getEmailJSConfig();
+  const config = await getEmailJSConfig();
   return sendEmail(config.templateId, emailData);
 
 };
@@ -203,7 +236,7 @@ export const sendPaymentMessage = async (
     SAMPA Cooperative Team`
   };
 
-  const config = getEmailJSConfig();
+  const config = await getEmailJSConfig();
   return sendEmail(config.templateId, emailData);
 
 };
@@ -238,7 +271,7 @@ export const approvedloanMessage = async (
     SAMPA Cooperative Team`
   };
 
-  const config = getEmailJSConfig();
+  const config = await getEmailJSConfig();
   return sendEmail(config.templateId, emailData);
 
 };
@@ -275,7 +308,7 @@ export const rejectedLoanMessage = async (
     SAMPA Cooperative Team`
   };
 
-  const config = getEmailJSConfig();
+  const config = await getEmailJSConfig();
   return sendEmail(config.templateId, emailData);
 
 };

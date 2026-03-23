@@ -334,6 +334,20 @@ export default function DynamicAdminDashboard() {
           totalApprovedLoans = 0;
         }
 
+        // Also count approved loans from loanRequests collection
+        // This ensures we capture all approved loans regardless of which collection they're in
+        if (loanRequestsResult.success && loanRequestsResult.data) {
+          const allLoanRequests = await firestore.getCollection('loanRequests');
+          if (allLoanRequests.success && allLoanRequests.data) {
+            const approvedFromRequests = allLoanRequests.data.filter(
+              (request: any) => request.status?.toLowerCase() === 'approved'
+            ).length;
+            // Add approved loans from loanRequests to the total (avoid double counting if already in loans)
+            totalApprovedLoans = Math.max(totalApprovedLoans, approvedFromRequests);
+            console.log('Approved loans from loanRequests:', approvedFromRequests);
+          }
+        }
+
         // Process savings leaderboard with enhanced error handling
         let savingsLeaderboardData: SavingsLeaderboardEntry[] = [];
         let totalSavings = 0;

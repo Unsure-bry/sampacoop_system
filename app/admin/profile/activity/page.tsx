@@ -7,6 +7,33 @@ import { useRouter } from 'next/navigation';
 // Import the ActivityLog interface from the activity logger
 import { ActivityLog, getAllActivityLogs } from '@/lib/activityLogger';
 
+// Activity type colors for visual distinction
+const getActivityTypeColor = (action: string): string => {
+  const actionLower = action.toLowerCase();
+  if (actionLower.includes('approve')) return 'bg-green-100 text-green-800 border-green-200';
+  if (actionLower.includes('reject')) return 'bg-red-100 text-red-800 border-red-200';
+  if (actionLower.includes('payment') || actionLower.includes('deposit')) return 'bg-blue-100 text-blue-800 border-blue-200';
+  if (actionLower.includes('withdrawal')) return 'bg-orange-100 text-orange-800 border-orange-200';
+  if (actionLower.includes('login') || actionLower.includes('logout')) return 'bg-gray-100 text-gray-800 border-gray-200';
+  if (actionLower.includes('create') || actionLower.includes('add')) return 'bg-purple-100 text-purple-800 border-purple-200';
+  if (actionLower.includes('update') || actionLower.includes('edit')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+  return 'bg-gray-100 text-gray-800 border-gray-200';
+};
+
+// Get activity icon based on action type
+const getActivityIcon = (action: string) => {
+  const actionLower = action.toLowerCase();
+  if (actionLower.includes('approve')) return '✓';
+  if (actionLower.includes('reject')) return '✗';
+  if (actionLower.includes('payment') || actionLower.includes('deposit')) return '💰';
+  if (actionLower.includes('withdrawal')) return '💸';
+  if (actionLower.includes('login')) return '🔑';
+  if (actionLower.includes('logout')) return '🚪';
+  if (actionLower.includes('create') || actionLower.includes('add')) return '➕';
+  if (actionLower.includes('update') || actionLower.includes('edit')) return '✎';
+  return '📝';
+};
+
 export default function AdminActivityLogPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -107,6 +134,29 @@ export default function AdminActivityLogPage() {
     setCurrentPage(page);
   };
 
+  // Generate pagination range with ellipsis
+  const getPaginationRange = () => {
+    const delta = 2; // Number of pages to show on each side of current page
+    const range: (number | string)[] = [];
+    
+    for (let i = 1; i <= totalPages; i++) {
+      if (
+        i === 1 || // First page
+        i === totalPages || // Last page
+        (i >= currentPage - delta && i <= currentPage + delta) // Pages around current
+      ) {
+        range.push(i);
+      } else if (
+        range[range.length - 1] !== '...' && // Avoid multiple ellipsis
+        (i < currentPage - delta || i > currentPage + delta)
+      ) {
+        range.push('...');
+      }
+    }
+    
+    return range;
+  };
+
   if (loading || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -152,12 +202,15 @@ export default function AdminActivityLogPage() {
                       User
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
-                      Action
+                      Action Type
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
+                      Action Details
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
                       Timestamp
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
                       Role
                     </th>
                   </tr>
@@ -165,19 +218,53 @@ export default function AdminActivityLogPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredLogs.length > 0 ? (
                     getCurrentPageLogs().map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-50">
+                      <tr key={log.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {log.userName || log.userEmail || 'Unknown User'}
-                          </div>
-                          {log.userEmail && log.userName && (
-                            <div className="text-sm text-gray-500">
-                              {log.userEmail}
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
+                              <span className="text-sm font-medium text-red-600">
+                                {(log.userName || log.userEmail || 'U').charAt(0).toUpperCase()}
+                              </span>
                             </div>
-                          )}
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-gray-900">
+                                {log.userName || log.userEmail || 'Unknown User'}
+                              </div>
+                              {log.userEmail && log.userName && (
+                                <div className="text-sm text-gray-500">
+                                  {log.userEmail}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{log.action}</div>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getActivityTypeColor(log.action)}`}>
+                            <span className="mr-1">{getActivityIcon(log.action)}</span>
+                            {log.action.includes('Loan Approved') ? 'Loan Approval' :
+                             log.action.includes('Loan Rejected') ? 'Loan Rejection' :
+                             log.action.includes('Savings') && log.action.includes('deposit') ? 'Savings Deposit' :
+                             log.action.includes('Savings') && log.action.includes('withdrawal') ? 'Savings Withdrawal' :
+                             log.action.includes('Payment') ? 'Payment' :
+                             log.action.includes('Login') ? 'Login' :
+                             log.action.includes('Logout') ? 'Logout' :
+                             log.action.includes('Member') ? 'Member' :
+                             'Action'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{log.action}</div>
+                          {(log as any).memberId && (
+                            <div className="text-xs text-gray-500">Member ID: {(log as any).memberId}</div>
+                          )}
+                          {(log as any).loanId && (
+                            <div className="text-xs text-gray-500">Loan ID: {(log as any).loanId}</div>
+                          )}
+                          {(log as any).amount && (
+                            <div className="text-xs text-gray-600 font-medium">
+                              Amount: ₱{typeof (log as any).amount === 'number' ? (log as any).amount.toLocaleString() : (log as any).amount}
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
@@ -216,11 +303,11 @@ export default function AdminActivityLogPage() {
 
             {/* Pagination */}
             {filteredLogs.length > 0 && (
-              <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-gray-50 border-t border-gray-200 gap-4">
                 <div className="text-sm text-gray-500">
                   Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredLogs.length)} of {filteredLogs.length} entries
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
@@ -228,18 +315,24 @@ export default function AdminActivityLogPage() {
                   >
                     Previous
                   </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`px-3 py-1 border rounded-md text-sm font-medium ${
-                        currentPage === page
-                          ? 'bg-red-600 text-white border-red-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
+                  {getPaginationRange().map((page, index) => (
+                    page === '...' ? (
+                      <span key={`ellipsis-${index}`} className="px-2 py-1 text-sm text-gray-500">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page as number)}
+                        className={`min-w-[36px] px-3 py-1 border rounded-md text-sm font-medium ${
+                          currentPage === page
+                            ? 'bg-red-600 text-white border-red-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )
                   ))}
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}

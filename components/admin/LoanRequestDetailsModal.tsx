@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
+import ContractPreview from './ContractPreview';
 
 interface LoanRequest {
   id: string;
@@ -39,6 +40,21 @@ interface LoanRequestDetailsModalProps {
   onReject: (requestId: string, rejectionReason: string) => void;
 }
 
+interface ContractData {
+  date: string;
+  borrowerName: string;
+  amount: string;
+  purpose: string;
+  role: string;
+  interestRate: string;
+  dateReceived: string;
+  paymentStartDate: string;
+  operatorName: string;
+  driverName: string;
+  coMakerName: string;
+  managerName: string;
+}
+
 export default function LoanRequestDetailsModal({ 
   request, 
   isOpen, 
@@ -47,6 +63,107 @@ export default function LoanRequestDetailsModal({
   onReject 
 }: LoanRequestDetailsModalProps) {
   const [rejectionReason, setRejectionReason] = useState('');
+  const [showContract, setShowContract] = useState(false);
+  const [contractData, setContractData] = useState<ContractData | null>(null);
+  const [fieldPositions, setFieldPositions] = useState<any>(null);
+
+  // Fetch contract data and field positions when viewing an approved loan
+  useEffect(() => {
+    if (isOpen && request && request.status === 'approved') {
+      fetchContractData();
+      fetchFieldPositions();
+    } else {
+      setShowContract(false);
+      setContractData(null);
+    }
+  }, [isOpen, request]);
+
+  // Helper function to format dates for contract display (mm/dd/yyyy format)
+  const formatContractDate = (dateValue: any): string => {
+    if (!dateValue) return '';
+    
+    try {
+      let date: Date;
+      
+      // Handle Firestore Timestamp object { seconds: number, nanoseconds: number }
+      if (typeof dateValue === 'object' && 'seconds' in dateValue) {
+        date = new Date(dateValue.seconds * 1000);
+      } else {
+        // Handle ISO string or other date formats
+        date = new Date(dateValue);
+      }
+      
+      if (!isNaN(date.getTime())) {
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
+      }
+      
+      return dateValue;
+    } catch (e) {
+      return dateValue;
+    }
+  };
+
+  const fetchContractData = async () => {
+    try {
+      // Try to fetch contract data from the loan document
+      const loanResult = await firestore.getDocument('loans', request!.id);
+      if (loanResult.success && loanResult.data) {
+        const loanData = loanResult.data as any;
+        setContractData({
+          date: formatContractDate(loanData.contractDate) || formatContractDate(loanData.startDate) || formatContractDate(new Date()),
+          borrowerName: loanData.fullName || request!.fullName || '',
+          amount: loanData.amount?.toString() || '',
+          purpose: loanData.purpose || '',
+          role: loanData.role || request!.role || '',
+          interestRate: loanData.interest ? `${loanData.interest}%` : '',
+          dateReceived: formatContractDate(loanData.dateReceived) || formatContractDate(loanData.startDate) || '',
+          paymentStartDate: formatContractDate(loanData.paymentStartDate) || formatContractDate(loanData.startDate) || '',
+          operatorName: loanData.operatorName || '',
+          driverName: loanData.driverName || '',
+          coMakerName: loanData.coMakerName || '',
+          managerName: loanData.managerName || ''
+        });
+      } else {
+        // Fallback to basic data from request
+        setContractData({
+          date: formatContractDate(new Date()),
+          borrowerName: request!.fullName || '',
+          amount: request!.amount?.toString() || '',
+          purpose: request!.description || '',
+          role: request!.role || '',
+          interestRate: '',
+          dateReceived: '',
+          paymentStartDate: '',
+          operatorName: '',
+          driverName: '',
+          coMakerName: '',
+          managerName: ''
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching contract data:', error);
+    }
+  };
+
+  const fetchFieldPositions = async () => {
+    try {
+      const result = await firestore.getDocument('settings', 'contractFieldPositions');
+      if (result.success && result.data) {
+        setFieldPositions(result.data.positions || null);
+      }
+    } catch (error) {
+      console.error('Error fetching field positions:', error);
+    }
+  };
+
+  const formatCurrency = (amount: string) => {
+    const num = parseFloat(amount);
+    if (isNaN(num)) return '';
+    return `₱${num.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
   if (!isOpen || !request) return null;
 
@@ -73,7 +190,7 @@ export default function LoanRequestDetailsModal({
     onClose();
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrencyDisplay = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {
       style: 'currency',
       currency: 'PHP',
@@ -139,7 +256,7 @@ export default function LoanRequestDetailsModal({
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
               <p className="text-sm text-black font-medium">Amount</p>
-              <p className="text-black">{formatCurrency(request.amount)}</p>
+              <p className="text-black">{formatCurrencyDisplay(request.amount)}</p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
               <p className="text-sm text-black font-medium">Term</p>
@@ -225,6 +342,35 @@ export default function LoanRequestDetailsModal({
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 text-black"
                 rows={3}
               />
+            </div>
+          )}
+
+          {/* View Contract Button for approved requests */}
+          {request.status === 'approved' && (
+            <div className="mb-4">
+              <button
+                onClick={() => setShowContract(!showContract)}
+                className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                {showContract ? 'Hide Contract' : 'View Contract'}
+              </button>
+            </div>
+          )}
+
+          {/* Contract Preview Section */}
+          {showContract && request.status === 'approved' && contractData && (
+            <div className="mb-6 border-t border-gray-200 pt-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Loan Contract</h3>
+              <div className="bg-gray-50 p-4 rounded-lg overflow-auto max-h-[500px] border border-gray-200">
+                <ContractPreview
+                  contractData={contractData}
+                  fieldPositions={fieldPositions}
+                  formatCurrency={formatCurrency}
+                />
+              </div>
             </div>
           )}
 

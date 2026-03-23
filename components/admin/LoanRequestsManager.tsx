@@ -10,6 +10,7 @@ import { logActivity } from '@/lib/activityLogger';
 import { useAuth } from '@/lib/auth';
 import { approvedloanMessage } from '@/lib/emailService';
 import { usePermissions, PermissionGuard } from '@/lib/rolePermissions';
+import LoanContractModal from './LoanContractModal';
 
 /*
  * NOTE: This component requires specific Firestore composite indexes to function properly.
@@ -89,6 +90,24 @@ export default function LoanRequestsManager() {
     planName: string;
     amount: number;
     term: number;
+    interestRate: number;
+    borrowerName: string;
+    borrowerRole: string;
+    email: string;
+  } | null>(null);
+  
+  // Loan contract modal state
+  const [isContractModalOpen, setIsContractModalOpen] = useState(false);
+  const [contractLoanData, setContractLoanData] = useState<{
+    requestId: string;
+    userId: string;
+    planName: string;
+    amount: number;
+    term: number;
+    interestRate: number;
+    borrowerName: string;
+    borrowerRole: string;
+    email: string;
   } | null>(null);
   
   // Pagination state
@@ -165,7 +184,7 @@ export default function LoanRequestsManager() {
     // Check if Firestore is initialized
     if (!db) {
       console.error('Firestore is not initialized');
-      toast.error('Database connection error');
+      toast.error('Database connection error. Please refresh the page.');
       setLoading(false);
       return;
     }
@@ -201,9 +220,11 @@ export default function LoanRequestsManager() {
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
         setPendingRequests(sortedData);
+        setLoading(false);
       },
       (error) => {
         console.error('Error in pending loan requests listener:', error);
+        setLoading(false);
         if (error.code === 'failed-precondition') {
           toast.error('Firestore index error: Please contact administrator to enable required indexes');
         } else {
@@ -227,9 +248,11 @@ export default function LoanRequestsManager() {
           new Date(b.approvedAt || b.createdAt).getTime() - new Date(a.approvedAt || a.createdAt).getTime()
         );
         setApprovedRequests(sortedData);
+        setLoading(false);
       },
       (error) => {
         console.error('Error in approved loan requests listener:', error);
+        setLoading(false);
         if (error.code === 'failed-precondition') {
           toast.error('Firestore index error: Please contact administrator to enable required indexes');
         } else {
@@ -253,9 +276,11 @@ export default function LoanRequestsManager() {
           new Date(b.rejectedAt || b.createdAt).getTime() - new Date(a.rejectedAt || a.createdAt).getTime()
         );
         setRejectedRequests(sortedData);
+        setLoading(false);
       },
       (error) => {
         console.error('Error in rejected loan requests listener:', error);
+        setLoading(false);
         if (error.code === 'failed-precondition') {
           toast.error('Firestore index error: Please contact administrator to enable required indexes');
         } else {
@@ -263,9 +288,6 @@ export default function LoanRequestsManager() {
         }
       }
     );
-
-    // Initial data load
-    refreshData();
 
     // Clean up listeners on unmount
     return () => {
@@ -326,21 +348,25 @@ export default function LoanRequestsManager() {
         }
 
         // Calculate amortization schedule
-        // Logic: Total Amount = Principal + (Principal × Interest Rate), then divide by days
-        // Example: 3000 + (3000 × 5%) = 3150, then 3150 / 30 = 105 per day
+        // Logic: Total Amount = Principal + (Principal × Interest Rate × Term), then divide by days
+        // Example: 3000 + (3000 × 5% × 1 month) = 3150, then 3150 / 30 = 105 per day
         const totalDays = term * 30;
         
-        // Calculate flat interest amount: Principal × Interest Rate (as is, not divided)
-        const interestAmount = amount * (interestRate / 100);
+        // Calculate total interest: Principal × Interest Rate × Term
+        // Example: 5000 × 2% × 3 months = 300
+        const totalInterest = amount * (interestRate / 100) * term;
         
-        // Calculate total amount: Principal + Interest
-        const totalAmount = amount + interestAmount;
+        // Calculate total amount: Principal + Total Interest
+        const totalAmount = amount + totalInterest;
         
         // Daily payment: Total Amount / Number of days
         const dailyPayment = totalAmount / totalDays;
         
         // Daily principal portion: Principal / Number of days
         const dailyPrincipal = amount / totalDays;
+        
+        // Daily interest portion: Total Interest / Number of days
+        const dailyInterest = totalInterest / totalDays;
         
         // Generate payment schedule
         let remainingBalance = totalAmount;
@@ -362,7 +388,7 @@ export default function LoanRequestsManager() {
             day,
             paymentDate: currentDate.toISOString().split('T')[0],
             principal: dailyPrincipal,
-            interest: interestAmount,
+            interest: dailyInterest,
             totalPayment: dailyPayment,
             remainingBalance,
             status: 'pending' // Initial status for payments
@@ -663,13 +689,21 @@ export default function LoanRequestsManager() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      // Get borrower name from request data
+                      const fullName = request.fullName || 
+                        `${request.firstName || ''} ${request.lastName || ''}`.trim() || 
+                        'Unknown';
                       // Open approval confirmation modal
                       setApproveRequestData({
                         requestId: request.id,
                         userId: request.userId,
                         planName: request.planName || 'General Loan',
                         amount: request.amount,
-                        term: request.term
+                        term: request.term,
+                        interestRate: 5, // Default interest rate, will be fetched from plan
+                        borrowerName: fullName,
+                        borrowerRole: request.role || 'Member',
+                        email: request.email || ''
                       });
                       setIsApproveModalOpen(true);
                     }}
@@ -917,19 +951,14 @@ export default function LoanRequestsManager() {
                 <button
                   type="button"
                   onClick={() => {
-                    handleApprove(
-                      approveRequestData.requestId,
-                      approveRequestData.userId,
-                      approveRequestData.planName,
-                      approveRequestData.amount,
-                      approveRequestData.term
-                    );
+                    // Close approval modal and open contract modal
+                    setContractLoanData(approveRequestData);
                     setIsApproveModalOpen(false);
-                    setApproveRequestData(null);
+                    setIsContractModalOpen(true);
                   }}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
-                  Confirm Approval
+                  Proceed
 
 
                 </button>
@@ -1010,6 +1039,31 @@ export default function LoanRequestsManager() {
           </div>
         </div>
       )}
+
+      {/* Loan Contract Modal */}
+      <LoanContractModal
+        isOpen={isContractModalOpen}
+        onClose={() => {
+          setIsContractModalOpen(false);
+          setContractLoanData(null);
+          setApproveRequestData(null);
+        }}
+        loanData={contractLoanData}
+        onContractComplete={() => {
+          // Approve the loan after contract is generated
+          if (contractLoanData) {
+            handleApprove(
+              contractLoanData.requestId,
+              contractLoanData.userId,
+              contractLoanData.planName,
+              contractLoanData.amount,
+              contractLoanData.term
+            );
+          }
+          setContractLoanData(null);
+          setApproveRequestData(null);
+        }}
+      />
     </div>
   );
 }

@@ -287,24 +287,20 @@ export default function ActiveLoans({ onLoanStatusChange }: ActiveLoansProps) {
 
   // Get remaining balance from loan or calculate it
   const getRemainingBalance = (loan: Loan): number => {
-    // First priority: use the stored remainingBalance from database
-    if (loan.remainingBalance !== undefined && loan.remainingBalance !== null) {
-      return Math.max(0, loan.remainingBalance);
-    }
-    
-    // Calculate total amount (principal + interest)
-    const totalAmount = loan.amount + calculateTotalInterest(loan);
+    // Calculate correct total amount (principal + interest with CORRECT formula)
+    const correctTotalAmount = loan.amount + calculateTotalInterest(loan);
     
     // Calculate from payment schedule if available
     if (loan.paymentSchedule && loan.paymentSchedule.length > 0) {
       const totalPaid = loan.paymentSchedule.reduce((sum, item) => {
         return sum + (item.paidAmount || 0);
       }, 0);
-      return Math.max(0, totalAmount - totalPaid);
+      return Math.max(0, correctTotalAmount - totalPaid);
     }
     
-    // If no payments made yet, return full amount
-    return totalAmount;
+    // If no payments made yet, return correct full amount
+    // (Don't use stored remainingBalance as it may have been calculated with old wrong formula)
+    return correctTotalAmount;
   };
 
   // Calculate total interest
@@ -608,7 +604,7 @@ export default function ActiveLoans({ onLoanStatusChange }: ActiveLoansProps) {
                       {loan.term} months
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {formatCurrency(loan.totalPaid || (loan.amount + (loan.amount * loan.interest / 100)))}
+                      {formatCurrency(loan.totalPaid || (loan.amount + (loan.amount * (loan.interest / 100) * loan.term)))}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">

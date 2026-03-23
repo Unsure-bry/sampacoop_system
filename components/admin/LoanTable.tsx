@@ -109,17 +109,20 @@ export default function LoanTable({
       // Example: 5000 + (5000 × 2% × 3) = 5300, then 5300 / 90 = 58.89 per day
       const totalDays = requestData.term * 30;
       
-      // Calculate interest amount: Principal × Interest Rate × Term
-      const interestAmount = requestData.amount * (interestRate / 100) * requestData.term;
+      // Calculate total interest: Principal × Interest Rate × Term
+      const totalInterest = requestData.amount * (interestRate / 100) * requestData.term;
       
-      // Calculate total amount: Principal + Interest
-      const totalAmount = requestData.amount + interestAmount;
+      // Calculate total amount: Principal + Total Interest
+      const totalAmount = requestData.amount + totalInterest;
       
       // Daily payment: Total Amount / Number of days
       const dailyPayment = totalAmount / totalDays;
       
       // Daily principal portion: Principal / Number of days
       const dailyPrincipal = requestData.amount / totalDays;
+      
+      // Daily interest portion: Total Interest / Number of days
+      const dailyInterest = totalInterest / totalDays;
       
       // Generate payment schedule
       let remainingBalance = totalAmount;
@@ -141,7 +144,7 @@ export default function LoanTable({
           day,
           paymentDate: currentDate.toISOString().split('T')[0],
           principal: dailyPrincipal,
-          interest: interestAmount,
+          interest: dailyInterest,
           totalPayment: dailyPayment,
           remainingBalance,
           status: 'pending' // Initial status for payments

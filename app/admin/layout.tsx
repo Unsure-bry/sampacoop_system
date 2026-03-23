@@ -15,6 +15,7 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Check if user has valid admin role
   const isValidAdmin = user && validateAdminRoute(user);
@@ -31,6 +32,11 @@ export default function AdminLayout({
       }
     }
   }, [user, loading, isValidAdmin, router]);
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   // Don't show sidebar on login page
   const isLoginPage = pathname === '/admin/login';
@@ -52,20 +58,50 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar - only shown when authenticated and not on login/register pages */}
-      {showSidebar && (
-        <AdminSidebar 
-          collapsed={!sidebarOpen} 
-          onToggle={() => setSidebarOpen(!sidebarOpen)} 
-          role={user.role || 'admin'}
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
+      {/* Sidebar - Desktop: always visible, Mobile: slide-in */}
+      {showSidebar && (
+        <div className={`
+          fixed lg:static inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out
+          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}>
+          <AdminSidebar 
+            collapsed={!sidebarOpen} 
+            onToggle={() => setSidebarOpen(!sidebarOpen)} 
+            role={user.role || 'admin'}
+          />
+        </div>
+      )}
+
       {/* Main content */}
-      <div className={`flex-1 flex flex-col overflow-hidden ${showSidebar ? '' : 'w-full'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 overflow-hidden ${showSidebar ? '' : 'w-full'}`}>
+        {/* Mobile Header */}
+        {showSidebar && (
+          <header className="lg:hidden bg-white shadow-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Open menu"
+            >
+              <svg className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <h1 className="text-lg font-bold text-red-600">SAMPA COOP</h1>
+            <div className="w-10" /> {/* Spacer for alignment */}
+          </header>
+        )}
+
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-100">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-100">
           {children}
         </main>
       </div>
