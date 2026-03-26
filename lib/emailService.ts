@@ -321,8 +321,8 @@ export const rejectedLoanMessage = async (
 export const depositApplicationMessage = async (
   email: string, 
   name: string, 
-  deposit: number,
-  depositotalAmount: number,
+  Deposit: number,
+  DepositotalAmount: number,
   ControlNumber: number,  
 ) => {
   const emailData = {
@@ -336,13 +336,11 @@ export const depositApplicationMessage = async (
     I hope you're doing well!
 
   
-    This is to confirm that we have received your deposit of ${deposit}. Your total amount deposited is ${depositotalAmount} with the control number ${ControlNumber}.
+    This is to confirm that we have received your deposit of ${deposit}. Your total amount deposited is ${depositotalAmount} with the control # ${ControlNumber}.
 
     Thank you for being a valued member of SAMPA Cooperative.
 
-    deposit: ${deposit}
-    depositotalAmount: ${depositotalAmount}
-    ControlNumber: ${ControlNumber}
+
 
 
     Best Regards,
@@ -358,8 +356,8 @@ export const depositApplicationMessage = async (
 export const withdrawalApplicationMessage = async (
   email: string, 
   name: string, 
-  withdrawal: number,
-  withdrawalNumber: number,
+  Withdrawal: number,
+  WithdrawalNumber: number,
 
 )=> {
   const emailData = {
@@ -376,8 +374,8 @@ export const withdrawalApplicationMessage = async (
 
     Thank you for being a valued member of SAMPA Cooperative.
 
-    withdrawal: ${withdrawal}
-    withdrawalNumber: ${withdrawalNumber}
+    Withdrawal: ${withdrawal}
+    WithdrawalNumber: ${withdrawalNumber}
 
 
     Best Regards,
