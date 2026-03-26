@@ -4,6 +4,9 @@
 **Referenced Files in This Document**
 - [savingsService.ts](file://lib/savingsService.ts)
 - [transactionReceiptService.ts](file://lib/transactionReceiptService.ts)
+- [activityLogger.ts](file://lib/activityLogger.ts)
+- [userActionTracker.ts](file://lib/userActionTracker.ts)
+- [auth.tsx](file://lib/auth.tsx)
 - [SavingsActions.tsx](file://components/user/actions/SavingsActions.tsx)
 - [AddSavingsModal.tsx](file://components/admin/AddSavingsModal.tsx)
 - [AddSavingsTransactionModal.tsx](file://components/user/AddSavingsTransactionModal.tsx)
@@ -20,12 +23,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced savings transaction processing with automatic email receipt functionality for deposit transactions, integrated with the new transaction receipt system for comprehensive member communication
-- Added comprehensive transaction receipt system with EmailJS integration, receipt number generation, and email logging capabilities
-- Updated savings service to automatically send email receipts for eligible transactions with robust error handling
-- Integrated transaction receipt service with support for both savings deposits and loan payments
-- Enhanced form validation and user experience with confirmation dialogs for critical operations
-- Added email configuration management through Firestore systemConfig collection
+- Enhanced savings service with improved activity logging capabilities and detailed audit trails for all savings transactions
+- Added proper user identification and role tracking for comprehensive transaction monitoring
+- Integrated comprehensive activity logging system with user action tracking for administrative oversight
+- Implemented detailed audit trail functionality for all savings-related operations
+- Enhanced user identification system with proper role-based tracking for transaction monitoring
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -34,26 +36,27 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Transaction Processing](#enhanced-transaction-processing)
-7. [Transaction Receipt System](#transaction-receipt-system)
-8. [Savings Records Management](#savings-records-management)
-9. [Dependency Analysis](#dependency-analysis)
-10. [Performance Considerations](#performance-considerations)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
+7. [Activity Logging and Audit Trails](#activity-logging-and-audit-trails)
+8. [Transaction Receipt System](#transaction-receipt-system)
+9. [Savings Records Management](#savings-records-management)
+10. [Dependency Analysis](#dependency-analysis)
+11. [Performance Considerations](#performance-considerations)
+12. [Troubleshooting Guide](#troubleshooting-guide)
+13. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the Savings Management System within the SAMPA Cooperative Management Platform. It covers savings account creation and management, transaction processing (deposits, withdrawals), balance calculations, reporting capabilities, the savings leaderboard, integration with loan eligibility, payment history tracking, and administrative dashboards. The system now includes enhanced savings records management with comprehensive transaction tracking, automated savings credit calculations, sophisticated deposit control number generation for enhanced auditability, and an integrated transaction receipt system with automatic email notifications for member communication.
+This document describes the Savings Management System within the SAMPA Cooperative Management Platform. It covers savings account creation and management, transaction processing (deposits, withdrawals), balance calculations, reporting capabilities, the savings leaderboard, integration with loan eligibility, payment history tracking, and administrative dashboards. The system now includes enhanced savings records management with comprehensive transaction tracking, automated savings credit calculations, sophisticated deposit control number generation for enhanced auditability, integrated transaction receipt system with automatic email notifications for member communication, and comprehensive activity logging with detailed audit trails for all savings transactions.
 
 ## Project Structure
 The savings system spans client-side pages, reusable UI components, and backend-like services that encapsulate Firestore interactions. Key areas:
 - Types define the data contracts for savings transactions and member savings summaries.
-- Services provide centralized logic for member resolution, transaction persistence, balance computation, and email receipt generation.
+- Services provide centralized logic for member resolution, transaction persistence, balance computation, email receipt generation, and comprehensive activity logging.
 - Pages orchestrate UI flows for users and administrators.
 - Components encapsulate reusable UI for transactions, balances, and leaderboards.
-- **New**: Transaction receipt service provides comprehensive email notification system with EmailJS integration.
-- **New**: Enhanced savings service integrates automatic email receipt functionality for eligible transactions.
-- **New**: SavingsRecords component provides comprehensive savings account management with detailed transaction tracking.
-- **New**: Enhanced AddSavingsTransactionModal introduces deposit control number generation and confirmation modals.
+- **New**: Activity logging system provides comprehensive audit trails with user identification and role tracking.
+- **New**: Enhanced savings service integrates automatic activity logging for all transaction operations.
+- **New**: User action tracker enables detailed monitoring of administrative activities and user interactions.
+- **New**: Enhanced transaction receipt service with integrated activity logging for comprehensive transaction monitoring.
 
 ```mermaid
 graph TB
@@ -64,6 +67,8 @@ end
 subgraph "Services"
 S1["lib/savingsService.ts"]
 S2["lib/transactionReceiptService.ts"]
+S3["lib/activityLogger.ts"]
+S4["lib/userActionTracker.ts"]
 end
 subgraph "User Components"
 C1["components/user/actions/SavingsActions.tsx"]
@@ -84,6 +89,8 @@ end
 T1 --> S1
 T2 --> S1
 S1 --> S2
+S1 --> S3
+S1 --> S4
 S1 --> P1
 S1 --> P2
 S1 --> P3
@@ -98,67 +105,76 @@ C7 --> P2
 ```
 
 **Diagram sources**
-- [savingsService.ts](file://lib/savingsService.ts#L1-L534)
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L1-L636)
-- [SavingsActions.tsx](file://components/user/actions/SavingsActions.tsx#L1-L237)
-- [AddSavingsModal.tsx](file://components/admin/AddSavingsModal.tsx#L1-L217)
-- [AddSavingsTransactionModal.tsx](file://components/user/AddSavingsTransactionModal.tsx#L1-L371)
-- [ActiveSavings.tsx](file://components/user/ActiveSavings.tsx#L1-L270)
-- [SavingsLeaderboard.tsx](file://components/admin/SavingsLeaderboard.tsx#L1-L213)
-- [SavingsRecords.tsx](file://components/admin/SavingsRecords.tsx#L1-L350)
-- [ReportsAndAnalytics.tsx](file://components/admin/ReportsAndAnalytics.tsx#L1-L334)
-- [savings.ts](file://lib/types/savings.ts#L1-L21)
-- [member.ts](file://lib/types/member.ts#L1-L56)
-- [page.tsx](file://app/savings/page.tsx#L1-L382)
-- [page.tsx](file://app/admin/savings/page.tsx#L1-L652)
-- [page.tsx](file://app/admin/savings/member/[id]/page.tsx#L1-L638)
+- [savingsService.ts:1-551](file://lib/savingsService.ts#L1-L551)
+- [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
+- [activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
+- [userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
+- [SavingsActions.tsx:1-249](file://components/user/actions/SavingsActions.tsx#L1-L249)
+- [AddSavingsModal.tsx:1-293](file://components/admin/AddSavingsModal.tsx#L1-L293)
+- [AddSavingsTransactionModal.tsx:1-371](file://components/user/AddSavingsTransactionModal.tsx#L1-L371)
+- [ActiveSavings.tsx:1-270](file://components/user/ActiveSavings.tsx#L1-L270)
+- [SavingsLeaderboard.tsx:1-213](file://components/admin/SavingsLeaderboard.tsx#L1-L213)
+- [SavingsRecords.tsx:1-350](file://components/admin/SavingsRecords.tsx#L1-L350)
+- [ReportsAndAnalytics.tsx:1-334](file://components/admin/ReportsAndAnalytics.tsx#L1-L334)
+- [savings.ts:1-22](file://lib/types/savings.ts#L1-L22)
+- [member.ts:1-56](file://lib/types/member.ts#L1-L56)
+- [page.tsx:1-382](file://app/savings/page.tsx#L1-L382)
+- [page.tsx:1-652](file://app/admin/savings/page.tsx#L1-L652)
+- [page.tsx:1-649](file://app/admin/savings/member/[id]/page.tsx#L1-L649)
 
 **Section sources**
-- [savingsService.ts](file://lib/savingsService.ts#L1-L534)
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L1-L636)
-- [savings.ts](file://lib/types/savings.ts#L1-L21)
-- [member.ts](file://lib/types/member.ts#L1-L56)
-- [page.tsx](file://app/savings/page.tsx#L1-L382)
-- [page.tsx](file://app/admin/savings/page.tsx#L1-L652)
-- [page.tsx](file://app/admin/savings/member/[id]/page.tsx#L1-L638)
+- [savingsService.ts:1-551](file://lib/savingsService.ts#L1-L551)
+- [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
+- [activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
+- [userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
+- [savings.ts:1-22](file://lib/types/savings.ts#L1-L22)
+- [member.ts:1-56](file://lib/types/member.ts#L1-L56)
+- [page.tsx:1-382](file://app/savings/page.tsx#L1-L382)
+- [page.tsx:1-652](file://app/admin/savings/page.tsx#L1-L652)
+- [page.tsx:1-649](file://app/admin/savings/member/[id]/page.tsx#L1-L649)
 
 ## Core Components
 - Savings transaction model: Defines fields for transaction identification, member linkage, type, amount, running balance, remarks, and timestamps.
 - Member savings summary: Aggregates member totals and metadata for reporting and leaderboards.
-- Savings service: Centralizes member resolution, transaction persistence, balance calculation, and automatic email receipt generation.
+- Savings service: Centralizes member resolution, transaction persistence, balance calculation, automatic email receipt generation, and comprehensive activity logging.
 - Transaction receipt service: Provides comprehensive email notification system with EmailJS integration, receipt number generation, and email logging capabilities.
+- Activity logging system: Provides detailed audit trails with user identification, role tracking, and comprehensive transaction monitoring.
+- User action tracker: Enables detailed monitoring of administrative activities and user interactions with proper user identification and role tracking.
 - User transaction actions: Handles deposit and withdrawal submissions from the member portal.
 - Admin transaction modal: Enables administrators to add deposits/withdrawals with validation against current balance.
 - Active savings display: Renders recent transactions and current balance for members.
 - Savings leaderboard: Computes and displays top savers across the cooperative.
-- **New**: Enhanced AddSavingsTransactionModal: Advanced transaction processing with deposit control number generation, confirmation modals, and comprehensive form validation.
-- **New**: SavingsRecords component: Comprehensive savings account management with detailed transaction tracking and automated savings credit calculations.
-- **New**: ReportsAndAnalytics component: Financial analytics and reporting capabilities for administrative oversight.
+- **New**: Enhanced AddSavingsTransactionModal: Advanced transaction processing with deposit control number generation, confirmation modals, comprehensive form validation, and integrated activity logging.
+- **New**: SavingsRecords component: Comprehensive savings account management with detailed transaction tracking, automated calculations, and audit trail integration.
+- **New**: ReportsAndAnalytics component: Financial analytics and reporting capabilities with comprehensive activity monitoring for administrative oversight.
 
 **Section sources**
-- [savings.ts](file://lib/types/savings.ts#L1-L21)
-- [savingsService.ts](file://lib/savingsService.ts#L237-L342)
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L100-L130)
-- [SavingsActions.tsx](file://components/user/actions/SavingsActions.tsx#L20-L120)
-- [AddSavingsModal.tsx](file://components/admin/AddSavingsModal.tsx#L12-L92)
-- [ActiveSavings.tsx](file://components/user/ActiveSavings.tsx#L16-L50)
-- [SavingsLeaderboard.tsx](file://components/admin/SavingsLeaderboard.tsx#L32-L123)
-- [AddSavingsTransactionModal.tsx](file://components/user/AddSavingsTransactionModal.tsx#L15-L150)
-- [SavingsRecords.tsx](file://components/admin/SavingsRecords.tsx#L27-L127)
-- [ReportsAndAnalytics.tsx](file://components/admin/ReportsAndAnalytics.tsx#L31-L165)
+- [savings.ts:1-22](file://lib/types/savings.ts#L1-L22)
+- [savingsService.ts:237-433](file://lib/savingsService.ts#L237-L433)
+- [transactionReceiptService.ts:100-130](file://lib/transactionReceiptService.ts#L100-L130)
+- [activityLogger.ts:4-14](file://lib/activityLogger.ts#L4-L14)
+- [userActionTracker.ts:10-47](file://lib/userActionTracker.ts#L10-L47)
+- [SavingsActions.tsx:20-120](file://components/user/actions/SavingsActions.tsx#L20-L120)
+- [AddSavingsModal.tsx:12-92](file://components/admin/AddSavingsModal.tsx#L12-L92)
+- [ActiveSavings.tsx:16-50](file://components/user/ActiveSavings.tsx#L16-L50)
+- [SavingsLeaderboard.tsx:32-123](file://components/admin/SavingsLeaderboard.tsx#L32-L123)
+- [AddSavingsTransactionModal.tsx:15-150](file://components/user/AddSavingsTransactionModal.tsx#L15-L150)
+- [SavingsRecords.tsx:27-127](file://components/admin/SavingsRecords.tsx#L27-L127)
+- [ReportsAndAnalytics.tsx:31-165](file://components/admin/ReportsAndAnalytics.tsx#L31-L165)
 
 ## Architecture Overview
-The system follows a layered architecture with enhanced transaction receipt capabilities:
+The system follows a layered architecture with enhanced transaction receipt capabilities and comprehensive activity logging:
 - Presentation layer: Next.js pages and React components for user and admin experiences.
-- Service layer: TypeScript modules encapsulating Firestore interactions, business logic, and email notification services.
-- Data layer: Firestore collections for members, member savings subcollections, aggregated member totals, and email logs.
+- Service layer: TypeScript modules encapsulating Firestore interactions, business logic, email notification services, and comprehensive activity logging.
+- Data layer: Firestore collections for members, member savings subcollections, aggregated member totals, email logs, and activity logs.
 
 ```mermaid
 sequenceDiagram
-participant U as "User"
-participant UI as "User Savings Page"
-participant SA as "SavingsActions"
+participant U as "User/Admin"
+participant UI as "User/Admin Savings Page"
+participant SA as "SavingsActions/UserActionTracker"
 participant SS as "SavingsService"
+participant AL as "ActivityLogger"
 participant TRS as "TransactionReceiptService"
 participant FS as "Firestore"
 U->>UI : Open savings page
@@ -170,6 +186,8 @@ U->>SA : Submit deposit/withdrawal
 SA->>SS : addSavingsTransaction(userId, payload)
 SS->>FS : getCollection("members/{memberId}/savings")
 SS->>SS : Compute running balance
+SS->>SS : Log activity via logActivity()
+SS->>AL : logActivity(activityLog)
 SS->>FS : setDocument("members/{memberId}/savings", transaction)
 SS->>FS : updateDocument("members/{memberId}", {savings.total})
 SS->>SS : Check if member is eligible for email receipt
@@ -181,10 +199,11 @@ SA-->>U : Toast success/failure
 ```
 
 **Diagram sources**
-- [page.tsx](file://app/savings/page.tsx#L30-L110)
-- [SavingsActions.tsx](file://components/user/actions/SavingsActions.tsx#L20-L120)
-- [savingsService.ts](file://lib/savingsService.ts#L237-L342)
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L408-L476)
+- [page.tsx:30-110](file://app/savings/page.tsx#L30-L110)
+- [SavingsActions.tsx:20-120](file://components/user/actions/SavingsActions.tsx#L20-L120)
+- [savingsService.ts:237-433](file://lib/savingsService.ts#L237-L433)
+- [activityLogger.ts:20-43](file://lib/activityLogger.ts#L20-L43)
+- [transactionReceiptService.ts:408-476](file://lib/transactionReceiptService.ts#L408-L476)
 
 ## Detailed Component Analysis
 
@@ -217,17 +236,18 @@ class MemberSavings {
 ```
 
 **Diagram sources**
-- [savings.ts](file://lib/types/savings.ts#L1-L21)
+- [savings.ts:1-22](file://lib/types/savings.ts#L1-L22)
 
 **Section sources**
-- [savings.ts](file://lib/types/savings.ts#L1-L21)
+- [savings.ts:1-22](file://lib/types/savings.ts#L1-L22)
 
-### Savings Service: Member Resolution, Transactions, Balances, and Email Receipts
+### Savings Service: Member Resolution, Transactions, Balances, Email Receipts, and Activity Logging
 Key responsibilities:
 - Member resolution: Resolves user IDs to member IDs using multiple fallback strategies (direct lookup, email match, name match).
 - Atomic transaction processing: Calculates running balance, validates withdrawals, persists transaction, and updates aggregate member savings.
 - Balance retrieval: Returns cached aggregate savings when available; otherwise computes from transactions.
 - **Updated**: Automatic email receipt generation: Sends email notifications for eligible savings deposits with comprehensive error handling and logging.
+- **Updated**: Comprehensive activity logging: Logs all savings transactions with detailed audit trails including user identification, role tracking, and transaction metadata.
 
 ```mermaid
 flowchart TD
@@ -246,19 +266,84 @@ UpdateMember --> CheckRole{"Is member eligible for email receipt?"}
 CheckRole --> |Yes| SendEmail["Send savings deposit receipt via EmailJS"]
 CheckRole --> |No| SkipEmail["Skip email receipt"]
 SendEmail --> LogEmail["Log email attempt in emailLogs collection"]
-SkipEmail --> Done(["Return success with transactionId"])
+SkipEmail --> LogActivity["Log activity via logActivity()"]
+LogActivity --> LogUser["Track user action with user info"]
+LogUser --> Done(["Return success with transactionId"])
 LogEmail --> Done
 ```
 
 **Diagram sources**
-- [savingsService.ts](file://lib/savingsService.ts#L237-L342)
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L408-L476)
+- [savingsService.ts:237-433](file://lib/savingsService.ts#L237-L433)
+- [activityLogger.ts:20-43](file://lib/activityLogger.ts#L20-L43)
+- [transactionReceiptService.ts:408-476](file://lib/transactionReceiptService.ts#L408-L476)
 
 **Section sources**
-- [savingsService.ts](file://lib/savingsService.ts#L21-L135)
-- [savingsService.ts](file://lib/savingsService.ts#L237-L342)
-- [savingsService.ts](file://lib/savingsService.ts#L347-L422)
-- [savingsService.ts](file://lib/savingsService.ts#L427-L489)
+- [savingsService.ts:21-135](file://lib/savingsService.ts#L21-L135)
+- [savingsService.ts:237-433](file://lib/savingsService.ts#L237-L433)
+- [savingsService.ts:435-551](file://lib/savingsService.ts#L435-L551)
+
+### Activity Logging System: Comprehensive Audit Trails
+**New** - The activity logging system provides comprehensive audit trails with detailed user identification and role tracking for all system activities.
+
+Key features:
+- **User Identification**: Tracks user IDs, emails, display names, and roles for comprehensive transaction monitoring.
+- **Activity Types**: Supports various activity types including login, logout, profile updates, member creation, loan approvals, savings updates, report generation, and settings updates.
+- **Timestamp Tracking**: Automatically records timestamps for all activities with ISO format for consistency.
+- **Client Information**: Captures user agent and IP address information for security monitoring.
+- **Flexible Data Storage**: Allows additional data to be included in activity logs for contextual information.
+- **Query Capabilities**: Provides functions to fetch user-specific activities, all activities, and activities within date ranges.
+- **Index Optimization**: Uses Firestore query optimization with timestamp-based sorting for efficient activity retrieval.
+
+```mermaid
+flowchart TD
+Start(["logActivity(activityLog)"]) --> Validate["Validate activityLog data"]
+Validate --> AddTimestamp["Add timestamp to log"]
+AddTimestamp --> GenerateId["Generate unique log ID"]
+GenerateId --> SaveToFirestore["Save to 'activityLogs' collection"]
+SaveToFirestore --> Success{"Save successful?"}
+Success --> |Yes| ReturnSuccess["Return success with log ID"]
+Success --> |No| ReturnError["Return error with details"]
+ReturnSuccess --> End(["Activity logged successfully"])
+ReturnError --> End
+```
+
+**Diagram sources**
+- [activityLogger.ts:20-43](file://lib/activityLogger.ts#L20-L43)
+
+**Section sources**
+- [activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
+
+### User Action Tracker: Comprehensive Administrative Monitoring
+**New** - The user action tracker enables detailed monitoring of administrative activities and user interactions with proper user identification and role tracking.
+
+Key features:
+- **User Identification**: Tracks user IDs, emails, display names, and roles for comprehensive activity monitoring.
+- **Higher-Order Functions**: Provides wrapper functions for automatic logging of actions with additional data context.
+- **Specific Action Tracking**: Includes dedicated functions for common administrative actions like login, logout, profile updates, member creation, loan approvals, savings updates, report generation, and settings updates.
+- **Client Information**: Captures user agent and IP address information for security monitoring.
+- **Error Handling**: Robust error handling with detailed logging and graceful degradation when activity logging fails.
+- **Integration Ready**: Designed to integrate seamlessly with the activity logging system for comprehensive audit trails.
+
+```mermaid
+flowchart TD
+Start(["trackUserAction(user, action, additionalData)"]) --> CheckUser{"User authenticated?"}
+CheckUser --> |No| Warn["Log warning and return false"]
+CheckUser --> |Yes| GetClientInfo["Get client information"]
+GetClientInfo --> BuildLog["Build activity log with user info"]
+BuildLog --> CallLogActivity["Call logActivity()"]
+CallLogActivity --> Success{"Log successful?"}
+Success --> |Yes| ReturnTrue["Return true"]
+Success --> |No| ReturnFalse["Return false with error"]
+Warn --> End(["Action tracking failed"])
+ReturnTrue --> End
+ReturnFalse --> End
+```
+
+**Diagram sources**
+- [userActionTracker.ts:10-47](file://lib/userActionTracker.ts#L10-L47)
+
+**Section sources**
+- [userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
 
 ### Transaction Receipt Service: Email Notification System
 **New** - The transaction receipt service provides comprehensive email notification capabilities with EmailJS integration, receipt number generation, and email logging.
@@ -290,15 +375,15 @@ LogSuccess --> ReturnSuccess["Return success with receipt number"]
 ```
 
 **Diagram sources**
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L408-L476)
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L132-L153)
+- [transactionReceiptService.ts:408-476](file://lib/transactionReceiptService.ts#L408-L476)
+- [transactionReceiptService.ts:132-153](file://lib/transactionReceiptService.ts#L132-L153)
 
 **Section sources**
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L1-L636)
+- [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
 
 ### User Transaction Actions: Deposits and Withdrawals
-- Deposit flow: Validates amount, constructs transaction payload, writes to Firestore under the member's subcollection, and triggers automatic email receipt for eligible members.
-- Withdrawal flow: Validates amount against current balance, constructs transaction payload, writes to Firestore.
+- Deposit flow: Validates amount, constructs transaction payload, writes to Firestore under the member's subcollection, triggers automatic email receipt for eligible members, and logs activity.
+- Withdrawal flow: Validates amount against current balance, constructs transaction payload, writes to Firestore, and logs activity.
 
 ```mermaid
 sequenceDiagram
@@ -311,36 +396,43 @@ UI->>FS : setDocument("members/{userId}/savings", transaction)
 FS-->>UI : Success/Failure
 UI->>UI : Check if member is eligible for email receipt
 UI->>UI : Send email receipt if eligible
+UI->>UI : Log activity via userActionTracker
 UI-->>M : Toast success/failure with email status
 M->>UI : Click "Request Withdrawal"
 UI->>UI : Validate amount <= currentBalance
 UI->>FS : setDocument("members/{userId}/savings", transaction)
 FS-->>UI : Success/Failure
+UI->>UI : Log activity via userActionTracker
 UI-->>M : Toast feedback
 ```
 
 **Diagram sources**
-- [SavingsActions.tsx](file://components/user/actions/SavingsActions.tsx#L20-L120)
-- [savingsService.ts](file://lib/savingsService.ts#L370-L412)
+- [SavingsActions.tsx:20-120](file://components/user/actions/SavingsActions.tsx#L20-L120)
+- [savingsService.ts:370-433](file://lib/savingsService.ts#L370-L433)
+- [userActionTracker.ts:10-47](file://lib/userActionTracker.ts#L10-L47)
 
 **Section sources**
-- [SavingsActions.tsx](file://components/user/actions/SavingsActions.tsx#L13-L120)
+- [SavingsActions.tsx:13-120](file://components/user/actions/SavingsActions.tsx#L13-L120)
 
 ### Admin Transaction Modal: Controlled Additions
 - Validates amount positivity and withdrawal limits against current balance.
 - Submits transaction via the savings service, refreshing UI upon success.
 - **Updated**: Automatically sends email receipts for eligible members when administrators add transactions.
+- **Updated**: Integrates with activity logging system for comprehensive audit trails.
 
 ```mermaid
 sequenceDiagram
 participant A as "Admin"
 participant AM as "AddSavingsModal"
 participant SS as "SavingsService"
+participant AL as "ActivityLogger"
 participant FS as "Firestore"
 A->>AM : Open modal
 AM->>AM : Validate form
 AM->>SS : addSavingsTransaction(effectiveUserId, payload)
 SS->>FS : Persist transaction and update aggregate
+SS->>SS : Log activity via logActivity()
+SS->>AL : logActivity(activityLog)
 SS->>SS : Check if member is eligible for email receipt
 SS->>SS : Send email receipt if eligible
 SS-->>AM : {success, transactionId}
@@ -348,13 +440,14 @@ AM-->>A : Close modal and refresh
 ```
 
 **Diagram sources**
-- [AddSavingsModal.tsx](file://components/admin/AddSavingsModal.tsx#L12-L92)
-- [page.tsx](file://app/admin/savings/member/[id]/page.tsx#L106-L147)
-- [savingsService.ts](file://lib/savingsService.ts#L370-L412)
+- [AddSavingsModal.tsx:12-92](file://components/admin/AddSavingsModal.tsx#L12-L92)
+- [page.tsx:123-172](file://app/admin/savings/member/[id]/page.tsx#L123-L172)
+- [savingsService.ts:370-433](file://lib/savingsService.ts#L370-L433)
+- [activityLogger.ts:20-43](file://lib/activityLogger.ts#L20-L43)
 
 **Section sources**
-- [AddSavingsModal.tsx](file://components/admin/AddSavingsModal.tsx#L12-L92)
-- [page.tsx](file://app/admin/savings/member/[id]/page.tsx#L106-L147)
+- [AddSavingsModal.tsx:12-92](file://components/admin/AddSavingsModal.tsx#L12-L92)
+- [page.tsx:123-172](file://app/admin/savings/member/[id]/page.tsx#L123-L172)
 
 ### Active Savings Display: Recent Transactions and Balance
 - Fetches transactions and sorts by date (newest first).
@@ -371,10 +464,10 @@ Refresh --> Fetch
 ```
 
 **Diagram sources**
-- [ActiveSavings.tsx](file://components/user/ActiveSavings.tsx#L22-L50)
+- [ActiveSavings.tsx:22-50](file://components/user/ActiveSavings.tsx#L22-L50)
 
 **Section sources**
-- [ActiveSavings.tsx](file://components/user/ActiveSavings.tsx#L16-L95)
+- [ActiveSavings.tsx:16-95](file://components/user/ActiveSavings.tsx#L16-L95)
 
 ### Savings Leaderboard: Rankings and Motivational Insights
 - Gathers all members and calculates total savings per member by aggregating transactions.
@@ -392,15 +485,15 @@ Top10 --> Render(["Render leaderboard"])
 ```
 
 **Diagram sources**
-- [SavingsLeaderboard.tsx](file://components/admin/SavingsLeaderboard.tsx#L36-L123)
+- [SavingsLeaderboard.tsx:36-123](file://components/admin/SavingsLeaderboard.tsx#L36-L123)
 
 **Section sources**
-- [SavingsLeaderboard.tsx](file://components/admin/SavingsLeaderboard.tsx#L32-L123)
+- [SavingsLeaderboard.tsx:32-123](file://components/admin/SavingsLeaderboard.tsx#L32-L123)
 
 ## Enhanced Transaction Processing
 
 ### AddSavingsTransactionModal: Advanced Transaction Processing
-**Updated** - The AddSavingsTransactionModal now provides enhanced transaction processing with comprehensive validation, deposit control number generation, confirmation modals, and automatic email receipt functionality.
+**Updated** - The AddSavingsTransactionModal now provides enhanced transaction processing with comprehensive validation, deposit control number generation, confirmation modals, automatic email receipt functionality, and integrated activity logging.
 
 Key enhancements:
 - **Deposit Control Number Generation**: Automatically generates unique deposit control numbers in the format `DC-{timestamp}-{random_chars}` for all deposit transactions.
@@ -410,6 +503,7 @@ Key enhancements:
 - **Loading States**: Provides visual feedback during transaction processing with spinner animations.
 - **Error Handling**: Displays specific error messages for validation failures and provides user guidance.
 - **Email Receipt Status**: Shows email receipt status for eligible members after successful transactions.
+- **Activity Logging Integration**: Automatically logs all transaction activities with user identification and role tracking.
 
 ```mermaid
 flowchart TD
@@ -431,17 +525,92 @@ ProcessWithdrawal --> SaveTransaction
 SaveTransaction --> CheckEligibility["Check Member Eligibility for Email Receipt"]
 CheckEligibility --> |Eligible| SendEmail["Send Email Receipt"]
 CheckEligibility --> |Not Eligible| SkipEmail["Skip Email Receipt"]
-SendEmail --> Success["Show Success Toast with Email Status"]
-SkipEmail --> Success
+SendEmail --> LogActivity["Log Activity via UserActionTracker"]
+LogActivity --> Success["Show Success Toast with Email Status"]
+SkipEmail --> LogActivity
 Success --> ResetForm["Reset Form & Close"]
 ```
 
 **Diagram sources**
-- [AddSavingsTransactionModal.tsx](file://components/user/AddSavingsTransactionModal.tsx#L29-L150)
-- [savingsService.ts](file://lib/savingsService.ts#L370-L412)
+- [AddSavingsTransactionModal.tsx:29-150](file://components/user/AddSavingsTransactionModal.tsx#L29-L150)
+- [savingsService.ts:370-433](file://lib/savingsService.ts#L370-L433)
+- [userActionTracker.ts:10-47](file://lib/userActionTracker.ts#L10-L47)
 
 **Section sources**
-- [AddSavingsTransactionModal.tsx](file://components/user/AddSavingsTransactionModal.tsx#L15-L371)
+- [AddSavingsTransactionModal.tsx:15-371](file://components/user/AddSavingsTransactionModal.tsx#L15-L371)
+
+## Activity Logging and Audit Trails
+
+### Comprehensive Activity Logging System
+**New** - The comprehensive activity logging system provides detailed audit trails with user identification and role tracking for all system activities.
+
+Key features:
+- **User Identification**: Tracks user IDs, emails, display names, and roles for comprehensive transaction monitoring.
+- **Activity Types**: Supports various activity types including login, logout, profile updates, member creation, loan approvals, savings updates, report generation, and settings updates.
+- **Timestamp Tracking**: Automatically records timestamps for all activities with ISO format for consistency.
+- **Client Information**: Captures user agent and IP address information for security monitoring.
+- **Flexible Data Storage**: Allows additional data to be included in activity logs for contextual information.
+- **Query Capabilities**: Provides functions to fetch user-specific activities, all activities, and activities within date ranges.
+- **Index Optimization**: Uses Firestore query optimization with timestamp-based sorting for efficient activity retrieval.
+- **Error Handling**: Robust error handling with detailed logging and graceful degradation when activity logging fails.
+
+```mermaid
+flowchart TD
+Start(["Activity Logging System"]) --> UserAction["User Action Detected"]
+UserAction --> TrackUser["Track User Action"]
+TrackUser --> GetUserInfo["Get User Information"]
+GetUserInfo --> BuildLog["Build Activity Log"]
+BuildLog --> LogActivity["Log Activity"]
+LogActivity --> StoreInFirestore["Store in Firestore"]
+StoreInFirestore --> Success{"Log Successful?"}
+Success --> |Yes| NotifyUser["Notify User"]
+Success --> |No| LogError["Log Error"]
+LogError --> Continue["Continue Without Activity Log"]
+NotifyUser --> End(["Activity Logged Successfully"])
+Continue --> End
+```
+
+**Diagram sources**
+- [activityLogger.ts:20-43](file://lib/activityLogger.ts#L20-L43)
+- [userActionTracker.ts:10-47](file://lib/userActionTracker.ts#L10-L47)
+
+**Section sources**
+- [activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
+- [userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
+
+### User Action Tracking Integration
+**New** - The user action tracking integration enables detailed monitoring of administrative activities and user interactions with proper user identification and role tracking.
+
+Key features:
+- **Higher-Order Functions**: Provides wrapper functions for automatic logging of actions with additional data context.
+- **Specific Action Tracking**: Includes dedicated functions for common administrative actions like login, logout, profile updates, member creation, loan approvals, savings updates, report generation, and settings updates.
+- **Client Information**: Captures user agent and IP address information for security monitoring.
+- **Error Handling**: Robust error handling with detailed logging and graceful degradation when activity logging fails.
+- **Integration Ready**: Designed to integrate seamlessly with the activity logging system for comprehensive audit trails.
+
+```mermaid
+flowchart TD
+Start(["User Action Tracking"]) --> DetectAction["Detect User Action"]
+DetectAction --> CheckAuth["Check Authentication"]
+CheckAuth --> |Authenticated| GetUserData["Get User Data"]
+CheckAuth --> |Not Authenticated| LogWarning["Log Warning"]
+GetUserData --> BuildActivityLog["Build Activity Log"]
+BuildActivityLog --> CallActivityLogger["Call Activity Logger"]
+CallActivityLogger --> Success{"Log Successful?"}
+Success --> |Yes| ReturnTrue["Return True"]
+Success --> |No| ReturnFalse["Return False"]
+LogWarning --> End(["Action Tracking Failed"])
+ReturnTrue --> End
+ReturnFalse --> End
+```
+
+**Diagram sources**
+- [userActionTracker.ts:10-47](file://lib/userActionTracker.ts#L10-L47)
+- [auth.tsx:12-18](file://lib/auth.tsx#L12-L18)
+
+**Section sources**
+- [userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
+- [auth.tsx:12-18](file://lib/auth.tsx#L12-L18)
 
 ## Transaction Receipt System
 
@@ -472,11 +641,11 @@ LogAttempt --> ReturnResult["Return success/failure with receipt number"]
 ```
 
 **Diagram sources**
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L605-L635)
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L408-L476)
+- [transactionReceiptService.ts:605-635](file://lib/transactionReceiptService.ts#L605-L635)
+- [transactionReceiptService.ts:408-476](file://lib/transactionReceiptService.ts#L408-L476)
 
 **Section sources**
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L1-L636)
+- [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
 
 ### Email Configuration Management
 **New** - The system supports flexible email configuration management through Firestore and environment variables.
@@ -489,8 +658,8 @@ Key features:
 - **Setup Script**: Includes automated setup script to configure EmailJS credentials in Firestore.
 
 **Section sources**
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L8-L56)
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L58-L81)
+- [transactionReceiptService.ts:8-56](file://lib/transactionReceiptService.ts#L8-L56)
+- [transactionReceiptService.ts:58-81](file://lib/transactionReceiptService.ts#L58-L81)
 
 ## Savings Records Management
 
@@ -504,6 +673,7 @@ Key features:
 - **Member details modal**: Provides detailed view of individual member savings with formatted currency display.
 - **Responsive design**: Mobile-friendly interface with intuitive pagination controls.
 - **Enhanced data visualization**: Displays savings totals with proper currency formatting and last transaction dates.
+- **Audit Trail Integration**: Integrates with activity logging system for comprehensive transaction monitoring.
 
 ```mermaid
 flowchart TD
@@ -518,10 +688,10 @@ Render --> Modal["Handle member details modal"]
 ```
 
 **Diagram sources**
-- [SavingsRecords.tsx](file://components/admin/SavingsRecords.tsx#L40-L127)
+- [SavingsRecords.tsx:40-127](file://components/admin/SavingsRecords.tsx#L40-L127)
 
 **Section sources**
-- [SavingsRecords.tsx](file://components/admin/SavingsRecords.tsx#L27-L350)
+- [SavingsRecords.tsx:27-350](file://components/admin/SavingsRecords.tsx#L27-L350)
 
 ### ReportsAndAnalytics Component: Financial Analytics
 **New** - The ReportsAndAnalytics component provides comprehensive financial analytics and reporting capabilities for administrative oversight.
@@ -531,6 +701,7 @@ Key features:
 - **Visual charts**: Provides bar charts for monthly trends and pie charts for loan status distribution.
 - **Financial overview**: Shows receivables, pending approvals, and overdue payments with color-coded indicators.
 - **Responsive design**: Adapts to different screen sizes with mobile-friendly layouts.
+- **Activity Monitoring**: Integrates with activity logging system for comprehensive administrative oversight.
 
 ```mermaid
 flowchart TD
@@ -543,10 +714,10 @@ RenderCharts --> FinancialOverview["Display financial overview cards"]
 ```
 
 **Diagram sources**
-- [ReportsAndAnalytics.tsx](file://components/admin/ReportsAndAnalytics.tsx#L50-L165)
+- [ReportsAndAnalytics.tsx:50-165](file://components/admin/ReportsAndAnalytics.tsx#L50-L165)
 
 **Section sources**
-- [ReportsAndAnalytics.tsx](file://components/admin/ReportsAndAnalytics.tsx#L31-L334)
+- [ReportsAndAnalytics.tsx:31-334](file://components/admin/ReportsAndAnalytics.tsx#L31-L334)
 
 ### User Savings Page: Comprehensive Transaction History
 - Loads member ID, retrieves transactions, normalizes dates, sorts newest first, and computes totals.
@@ -569,14 +740,15 @@ P-->>U : Render summary and paginated history
 ```
 
 **Diagram sources**
-- [page.tsx](file://app/savings/page.tsx#L39-L110)
+- [page.tsx:39-110](file://app/savings/page.tsx#L39-L110)
 
 **Section sources**
-- [page.tsx](file://app/savings/page.tsx#L30-L110)
+- [page.tsx:30-110](file://app/savings/page.tsx#L30-L110)
 
 ### Admin Savings Management: Member Views and Reporting
 - Admin dashboard lists members with filters and savings totals.
 - Member details page shows full transaction history with running balances and printing capabilities.
+- **Updated**: Integrates with activity logging system for comprehensive transaction monitoring and audit trails.
 
 ```mermaid
 sequenceDiagram
@@ -584,6 +756,7 @@ participant A as "Admin"
 participant AP as "AdminSavingsPage"
 participant MP as "MemberSavingsPage"
 participant SS as "SavingsService"
+participant AL as "ActivityLogger"
 participant FS as "Firestore"
 A->>AP : View members list
 AP->>SS : getSavingsBalanceForMember(memberId)
@@ -592,31 +765,37 @@ A->>AP : Select member
 AP->>MP : Navigate to member view
 MP->>FS : getCollection("members/{memberId}/savings")
 FS-->>MP : Transactions with running balance
+MP->>AL : Log activity for member view
+AL-->>MP : Activity logged
 MP-->>A : Render history and print/report
 ```
 
 **Diagram sources**
-- [page.tsx](file://app/admin/savings/page.tsx#L128-L159)
-- [page.tsx](file://app/admin/savings/member/[id]/page.tsx#L53-L104)
+- [page.tsx:128-159](file://app/admin/savings/page.tsx#L128-L159)
+- [page.tsx:53-104](file://app/admin/savings/member/[id]/page.tsx#L53-L104)
+- [activityLogger.ts:20-43](file://lib/activityLogger.ts#L20-L43)
 
 **Section sources**
-- [page.tsx](file://app/admin/savings/page.tsx#L10-L240)
-- [page.tsx](file://app/admin/savings/member/[id]/page.tsx#L16-L104)
+- [page.tsx:10-240](file://app/admin/savings/page.tsx#L10-L240)
+- [page.tsx:16-104](file://app/admin/savings/member/[id]/page.tsx#L16-L104)
 
 ## Dependency Analysis
 - Types drive service and component contracts ensuring consistent data shapes.
-- SavingsService depends on Firestore utilities, transaction receipt service, and is consumed by pages and components.
-- **Updated**: TransactionReceiptService provides EmailJS integration and email logging capabilities.
+- SavingsService depends on Firestore utilities, transaction receipt service, activity logger, and user action tracker, and is consumed by pages and components.
+- **Updated**: ActivityLogger provides comprehensive audit trail functionality with user identification and role tracking.
+- **Updated**: UserActionTracker enables detailed monitoring of administrative activities and user interactions.
 - Admin and user components share common modal and service logic for transaction handling.
-- **New**: SavingsRecords component integrates with Firestore to provide comprehensive savings tracking.
-- **New**: ReportsAndAnalytics component provides financial insights through chart visualization.
-- **New**: Enhanced AddSavingsTransactionModal provides advanced transaction processing capabilities with email receipt integration.
+- **New**: SavingsRecords component integrates with Firestore to provide comprehensive savings tracking with audit trail integration.
+- **New**: ReportsAndAnalytics component provides financial insights through chart visualization with activity monitoring.
+- **New**: Enhanced AddSavingsTransactionModal provides advanced transaction processing capabilities with email receipt integration and activity logging.
 
 ```mermaid
 graph LR
 TS["lib/types/savings.ts"] --> SS["lib/savingsService.ts"]
 TM["lib/types/member.ts"] --> SS
 SS --> TRS["lib/transactionReceiptService.ts"]
+SS --> AL["lib/activityLogger.ts"]
+SS --> UAT["lib/userActionTracker.ts"]
 SS --> UP["app/savings/page.tsx"]
 SS --> ADP["app/admin/savings/page.tsx"]
 SS --> MD["app/admin/savings/member/[id]/page.tsx"]
@@ -630,27 +809,31 @@ SS --> RA["components/admin/ReportsAndAnalytics.tsx"]
 ```
 
 **Diagram sources**
-- [savings.ts](file://lib/types/savings.ts#L1-L21)
-- [member.ts](file://lib/types/member.ts#L1-L56)
-- [savingsService.ts](file://lib/savingsService.ts#L1-L534)
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L1-L636)
-- [page.tsx](file://app/savings/page.tsx#L1-L382)
-- [page.tsx](file://app/admin/savings/page.tsx#L1-L652)
-- [page.tsx](file://app/admin/savings/member/[id]/page.tsx#L1-L638)
-- [SavingsActions.tsx](file://components/user/actions/SavingsActions.tsx#L1-L237)
-- [AddSavingsModal.tsx](file://components/admin/AddSavingsModal.tsx#L1-L217)
-- [AddSavingsTransactionModal.tsx](file://components/user/AddSavingsTransactionModal.tsx#L1-L371)
-- [ActiveSavings.tsx](file://components/user/ActiveSavings.tsx#L1-L270)
-- [SavingsLeaderboard.tsx](file://components/admin/SavingsLeaderboard.tsx#L1-L213)
-- [SavingsRecords.tsx](file://components/admin/SavingsRecords.tsx#L1-L350)
-- [ReportsAndAnalytics.tsx](file://components/admin/ReportsAndAnalytics.tsx#L1-L334)
+- [savings.ts:1-22](file://lib/types/savings.ts#L1-L22)
+- [member.ts:1-56](file://lib/types/member.ts#L1-L56)
+- [savingsService.ts:1-551](file://lib/savingsService.ts#L1-L551)
+- [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
+- [activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
+- [userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
+- [page.tsx:1-382](file://app/savings/page.tsx#L1-L382)
+- [page.tsx:1-652](file://app/admin/savings/page.tsx#L1-L652)
+- [page.tsx:1-649](file://app/admin/savings/member/[id]/page.tsx#L1-L649)
+- [SavingsActions.tsx:1-249](file://components/user/actions/SavingsActions.tsx#L1-L249)
+- [AddSavingsModal.tsx:1-293](file://components/admin/AddSavingsModal.tsx#L1-L293)
+- [AddSavingsTransactionModal.tsx:1-371](file://components/user/AddSavingsTransactionModal.tsx#L1-L371)
+- [ActiveSavings.tsx:1-270](file://components/user/ActiveSavings.tsx#L1-L270)
+- [SavingsLeaderboard.tsx:1-213](file://components/admin/SavingsLeaderboard.tsx#L1-L213)
+- [SavingsRecords.tsx:1-350](file://components/admin/SavingsRecords.tsx#L1-L350)
+- [ReportsAndAnalytics.tsx:1-334](file://components/admin/ReportsAndAnalytics.tsx#L1-L334)
 
 **Section sources**
-- [savingsService.ts](file://lib/savingsService.ts#L1-L534)
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L1-L636)
-- [page.tsx](file://app/savings/page.tsx#L1-L382)
-- [page.tsx](file://app/admin/savings/page.tsx#L1-L652)
-- [page.tsx](file://app/admin/savings/member/[id]/page.tsx#L1-L638)
+- [savingsService.ts:1-551](file://lib/savingsService.ts#L1-L551)
+- [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
+- [activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
+- [userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
+- [page.tsx:1-382](file://app/savings/page.tsx#L1-L382)
+- [page.tsx:1-652](file://app/admin/savings/page.tsx#L1-L652)
+- [page.tsx:1-649](file://app/admin/savings/member/[id]/page.tsx#L1-L649)
 
 ## Performance Considerations
 - Running balance computation: The service recalculates balances from existing transactions. For large transaction histories, consider precomputing and storing balances to reduce repeated computations.
@@ -659,6 +842,8 @@ SS --> RA["components/admin/ReportsAndAnalytics.tsx"]
 - Caching: Prefer retrieving aggregate totals from member documents when available to avoid heavy recomputation.
 - **Updated**: Email receipt service implements caching for EmailJS configuration to avoid repeated Firestore queries.
 - **Updated**: Duplicate email prevention reduces unnecessary EmailJS calls and improves system performance.
+- **Updated**: Activity logging system uses efficient Firestore queries with proper indexing for activity log lookups.
+- **Updated**: User action tracking provides robust error handling with detailed logging and graceful degradation when activity logging fails.
 - **New**: Transaction receipt service uses efficient Firestore queries with proper indexing for email log lookups.
 - **New**: SavingsRecords component uses efficient filtering and pagination to handle large member datasets.
 - **New**: ReportsAndAnalytics component optimizes data fetching and chart rendering for better performance.
@@ -673,6 +858,8 @@ Common issues and resolutions:
 - **Updated**: Email receipt not sending: Check EmailJS configuration in Firestore (`systemConfig/emailjs`) or environment variables. Verify member eligibility (driver/operator) and email address availability.
 - **Updated**: Duplicate email attempts: Check `emailLogs` collection for existing entries preventing duplicate emails.
 - **Updated**: EmailJS configuration errors: Verify all required fields (publicKey, serviceId, receiptTemplateId) are present in Firestore configuration.
+- **Updated**: Activity logging failures: Check Firestore permissions for `activityLogs` collection and ensure proper indexing for user ID queries.
+- **Updated**: User action tracking errors: Verify user authentication and ensure proper user data retrieval for activity logging.
 - **New**: Transaction receipt service errors: Check Firestore permissions for `emailLogs` collection and ensure proper indexing for transactionId queries.
 - **New**: SavingsRecords loading errors**: Check Firestore permissions and ensure proper data structure for members and savings collections.
 - **New**: ReportsAndAnalytics chart rendering issues: Verify data formatting and ensure required dependencies (recharts) are properly installed.
@@ -680,17 +867,21 @@ Common issues and resolutions:
 - **New**: AddSavingsTransactionModal confirmation issues: Verify modal state management and ensure proper cleanup after transaction completion.
 
 **Section sources**
-- [savingsService.ts](file://lib/savingsService.ts#L21-L135)
-- [transactionReceiptService.ts](file://lib/transactionReceiptService.ts#L132-L153)
-- [SavingsActions.tsx](file://components/user/actions/SavingsActions.tsx#L68-L85)
-- [page.tsx](file://app/admin/savings/page.tsx#L161-L240)
-- [SavingsRecords.tsx](file://components/admin/SavingsRecords.tsx#L119-L127)
-- [ReportsAndAnalytics.tsx](file://components/admin/ReportsAndAnalytics.tsx#L159-L165)
-- [AddSavingsTransactionModal.tsx](file://components/user/AddSavingsTransactionModal.tsx#L120-L150)
+- [savingsService.ts:21-135](file://lib/savingsService.ts#L21-L135)
+- [transactionReceiptService.ts:132-153](file://lib/transactionReceiptService.ts#L132-L153)
+- [activityLogger.ts:50-86](file://lib/activityLogger.ts#L50-L86)
+- [userActionTracker.ts:10-47](file://lib/userActionTracker.ts#L10-L47)
+- [SavingsActions.tsx:68-85](file://components/user/actions/SavingsActions.tsx#L68-L85)
+- [page.tsx:161-240](file://app/admin/savings/page.tsx#L161-L240)
+- [SavingsRecords.tsx:119-127](file://components/admin/SavingsRecords.tsx#L119-L127)
+- [ReportsAndAnalytics.tsx:159-165](file://components/admin/ReportsAndAnalytics.tsx#L159-L165)
+- [AddSavingsTransactionModal.tsx:120-150](file://components/user/AddSavingsTransactionModal.tsx#L120-L150)
 
 ## Conclusion
-The Savings Management System provides a robust, user-friendly framework for managing cooperative member savings with enhanced transaction processing capabilities. It emphasizes accurate transaction processing, transparent reporting, administrative oversight through leaderboards, detailed member views, and comprehensive analytics. The addition of the SavingsRecords component enhances savings management with detailed transaction tracking and automated calculations, while the ReportsAndAnalytics component provides valuable financial insights through interactive charts and dashboards. The enhanced AddSavingsTransactionModal introduces sophisticated deposit control number generation and confirmation processes, significantly improving transaction security and auditability. 
+The Savings Management System provides a robust, user-friendly framework for managing cooperative member savings with enhanced transaction processing capabilities and comprehensive activity logging. It emphasizes accurate transaction processing, transparent reporting, administrative oversight through leaderboards, detailed member views, comprehensive analytics, and enhanced member communication. The addition of the SavingsRecords component enhances savings management with detailed transaction tracking and automated calculations, while the ReportsAndAnalytics component provides valuable financial insights through interactive charts and dashboards. The enhanced AddSavingsTransactionModal introduces sophisticated deposit control number generation and confirmation processes, significantly improving transaction security and auditability.
 
-**Updated**: The most significant enhancement is the integrated transaction receipt system with automatic email notifications for eligible members. The system now provides comprehensive member communication through EmailJS integration, with robust error handling, duplicate prevention, and detailed logging capabilities. This ensures that members receive timely notifications of their savings activities while maintaining system reliability and performance. The transaction receipt service supports both savings deposits and loan payments, with unique receipt number generation and flexible configuration management through Firestore and environment variables.
+**Updated**: The most significant enhancement is the integrated comprehensive activity logging system with detailed audit trails for all savings transactions. The system now provides proper user identification and role tracking for comprehensive transaction monitoring, enabling administrators to maintain detailed records of all savings-related activities. The activity logging system captures user IDs, emails, display names, roles, timestamps, client information, and transaction metadata, providing a complete audit trail for compliance and security purposes. The user action tracker enables detailed monitoring of administrative activities and user interactions, with robust error handling and graceful degradation when activity logging fails.
 
-By leveraging typed models, centralized services, modular components, and comprehensive email notification capabilities, the system supports scalability and maintainability while delivering essential financial insights, operational controls, and enhanced member communication.
+The savings service now integrates seamlessly with the activity logging system, ensuring that every transaction, whether initiated by members or administrators, is properly logged with comprehensive user identification and role tracking. This enhancement significantly improves the system's ability to monitor and audit savings transactions, providing administrators with detailed insights into system usage patterns and transaction activities.
+
+By leveraging typed models, centralized services, modular components, comprehensive email notification capabilities, and robust activity logging, the system supports scalability and maintainability while delivering essential financial insights, operational controls, enhanced member communication, and comprehensive audit trails for regulatory compliance and security monitoring.

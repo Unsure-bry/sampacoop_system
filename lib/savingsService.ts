@@ -1,6 +1,7 @@
 import { firestore } from '@/lib/firebase';
 import { SavingsTransaction } from '@/lib/types/savings';
 import { sendSavingsDepositReceipt } from '@/lib/transactionReceiptService';
+import { withdrawalApplicationMessage, depositApplicationMessage } from '@/lib/emailService';
 import { logActivity } from './activityLogger';
 
 /**
@@ -402,9 +403,72 @@ export async function addSavingsTransaction(
               console.warn('⚠️ EmailJS not configured. Email receipt was not sent, but savings transaction was successful.');
             }
           }
+          
+          // Also send deposit application message via emailService
+          const memberEmail = memberDataForEmail.email || '';
+          const memberName = memberDataForEmail.fullName || 
+            `${memberDataForEmail.firstName || ''} ${memberDataForEmail.lastName || ''}`.trim() || 'Member';
+          
+          if (memberEmail) {
+            const depositEmailSent = await depositApplicationMessage(
+              memberEmail,
+              memberName,
+              newTransaction.amount,
+              runningBalance,
+              newTransaction.depositControlNumber ? parseInt(newTransaction.depositControlNumber) : Date.now()
+            );
+            
+            if (depositEmailSent) {
+              console.log('✅ Deposit application message sent to:', memberEmail);
+            } else {
+              console.warn('⚠️ Failed to send deposit application message to:', memberEmail);
+            }
+          }
         }
       } catch (emailError) {
         console.error('Error sending savings deposit receipt:', emailError);
+        // Don't fail the transaction if email sending fails
+      }
+    }
+
+    // Send email receipt for withdrawals to Driver/Operator
+    if (newTransaction.type === 'withdrawal') {
+      try {
+        const memberResultForEmail = await firestore.getDocument('members', memberId);
+        const memberDataForEmail = memberResultForEmail.success && memberResultForEmail.data 
+          ? memberResultForEmail.data as any 
+          : {};
+        
+        const role = (memberDataForEmail.role || '').toLowerCase();
+        if (role === 'driver' || role === 'operator') {
+          const memberName = memberDataForEmail.fullName || 
+            `${memberDataForEmail.firstName || ''} ${memberDataForEmail.lastName || ''}`.trim() || 'Member';
+          const memberEmail = memberDataForEmail.email || '';
+          
+          if (memberEmail) {
+            console.log('Sending savings withdrawal receipt email:', {
+              email: memberEmail,
+              name: memberName,
+              amount: newTransaction.amount,
+              runningBalance
+            });
+            
+            const emailSent = await withdrawalApplicationMessage(
+              memberEmail,
+              memberName,
+              newTransaction.amount,
+              Date.now() // Use timestamp as control number for withdrawals
+            );
+            
+            if (emailSent) {
+              console.log('✅ Savings withdrawal receipt sent to:', memberEmail);
+            } else {
+              console.warn('⚠️ Failed to send savings withdrawal receipt to:', memberEmail);
+            }
+          }
+        }
+      } catch (emailError) {
+        console.error('Error sending savings withdrawal receipt:', emailError);
         // Don't fail the transaction if email sending fails
       }
     }

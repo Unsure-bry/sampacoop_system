@@ -18,29 +18,33 @@ const getEmailJSConfig = async () => {
 
   // For client-side rendering, try Firestore first
   if (typeof window !== 'undefined') {
+    let firestoreConfig = null;
+    
     try {
       const result = await firestore.getDocument('systemConfig', 'emailjs');
       if (result.success && result.data) {
-        const config = {
-          publicKey: result.data.publicKey || process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '',
-          serviceId: result.data.serviceId || process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
-          templateId: result.data.templateId || process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || '',
+        firestoreConfig = {
+          publicKey: result.data.publicKey || '',
+          serviceId: result.data.serviceId || '',
+          templateId: result.data.templateId || '',
           receiptTemplateId: result.data.receiptTemplateId || ''
         };
-        // Cache the config
-        cachedConfig = config;
-        return config;
       }
     } catch (error) {
       console.warn('Failed to fetch EmailJS config from Firestore:', error);
     }
 
-    // Fallback to environment variables
-    return {
-      publicKey: process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '',
-      serviceId: process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
-      templateId: process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || ''
+    // Build config with Firestore data as priority, fallback to env vars
+    const config = {
+      publicKey: firestoreConfig?.publicKey || process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '',
+      serviceId: firestoreConfig?.serviceId || process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
+      templateId: firestoreConfig?.templateId || process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || '',
+      receiptTemplateId: firestoreConfig?.receiptTemplateId || ''
     };
+    
+    // Cache the config
+    cachedConfig = config;
+    return config;
   }
 
   // For server-side, return empty strings
@@ -100,7 +104,7 @@ export const sendEmail = async (templateId: string, emailData: EmailData): Promi
 // Specific email templates
 export const sendMemberRegistrationEmail = async (email: string, name: string) => {
   // Generate a temporary password reset link
-  const resetLink = `http://localhost:3000/setup-password?email=${encodeURIComponent(email)}`;
+  const resetLink = `https://sampa-coop.vercel.app/setup-password?email=${encodeURIComponent(email)}`;
   
   const emailData = {
     to_name: name,
@@ -117,7 +121,7 @@ SET UP YOUR PASSWORD: ${resetLink}
 
 For security reasons, this link should be used within 24 hours. After setting your password, you can log in to the system using your email address.
 
-To access your account after setting up your password, please visit: http://localhost:3000/login
+To access your account after setting up your password, please visit: https://sampa-coop.vercel.app/login
 
 Best regards,
 SAMPA Cooperative Team`
@@ -143,7 +147,7 @@ Temporary Password: ${tempPassword}
 
 For security, please change your password immediately after your first login.
 
-To access your account, please log in at: http://localhost:3000/login
+To access your account, please log in at: https://sampa-coop.vercel.app/login
 
 Best regards,
 SAMPA Cooperative Team`
@@ -152,7 +156,7 @@ SAMPA Cooperative Team`
   const config = await getEmailJSConfig();
   return sendEmail(config.templateId, emailData);
 };
-
+// Loan Approved Email//
 export const sendLoanApprovalEmail = async (email: string, name: string, loanId: string) => {
   const emailData = {
     to_name: name,
@@ -165,7 +169,7 @@ Your loan application has been approved. Please check your account for more deta
 
 Loan ID: ${loanId}
 
-To access your account, please log in at: http://localhost:3000/login
+To access your account, please log in at: https://sampa-coop.vercel.app/login
 
 Best regards,
 SAMPA Cooperative Team`
@@ -307,6 +311,78 @@ export const rejectedLoanMessage = async (
     Best Regards,
     SAMPA Cooperative Team`
   };
+
+  const config = await getEmailJSConfig();
+  return sendEmail(config.templateId, emailData);
+
+};
+
+// Deposit Applicaion//
+export const depositApplicationMessage = async (
+  email: string, 
+  name: string, 
+  deposit: number,
+  depositotalAmount: number,
+  depositControlNumber: number,  
+) => {
+  const emailData = {
+    to_name: name,
+    email: email,
+    subject: 'Deposit Application Received',
+    message: `Dear ${name},
+
+    Hi! ${name},
+
+    I hope you're doing well!
+
+  
+    This is to confirm that we have received your deposit of ${deposit}. Your total amount deposited is ${depositotalAmount}.
+
+    Thank you for being a valued member of SAMPA Cooperative.
+
+    deposit: ${deposit}
+    depositotalAmount: ${depositotalAmount}
+    depositControlNumber: ${depositControlNumber}
+
+
+    Best Regards,
+    SAMPA Cooperative Team`
+  };
+
+  const config = await getEmailJSConfig();
+  return sendEmail(config.templateId, emailData);
+
+};
+
+// Withdrawal Application//
+export const withdrawalApplicationMessage = async (
+  email: string, 
+  name: string, 
+  withdrawal: number,
+  withdrawalControlNumber: number,
+
+)=> {
+  const emailData = {
+    to_name: name,
+    email: email,
+    subject: 'Withdrawal Application Received',
+    message: `Dear ${name},
+
+    Hi! ${name},
+
+    I hope you're doing well!
+
+    This is to inform you that you have made a withdrawal of ${withdrawal}.
+
+    Thank you for being a valued member of SAMPA Cooperative.
+
+    withdrawal: ${withdrawal}
+    withdrawalControlNumber: ${withdrawalControlNumber}
+
+
+    Best Regards,
+    SAMPA Cooperative Team`
+  }
 
   const config = await getEmailJSConfig();
   return sendEmail(config.templateId, emailData);

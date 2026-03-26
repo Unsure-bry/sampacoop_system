@@ -127,6 +127,16 @@ export const roleSidebarConfig: RoleSidebarConfig = {
       ],
     },
     {
+      title: 'Admin Settings',
+      permission: 'manageSettings',
+      items: [
+        { name: 'Role Permissions', path: '/admin/settings/permissions', icon: Settings, permission: 'manageSettings' },
+        { name: 'Officer Management', path: '/admin/settings/officers', icon: Users, permission: 'manageSettings' },
+        { name: 'Audit Logs', path: '/admin/profile/activity', icon: Activity, permission: 'manageSettings' },
+        { name: 'System Settings', path: '/admin/settings/system', icon: Settings, permission: 'manageSettings' },
+      ],
+    },
+    {
       title: 'Profile',
       items: [
         { name: 'My Account', path: '/admin/profile', icon: User },
@@ -170,6 +180,16 @@ export const roleSidebarConfig: RoleSidebarConfig = {
       permission: 'viewReports',
       items: [
         { name: 'Reports', path: '/admin/reports', icon: BarChart3, permission: 'viewReports' },
+      ],
+    },
+    {
+      title: 'Admin Settings',
+      permission: 'manageSettings',
+      items: [
+        { name: 'Role Permissions', path: '/admin/settings/permissions', icon: Settings, permission: 'manageSettings' },
+        { name: 'Officer Management', path: '/admin/settings/officers', icon: Users, permission: 'manageSettings' },
+        { name: 'Audit Logs', path: '/admin/profile/activity', icon: Activity, permission: 'manageSettings' },
+        { name: 'System Settings', path: '/admin/settings/system', icon: Settings, permission: 'manageSettings' },
       ],
     },
     {
@@ -219,6 +239,16 @@ export const roleSidebarConfig: RoleSidebarConfig = {
       ],
     },
     {
+      title: 'Admin Settings',
+      permission: 'manageSettings',
+      items: [
+        { name: 'Role Permissions', path: '/admin/settings/permissions', icon: Settings, permission: 'manageSettings' },
+        { name: 'Officer Management', path: '/admin/settings/officers', icon: Users, permission: 'manageSettings' },
+        { name: 'Audit Logs', path: '/admin/profile/activity', icon: Activity, permission: 'manageSettings' },
+        { name: 'System Settings', path: '/admin/settings/system', icon: Settings, permission: 'manageSettings' },
+      ],
+    },
+    {
       title: 'Profile',
       items: [
         { name: 'My Account', path: '/admin/profile', icon: User },
@@ -255,6 +285,16 @@ export const roleSidebarConfig: RoleSidebarConfig = {
       permission: 'viewReports',
       items: [
         { name: 'Reports', path: '/admin/reports', icon: BarChart3, permission: 'viewReports' },
+      ],
+    },
+    {
+      title: 'Admin Settings',
+      permission: 'manageSettings',
+      items: [
+        { name: 'Role Permissions', path: '/admin/settings/permissions', icon: Settings, permission: 'manageSettings' },
+        { name: 'Officer Management', path: '/admin/settings/officers', icon: Users, permission: 'manageSettings' },
+        { name: 'Audit Logs', path: '/admin/profile/activity', icon: Activity, permission: 'manageSettings' },
+        { name: 'System Settings', path: '/admin/settings/system', icon: Settings, permission: 'manageSettings' },
       ],
     },
     {
@@ -304,6 +344,16 @@ export const roleSidebarConfig: RoleSidebarConfig = {
       ],
     },
     {
+      title: 'Admin Settings',
+      permission: 'manageSettings',
+      items: [
+        { name: 'Role Permissions', path: '/admin/settings/permissions', icon: Settings, permission: 'manageSettings' },
+        { name: 'Officer Management', path: '/admin/settings/officers', icon: Users, permission: 'manageSettings' },
+        { name: 'Audit Logs', path: '/admin/profile/activity', icon: Activity, permission: 'manageSettings' },
+        { name: 'System Settings', path: '/admin/settings/system', icon: Settings, permission: 'manageSettings' },
+      ],
+    },
+    {
       title: 'Profile',
       items: [
         { name: 'My Account', path: '/admin/profile', icon: User },
@@ -347,6 +397,16 @@ export const roleSidebarConfig: RoleSidebarConfig = {
       permission: 'viewReports',
       items: [
         { name: 'Reports', path: '/admin/reports', icon: BarChart3, permission: 'viewReports' },
+      ],
+    },
+    {
+      title: 'Admin Settings',
+      permission: 'manageSettings',
+      items: [
+        { name: 'Role Permissions', path: '/admin/settings/permissions', icon: Settings, permission: 'manageSettings' },
+        { name: 'Officer Management', path: '/admin/settings/officers', icon: Users, permission: 'manageSettings' },
+        { name: 'Audit Logs', path: '/admin/profile/activity', icon: Activity, permission: 'manageSettings' },
+        { name: 'System Settings', path: '/admin/settings/system', icon: Settings, permission: 'manageSettings' },
       ],
     },
     {

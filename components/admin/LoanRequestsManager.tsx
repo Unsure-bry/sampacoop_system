@@ -8,9 +8,10 @@ import LoanRequestDetailsModal from './LoanRequestDetailsModal';
 import Pagination from './Pagination';
 import { logActivity } from '@/lib/activityLogger';
 import { useAuth } from '@/lib/auth';
-import { approvedloanMessage } from '@/lib/emailService';
+import { approvedloanMessage, rejectedLoanMessage } from '@/lib/emailService';
 import { usePermissions, PermissionGuard } from '@/lib/rolePermissions';
 import LoanContractModal from './LoanContractModal';
+
 
 /*
  * NOTE: This component requires specific Firestore composite indexes to function properly.
@@ -311,7 +312,8 @@ export default function LoanRequestsManager() {
         const requestResult = await firestore.getDocument('loanRequests', requestId);
         let memberData = {
           fullName: 'User Not Found',
-          role: 'N/A'
+          role: 'N/A',
+          email: ''
         };
         let interestRate = 3; // Default interest rate
 
@@ -322,7 +324,8 @@ export default function LoanRequestsManager() {
           const fullName = requestData.fullName || `${requestData.firstName || ''} ${requestData.lastName || ''}`.trim() || 'User Not Found';
           memberData = {
             fullName: fullName,
-            role: requestData.role || 'N/A'
+            role: requestData.role || 'N/A',
+            email: requestData.email || ''
           };
           
           // Get interest rate from loan plan
@@ -342,7 +345,8 @@ export default function LoanRequestsManager() {
             const fullName = userDoc.displayName || 'User Not Found';
             memberData = {
               fullName: fullName,
-              role: userDoc.role || 'N/A'
+              role: userDoc.role || 'N/A',
+              email: userDoc.email || ''
             };
           }
         }
@@ -431,15 +435,22 @@ export default function LoanRequestsManager() {
             action: 'Loan Approved',
             role: user?.role || 'admin',
           });
-          const email = user?.email || 'unknown';
-          const emailSent = await approvedloanMessage(
-            'theonesama03@gmail.com',
-            memberData.fullName,
-            amount,
-            interestRate,
-            term,
-            dailyPayment
-          );
+          // Send approval email to the member
+          if (memberData.email) {
+            const emailSent = await approvedloanMessage(
+              memberData.email,
+              memberData.fullName,
+              amount,
+              interestRate,
+              term,
+              dailyPayment
+            );
+            if (emailSent) {
+              console.log('Loan approval email sent to:', memberData.email);
+            } else {
+              console.warn('Failed to send loan approval email to:', memberData.email);
+            }
+          }
           
           // Create approval notification for the user
           try {
@@ -521,6 +532,29 @@ export default function LoanRequestsManager() {
               amount: requestData.amount || 0
             }
           });
+          
+          // Send rejection email to the member
+          if (requestData.email) {
+            try {
+              const memberName = requestData.fullName || `${requestData.firstName || ''} ${requestData.lastName || ''}`.trim() || 'Member';
+              const emailSent = await rejectedLoanMessage(
+                requestData.email,
+                memberName,
+                requestData.amount || 0,
+                requestData.interestRate || 0,
+                requestData.term || 0,
+                requestData.dailyPayment || 0,
+                rejectionReason
+              );
+              if (emailSent) {
+                console.log('Loan rejection email sent to:', requestData.email);
+              } else {
+                console.warn('Failed to send loan rejection email to:', requestData.email);
+              }
+            } catch (emailError) {
+              console.error('Error sending rejection email:', emailError);
+            }
+          }
         } catch (notifError) {
           console.error('Error creating rejection notification:', notifError);
         }
@@ -682,6 +716,7 @@ export default function LoanRequestsManager() {
                     className="px-3 py-1.5 bg-red-600 text-white border-2 border-red-800 rounded-md hover:bg-red-700 transition-colors font-bold text-xs uppercase tracking-wide shadow-sm"
                     aria-label="Reject loan request"
                   >
+                    
                     Reject
                   </button>
                 )}

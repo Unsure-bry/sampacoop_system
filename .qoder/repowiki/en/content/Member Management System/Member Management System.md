@@ -5,28 +5,32 @@
 - [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx)
 - [app/admin/members/page.tsx](file://app/admin/members/page.tsx)
 - [app/admin/chairman/members/page.tsx](file://app/admin/chairman/members/page.tsx)
+- [app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx)
 - [components/admin/MemberRecords.tsx](file://components/admin/MemberRecords.tsx)
 - [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx)
 - [components/admin/MemberRecordsReadOnly.tsx](file://components/admin/MemberRecordsReadOnly.tsx)
 - [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx)
 - [components/admin/MemberEditModal.tsx](file://components/admin/MemberEditModal.tsx)
 - [components/admin/MemberDetailsModal.tsx](file://components/admin/MemberDetailsModal.tsx)
+- [components/admin/CertificatePreviewModal.tsx](file://components/admin/CertificatePreviewModal.tsx)
 - [lib/userMemberService.ts](file://lib/userMemberService.ts)
 - [lib/emailService.ts](file://lib/emailService.ts)
-- [lib/types/member.ts](file://lib/types/member.ts)
 - [lib/certificateService.ts](file://lib/certificateService.ts)
+- [lib/types/member.ts](file://lib/types/member.ts)
 - [app/api/members/route.ts](file://app/api/members/route.ts)
+- [app/api/certificate/[memberId]/route.ts](file://app/api/certificate/[memberId]/route.ts)
 - [app/profile/edit/page.tsx](file://app/profile/edit/page.tsx)
 - [components/user/ProfilePhotoUpload.tsx](file://components/user/ProfilePhotoUpload.tsx)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced Member Records System with sophisticated new components: MemberRecordsEnhanced.tsx and MemberRecordsReadOnly.tsx
-- Replaced basic MemberRecords component with advanced data management features including auto-archiving, reactivation fees, and enhanced UI
-- Added read-only variant for non-admin roles with simplified functionality
-- Improved member records management with comprehensive filtering, detailed member information display, and advanced administrative capabilities
-- Enhanced user-account-to-member-profile integration with improved validation and healing mechanisms
+- Enhanced Member Registration Workflow with improved certificate generation process
+- Updated Certificate Preview Modal with redesigned traditional formal layout
+- Improved user experience for admin-driven member registration with step-by-step workflow
+- Added comprehensive certificate management system with email notifications
+- Enhanced certificate generation with formal PDF styling and editable fields
+- Integrated certificate workflow into both Admin and Secretary registration processes
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -34,13 +38,14 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
+6. [Enhanced Certificate Generation Workflow](#enhanced-certificate-generation-workflow)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the Member Management System within the SAMPA Cooperative Management Platform. It covers the complete lifecycle of member onboarding, profile management, records administration, search and filtering, pagination, bulk operations, user-account-to-member-profile integration, status management, and compliance features. The system now includes enhanced member records management with sophisticated components featuring auto-archiving, reactivation fees, detailed member information display, and role-based access control, providing both comprehensive administrative capabilities and simplified read-only views.
+This document describes the Member Management System within the SAMPA Cooperative Management Platform. It covers the complete lifecycle of member onboarding, profile management, records administration, search and filtering, pagination, bulk operations, user-account-to-member-profile integration, status management, and compliance features. The system now includes enhanced member records management with sophisticated components featuring auto-archiving, reactivation fees, detailed member information display, and role-based access control, providing both comprehensive administrative capabilities and simplified read-only views. The enhanced certificate generation workflow provides a seamless, professional experience for creating and managing member share certificates.
 
 ## Project Structure
 The Member Management System spans UI components, backend APIs, and shared services with enhanced component architecture:
@@ -48,12 +53,14 @@ The Member Management System spans UI components, backend APIs, and shared servi
 - MemberRecordsEnhanced component providing advanced member management with auto-archiving and reactivation features
 - MemberRecordsReadOnly component offering simplified read-only member viewing for non-admin roles
 - Standalone MemberRecords component for legacy support
+- Enhanced Member Registration Modal with step-by-step workflow and certificate preview
+- Secretary Member Registration Modal with streamlined certificate generation process
 - Administrative modals for member registration, editing, and details viewing
-- Services for user-member linking and email notifications
+- Certificate Preview Modal with redesigned traditional formal layout
+- Services for user-member linking, email notifications, and certificate generation
 - Types for member data structures
-- Certificate generation and management services
+- Backend API routes for member CRUD operations and certificate retrieval
 - Profile editing and photo upload components
-- Backend API routes for member CRUD operations
 
 ```mermaid
 graph TB
@@ -62,9 +69,11 @@ MR["Member Records Page<br/>(app/admin/members/records/page.tsx)"]
 MR2["MemberRecords Component<br/>(components/admin/MemberRecords.tsx)"]
 MR3["MemberRecordsEnhanced<br/>(components/admin/MemberRecordsEnhanced.tsx)"]
 MR4["MemberRecordsReadOnly<br/>(components/admin/MemberRecordsReadOnly.tsx)"]
-RM["Registration Modal<br/>(components/admin/MemberRegistrationModal.tsx)"]
+RM["Enhanced Registration Modal<br/>(components/admin/MemberRegistrationModal.tsx)"]
+SM["Secretary Registration Modal<br/>(app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx)"]
 EM["Edit Modal<br/>(components/admin/MemberEditModal.tsx)"]
 DM["Details Modal<br/>(components/admin/MemberDetailsModal.tsx)"]
+CPM["Certificate Preview Modal<br/>(components/admin/CertificatePreviewModal.tsx)"]
 end
 subgraph "Services"
 UMS["User-Member Service<br/>(lib/userMemberService.ts)"]
@@ -73,6 +82,7 @@ CS["Certificate Service<br/>(lib/certificateService.ts)"]
 end
 subgraph "Backend API"
 API["Members API Route<br/>(app/api/members/route.ts)"]
+CERTAPI["Certificate API Route<br/>(app/api/certificate/[memberId]/route.ts)"]
 end
 subgraph "Data Types"
 MT["Member Types<br/>(lib/types/member.ts)"]
@@ -91,6 +101,8 @@ MR3 --> RM
 MR3 --> EM
 MR3 --> DM
 MR4 --> DM
+RM --> CPM
+SM --> CPM
 RM --> UMS
 EM --> UMS
 DM --> CS
@@ -98,129 +110,134 @@ UMS --> ES
 PE --> MT
 PP --> MT
 API --> UMS
+CERTAPI --> CS
 ```
 
 **Diagram sources**
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L1-L655)
-- [app/admin/members/page.tsx](file://app/admin/members/page.tsx#L1-L522)
-- [app/admin/chairman/members/page.tsx](file://app/admin/chairman/members/page.tsx#L1-L39)
-- [components/admin/MemberRecords.tsx](file://components/admin/MemberRecords.tsx#L1-L748)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
-- [components/admin/MemberRecordsReadOnly.tsx](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
-- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx#L1-L1247)
-- [components/admin/MemberEditModal.tsx](file://components/admin/MemberEditModal.tsx#L1-L820)
-- [components/admin/MemberDetailsModal.tsx](file://components/admin/MemberDetailsModal.tsx#L1-L271)
-- [lib/userMemberService.ts](file://lib/userMemberService.ts#L1-L287)
-- [lib/emailService.ts](file://lib/emailService.ts#L1-L113)
-- [lib/certificateService.ts](file://lib/certificateService.ts#L1-L207)
-- [app/api/members/route.ts](file://app/api/members/route.ts#L1-L179)
-- [lib/types/member.ts](file://lib/types/member.ts#L1-L56)
-- [app/profile/edit/page.tsx](file://app/profile/edit/page.tsx#L1-L498)
-- [components/user/ProfilePhotoUpload.tsx](file://components/user/ProfilePhotoUpload.tsx#L1-L166)
+- [app/admin/members/records/page.tsx:1-655](file://app/admin/members/records/page.tsx#L1-L655)
+- [app/admin/members/page.tsx:1-522](file://app/admin/members/page.tsx#L1-L522)
+- [app/admin/chairman/members/page.tsx:1-39](file://app/admin/chairman/members/page.tsx#L1-L39)
+- [app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx:1-1043](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L1-L1043)
+- [components/admin/MemberRecords.tsx:1-748](file://components/admin/MemberRecords.tsx#L1-L748)
+- [components/admin/MemberRecordsEnhanced.tsx:1-1034](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
+- [components/admin/MemberRecordsReadOnly.tsx:1-278](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
+- [components/admin/MemberRegistrationModal.tsx:1-1404](file://components/admin/MemberRegistrationModal.tsx#L1-L1404)
+- [components/admin/MemberEditModal.tsx:1-820](file://components/admin/MemberEditModal.tsx#L1-L820)
+- [components/admin/MemberDetailsModal.tsx:1-271](file://components/admin/MemberDetailsModal.tsx#L1-L271)
+- [components/admin/CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
+- [lib/userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [lib/emailService.ts:1-281](file://lib/emailService.ts#L1-L281)
+- [lib/certificateService.ts:1-393](file://lib/certificateService.ts#L1-L393)
+- [app/api/members/route.ts:1-179](file://app/api/members/route.ts#L1-L179)
+- [app/api/certificate/[memberId]/route.ts](file://app/api/certificate/[memberId]/route.ts#L1-L200)
+- [lib/types/member.ts:1-56](file://lib/types/member.ts#L1-L56)
+- [app/profile/edit/page.tsx:1-498](file://app/profile/edit/page.tsx#L1-L498)
+- [components/user/ProfilePhotoUpload.tsx:1-166](file://components/user/ProfilePhotoUpload.tsx#L1-L166)
 
 **Section sources**
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L1-L655)
-- [app/admin/members/page.tsx](file://app/admin/members/page.tsx#L1-L522)
-- [app/admin/chairman/members/page.tsx](file://app/admin/chairman/members/page.tsx#L1-L39)
-- [components/admin/MemberRecords.tsx](file://components/admin/MemberRecords.tsx#L1-L748)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
-- [components/admin/MemberRecordsReadOnly.tsx](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
-- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx#L1-L1247)
-- [components/admin/MemberEditModal.tsx](file://components/admin/MemberEditModal.tsx#L1-L820)
-- [components/admin/MemberDetailsModal.tsx](file://components/admin/MemberDetailsModal.tsx#L1-L271)
-- [lib/userMemberService.ts](file://lib/userMemberService.ts#L1-L287)
-- [lib/emailService.ts](file://lib/emailService.ts#L1-L113)
-- [lib/certificateService.ts](file://lib/certificateService.ts#L1-L207)
-- [app/api/members/route.ts](file://app/api/members/route.ts#L1-L179)
-- [lib/types/member.ts](file://lib/types/member.ts#L1-L56)
-- [app/profile/edit/page.tsx](file://app/profile/edit/page.tsx#L1-L498)
-- [components/user/ProfilePhotoUpload.tsx](file://components/user/ProfilePhotoUpload.tsx#L1-L166)
+- [app/admin/members/records/page.tsx:1-655](file://app/admin/members/records/page.tsx#L1-L655)
+- [app/admin/members/page.tsx:1-522](file://app/admin/members/page.tsx#L1-L522)
+- [app/admin/chairman/members/page.tsx:1-39](file://app/admin/chairman/members/page.tsx#L1-L39)
+- [app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx:1-1043](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L1-L1043)
+- [components/admin/MemberRecords.tsx:1-748](file://components/admin/MemberRecords.tsx#L1-L748)
+- [components/admin/MemberRecordsEnhanced.tsx:1-1034](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
+- [components/admin/MemberRecordsReadOnly.tsx:1-278](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
+- [components/admin/MemberRegistrationModal.tsx:1-1404](file://components/admin/MemberRegistrationModal.tsx#L1-L1404)
+- [components/admin/MemberEditModal.tsx:1-820](file://components/admin/MemberEditModal.tsx#L1-L820)
+- [components/admin/MemberDetailsModal.tsx:1-271](file://components/admin/MemberDetailsModal.tsx#L1-L271)
+- [components/admin/CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
+- [lib/userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [lib/emailService.ts:1-281](file://lib/emailService.ts#L1-L281)
+- [lib/certificateService.ts:1-393](file://lib/certificateService.ts#L1-L393)
+- [app/api/members/route.ts:1-179](file://app/api/members/route.ts#L1-L179)
+- [app/api/certificate/[memberId]/route.ts](file://app/api/certificate/[memberId]/route.ts#L1-L200)
+- [lib/types/member.ts:1-56](file://lib/types/member.ts#L1-L56)
+- [app/profile/edit/page.tsx:1-498](file://app/profile/edit/page.tsx#L1-L498)
+- [components/user/ProfilePhotoUpload.tsx:1-166](file://components/user/ProfilePhotoUpload.tsx#L1-L166)
 
 ## Core Components
 - Enhanced Member Records Page: Comprehensive member management with advanced filtering, pagination, status management, and bulk operations
 - MemberRecordsEnhanced Component: Advanced standalone component providing sophisticated member management capabilities with auto-archiving, reactivation fees, detailed member information display, search functionality, and responsive pagination
 - MemberRecordsReadOnly Component: Simplified read-only component designed for non-admin roles with basic member viewing capabilities and essential filtering
 - MemberRecords Component: Legacy basic component providing fundamental member management functionality (still maintained for backward compatibility)
-- Registration Modal: Multi-step form for new member onboarding with real-time validation, role-specific fields, and payment summary
+- Enhanced Member Registration Modal: Multi-step form for new member onboarding with real-time validation, role-specific fields, payment summary, and integrated certificate preview workflow
+- Secretary Member Registration Modal: Streamlined registration process specifically designed for Secretary role with certificate generation workflow
+- Certificate Preview Modal: Redesigned traditional formal layout for certificate review and generation with editable fields and professional styling
 - Edit Modal: Multi-step form for updating member details with role-aware fields and dynamic plate numbers for operators
 - Details Modal: Comprehensive member information display with personal details, address information, role-specific data, and certificate management
 - User-Member Service: Ensures consistent IDs across users and members collections, validates and heals links, and synchronizes updates
-- Email Service: Sends welcome emails and other notifications using EmailJS
-- Certificate Service: Generates membership certificates in PDF format with cooperative branding and member details
+- Email Service: Sends welcome emails, certificate notifications, and other notifications using EmailJS
+- Certificate Service: Generates professional share certificates in PDF format with cooperative branding and member details, including email notification workflow
 - Member Types: Defines the Member, DriverInfo, OperatorInfo, and related interfaces
 - Profile Edit Page: Allows authenticated members to update personal info, contact details, and role-specific data
 - Profile Photo Upload: Handles image selection, validation, and updates to user documents
 
 **Section sources**
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L1-L655)
-- [app/admin/members/page.tsx](file://app/admin/members/page.tsx#L1-L522)
-- [app/admin/chairman/members/page.tsx](file://app/admin/chairman/members/page.tsx#L1-L39)
-- [components/admin/MemberRecords.tsx](file://components/admin/MemberRecords.tsx#L1-L748)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
-- [components/admin/MemberRecordsReadOnly.tsx](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
-- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx#L1-L1247)
-- [components/admin/MemberEditModal.tsx](file://components/admin/MemberEditModal.tsx#L1-L820)
-- [components/admin/MemberDetailsModal.tsx](file://components/admin/MemberDetailsModal.tsx#L1-L271)
-- [lib/userMemberService.ts](file://lib/userMemberService.ts#L1-L287)
-- [lib/emailService.ts](file://lib/emailService.ts#L1-L113)
-- [lib/certificateService.ts](file://lib/certificateService.ts#L1-L207)
-- [lib/types/member.ts](file://lib/types/member.ts#L1-L56)
-- [app/profile/edit/page.tsx](file://app/profile/edit/page.tsx#L1-L498)
-- [components/user/ProfilePhotoUpload.tsx](file://components/user/ProfilePhotoUpload.tsx#L1-L166)
+- [app/admin/members/records/page.tsx:1-655](file://app/admin/members/records/page.tsx#L1-L655)
+- [app/admin/members/page.tsx:1-522](file://app/admin/members/page.tsx#L1-L522)
+- [app/admin/chairman/members/page.tsx:1-39](file://app/admin/chairman/members/page.tsx#L1-L39)
+- [app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx:1-1043](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L1-L1043)
+- [components/admin/MemberRecords.tsx:1-748](file://components/admin/MemberRecords.tsx#L1-L748)
+- [components/admin/MemberRecordsEnhanced.tsx:1-1034](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
+- [components/admin/MemberRecordsReadOnly.tsx:1-278](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
+- [components/admin/MemberRegistrationModal.tsx:1-1404](file://components/admin/MemberRegistrationModal.tsx#L1-L1404)
+- [components/admin/MemberEditModal.tsx:1-820](file://components/admin/MemberEditModal.tsx#L1-L820)
+- [components/admin/MemberDetailsModal.tsx:1-271](file://components/admin/MemberDetailsModal.tsx#L1-L271)
+- [components/admin/CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
+- [lib/userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [lib/emailService.ts:1-281](file://lib/emailService.ts#L1-L281)
+- [lib/certificateService.ts:1-393](file://lib/certificateService.ts#L1-L393)
+- [lib/types/member.ts:1-56](file://lib/types/member.ts#L1-L56)
+- [app/profile/edit/page.tsx:1-498](file://app/profile/edit/page.tsx#L1-L498)
+- [components/user/ProfilePhotoUpload.tsx:1-166](file://components/user/ProfilePhotoUpload.tsx#L1-L166)
 
 ## Architecture Overview
-The system integrates administrative and user-facing flows with backend APIs and shared services. The enhanced member management architecture now includes multiple specialized components with role-based access control, providing both comprehensive administrative capabilities and simplified read-only views for different user roles.
+The system integrates administrative and user-facing flows with backend APIs and shared services. The enhanced member management architecture now includes multiple specialized components with role-based access control, providing both comprehensive administrative capabilities and simplified read-only views for different user roles. The enhanced certificate generation workflow provides a seamless experience from member registration to certificate issuance with professional PDF generation and email notifications.
 
 ```mermaid
 sequenceDiagram
-participant Admin as "Admin UI"
-participant MR3 as "MemberRecordsEnhanced"
-participant MR4 as "MemberRecordsReadOnly"
-participant Reg as "Registration Modal"
+participant Admin as "Admin/Super Admin"
+participant SMR as "Secretary Registration Modal"
+participant MR as "Enhanced Registration Modal"
+participant CPM as "Certificate Preview Modal"
 participant UMS as "User-Member Service"
-participant API as "Members API"
-participant ES as "Email Service"
 participant CS as "Certificate Service"
-Admin->>MR3 : Open Enhanced Member Records
-MR3->>MR3 : Auto-archive inactive members (6 months)
-MR3->>MR3 : Process member data with reactivation fees
-MR3->>MR3 : Apply advanced search and filtering
-MR3->>MR3 : Paginate results with enhanced controls
-Reg->>Reg : Validate step 1-3 fields
-Reg->>UMS : createLinkedUserMember(userData)
+participant ES as "Email Service"
+Admin->>MR : Open Enhanced Registration
+MR->>MR : Validate step 1-3 fields
+MR->>UMS : createLinkedUserMember(userData)
 UMS->>UMS : generateUserId(email)
 UMS->>UMS : Create user document
 UMS->>UMS : Create member document (same ID)
-UMS-->>Reg : success
-Reg->>ES : sendMemberRegistrationEmail(email, name)
-ES-->>Reg : email sent
-Reg->>CS : generateMembershipCertificate(memberData)
-CS-->>Reg : certificate generated
-Reg-->>MR3 : show success, refresh records
-Admin->>MR4 : Open Read-Only Member Records
-MR4->>MR4 : Load members without modification capabilities
-MR4->>MR4 : Apply basic filtering and pagination
+UMS-->>MR : success
+MR->>MR : Show certificate preview modal
+MR->>CPM : Display certificate preview
+CPM->>CS : generateShareCertificate(memberData, details)
+CS->>CS : Generate PDF with traditional formal layout
+CS->>CS : Store certificate in Firestore
+CS-->>CPM : Return certificate URL
+CPM->>ES : sendCertificateNotificationEmail(email, name, certNumber, url)
+ES-->>CPM : Email sent successfully
+CPM-->>MR : Certificate generated and email sent
+MR-->>Admin : Show success, refresh records
 ```
 
 **Diagram sources**
-- [app/admin/members/page.tsx](file://app/admin/members/page.tsx#L1-L522)
-- [app/admin/chairman/members/page.tsx](file://app/admin/chairman/members/page.tsx#L1-L39)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
-- [components/admin/MemberRecordsReadOnly.tsx](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
-- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx#L213-L369)
-- [lib/userMemberService.ts](file://lib/userMemberService.ts#L23-L92)
-- [lib/emailService.ts](file://lib/emailService.ts#L41-L67)
-- [lib/certificateService.ts](file://lib/certificateService.ts#L10-L175)
+- [components/admin/MemberRegistrationModal.tsx:354-404](file://components/admin/MemberRegistrationModal.tsx#L354-L404)
+- [components/admin/CertificatePreviewModal.tsx:107-119](file://components/admin/CertificatePreviewModal.tsx#L107-L119)
+- [lib/certificateService.ts:12-277](file://lib/certificateService.ts#L12-L277)
+- [lib/emailService.ts:146-176](file://lib/emailService.ts#L146-L176)
 
 **Section sources**
-- [app/admin/members/page.tsx](file://app/admin/members/page.tsx#L1-L522)
-- [app/admin/chairman/members/page.tsx](file://app/admin/chairman/members/page.tsx#L1-L39)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
-- [components/admin/MemberRecordsReadOnly.tsx](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
-- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx#L1-L1247)
-- [lib/userMemberService.ts](file://lib/userMemberService.ts#L1-L287)
-- [lib/emailService.ts](file://lib/emailService.ts#L1-L113)
-- [lib/certificateService.ts](file://lib/certificateService.ts#L1-L207)
+- [app/admin/members/page.tsx:1-522](file://app/admin/members/page.tsx#L1-L522)
+- [app/admin/chairman/members/page.tsx:1-39](file://app/admin/chairman/members/page.tsx#L1-L39)
+- [components/admin/MemberRecordsEnhanced.tsx:1-1034](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
+- [components/admin/MemberRecordsReadOnly.tsx:1-278](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
+- [components/admin/MemberRegistrationModal.tsx:1-1404](file://components/admin/MemberRegistrationModal.tsx#L1-L1404)
+- [components/admin/CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
+- [lib/userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [lib/emailService.ts:1-281](file://lib/emailService.ts#L1-L281)
+- [lib/certificateService.ts:1-393](file://lib/certificateService.ts#L1-L393)
 
 ## Detailed Component Analysis
 
@@ -253,14 +270,14 @@ Actions --> End(["Render Enhanced Table"])
 ```
 
 **Diagram sources**
-- [app/admin/members/page.tsx](file://app/admin/members/page.tsx#L218-L220)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L393-L489)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L430-L432)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L372-L391)
+- [app/admin/members/page.tsx:218-220](file://app/admin/members/page.tsx#L218-L220)
+- [components/admin/MemberRecordsEnhanced.tsx:393-489](file://components/admin/MemberRecordsEnhanced.tsx#L393-L489)
+- [components/admin/MemberRecordsEnhanced.tsx:430-432](file://components/admin/MemberRecordsEnhanced.tsx#L430-L432)
+- [components/admin/MemberRecordsEnhanced.tsx:372-391](file://components/admin/MemberRecordsEnhanced.tsx#L372-L391)
 
 **Section sources**
-- [app/admin/members/page.tsx](file://app/admin/members/page.tsx#L1-L522)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
+- [app/admin/members/page.tsx:1-522](file://app/admin/members/page.tsx#L1-L522)
+- [components/admin/MemberRecordsEnhanced.tsx:1-1034](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
 
 ### MemberRecordsEnhanced Component
 The new MemberRecordsEnhanced component provides sophisticated member management capabilities with 1034 lines of comprehensive functionality:
@@ -300,12 +317,12 @@ Archive --> Process
 ```
 
 **Diagram sources**
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L367-L369)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L372-L391)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L491-L501)
+- [components/admin/MemberRecordsEnhanced.tsx:367-369](file://components/admin/MemberRecordsEnhanced.tsx#L367-L369)
+- [components/admin/MemberRecordsEnhanced.tsx:372-391](file://components/admin/MemberRecordsEnhanced.tsx#L372-L391)
+- [components/admin/MemberRecordsEnhanced.tsx:491-501](file://components/admin/MemberRecordsEnhanced.tsx#L491-L501)
 
 **Section sources**
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
+- [components/admin/MemberRecordsEnhanced.tsx:1-1034](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
 
 ### MemberRecordsReadOnly Component
 The new MemberRecordsReadOnly component provides simplified read-only member viewing capabilities with 278 lines of streamlined functionality:
@@ -321,13 +338,15 @@ The new MemberRecordsReadOnly component provides simplified read-only member vie
 **Updated** Added simplified read-only member management component for non-admin roles
 
 **Section sources**
-- [components/admin/MemberRecordsReadOnly.tsx](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
+- [components/admin/MemberRecordsReadOnly.tsx:1-278](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
 
-### Member Registration Workflow
-The Registration Modal implements a three-step wizard:
+### Enhanced Member Registration Workflow
+The Registration Modal implements a three-step wizard with enhanced certificate generation:
 - Step 1: Personal info, role selection, and address fields
 - Step 2: Role-specific fields (license/TIN) and operator plate numbers
 - Step 3: Payment summary and confirmation
+
+**Updated** Enhanced registration workflow with integrated certificate preview and generation process
 
 Validation includes:
 - Real-time field validation with user-friendly messages
@@ -335,14 +354,18 @@ Validation includes:
 - License/TIN format enforcement with auto-formatting
 - Dynamic plate number fields based on number of jeepneys
 - Email uniqueness check against the users collection
+- Integrated certificate preview modal with traditional formal design
+- Professional PDF certificate generation with editable fields
+- Email notification workflow for certificate delivery
 
 ```mermaid
 sequenceDiagram
 participant User as "User/Admin"
-participant Modal as "Registration Modal"
+participant Modal as "Enhanced Registration Modal"
+participant CPM as "Certificate Preview Modal"
 participant UMS as "User-Member Service"
-participant ES as "Email Service"
 participant CS as "Certificate Service"
+participant ES as "Email Service"
 User->>Modal : Enter personal info
 Modal->>Modal : Validate step 1
 User->>Modal : Select role and enter role details
@@ -350,25 +373,47 @@ Modal->>Modal : Validate step 2 (formats, counts)
 User->>Modal : Confirm payment details
 Modal->>UMS : createLinkedUserMember(userData)
 UMS-->>Modal : {success, userId, memberId}
-Modal->>ES : sendMemberRegistrationEmail(email, name)
-ES-->>Modal : success
-Modal->>CS : generateMembershipCertificate(memberData)
-CS-->>Modal : certificate generated
+Modal->>Modal : Show certificate preview modal
+Modal->>CPM : Display certificate preview with traditional layout
+User->>CPM : Review and edit certificate details
+CPM->>CS : generateShareCertificate(memberData, details)
+CS->>CS : Generate professional PDF certificate
+CS->>CS : Store certificate in Firestore
+CS-->>CPM : Return certificate URL
+CPM->>ES : sendCertificateNotificationEmail(email, name, certNumber, url)
+ES-->>CPM : Email sent successfully
+CPM-->>Modal : Certificate generated and email sent
 Modal-->>User : Show success, close modal
 ```
 
 **Diagram sources**
-- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx#L103-L144)
-- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx#L213-L369)
-- [lib/userMemberService.ts](file://lib/userMemberService.ts#L23-L92)
-- [lib/emailService.ts](file://lib/emailService.ts#L41-L67)
-- [lib/certificateService.ts](file://lib/certificateService.ts#L10-L175)
+- [components/admin/MemberRegistrationModal.tsx:103-144](file://components/admin/MemberRegistrationModal.tsx#L103-L144)
+- [components/admin/MemberRegistrationModal.tsx:354-404](file://components/admin/MemberRegistrationModal.tsx#L354-L404)
+- [components/admin/CertificatePreviewModal.tsx:107-119](file://components/admin/CertificatePreviewModal.tsx#L107-L119)
+- [lib/userMemberService.ts:23-92](file://lib/userMemberService.ts#L23-L92)
+- [lib/certificateService.ts:12-277](file://lib/certificateService.ts#L12-L277)
+- [lib/emailService.ts:146-176](file://lib/emailService.ts#L146-L176)
 
 **Section sources**
-- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx#L1-L1247)
-- [lib/userMemberService.ts](file://lib/userMemberService.ts#L1-L287)
-- [lib/emailService.ts](file://lib/emailService.ts#L1-L113)
-- [lib/certificateService.ts](file://lib/certificateService.ts#L1-L207)
+- [components/admin/MemberRegistrationModal.tsx:1-1404](file://components/admin/MemberRegistrationModal.tsx#L1-L1404)
+- [components/admin/CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
+- [lib/userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [lib/emailService.ts:1-281](file://lib/emailService.ts#L1-L281)
+- [lib/certificateService.ts:1-393](file://lib/certificateService.ts#L1-L393)
+
+### Secretary Member Registration Workflow
+The Secretary Registration Modal provides a streamlined registration process specifically designed for Secretary role:
+- Three-step workflow: Personal Info → Role Selection → Certificate Generation
+- Direct certificate generation without intermediate steps
+- Pre-filled payment information for streamlined process
+- Certificate preview modal with traditional formal design
+- Professional PDF generation with editable fields
+- Email notification workflow for certificate delivery
+
+**Updated** Added Secretary-specific registration workflow with streamlined certificate generation
+
+**Section sources**
+- [app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx:1-1043](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L1-L1043)
 
 ### Member Profile Management
 Authenticated members can update:
@@ -397,12 +442,12 @@ Edit-->>Member : Show success and redirect
 ```
 
 **Diagram sources**
-- [app/profile/edit/page.tsx](file://app/profile/edit/page.tsx#L40-L194)
-- [app/profile/edit/page.tsx](file://app/profile/edit/page.tsx#L204-L311)
+- [app/profile/edit/page.tsx:40-194](file://app/profile/edit/page.tsx#L40-L194)
+- [app/profile/edit/page.tsx:204-311](file://app/profile/edit/page.tsx#L204-L311)
 
 **Section sources**
-- [app/profile/edit/page.tsx](file://app/profile/edit/page.tsx#L1-L498)
-- [components/user/ProfilePhotoUpload.tsx](file://components/user/ProfilePhotoUpload.tsx#L1-L166)
+- [app/profile/edit/page.tsx:1-498](file://app/profile/edit/page.tsx#L1-L498)
+- [components/user/ProfilePhotoUpload.tsx:1-166](file://components/user/ProfilePhotoUpload.tsx#L1-L166)
 
 ### Enhanced Member Search and Filtering
 The Member Records Page supports:
@@ -416,8 +461,8 @@ The Member Records Page supports:
 **Updated** Enhanced search functionality with multi-field matching and role filtering
 
 **Section sources**
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L149-L194)
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L156-L194)
+- [app/admin/members/records/page.tsx:149-194](file://app/admin/members/records/page.tsx#L149-L194)
+- [app/admin/members/records/page.tsx:156-194](file://app/admin/members/records/page.tsx#L156-L194)
 
 ### Advanced Pagination Implementation
 Enhanced pagination logic:
@@ -431,9 +476,9 @@ Enhanced pagination logic:
 **Updated** Enhanced pagination with smart page number calculation and responsive design
 
 **Section sources**
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L307-L316)
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L535-L627)
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L576-L611)
+- [app/admin/members/records/page.tsx:307-316](file://app/admin/members/records/page.tsx#L307-L316)
+- [app/admin/members/records/page.tsx:535-627](file://app/admin/members/records/page.tsx#L535-L627)
+- [app/admin/members/records/page.tsx:576-611](file://app/admin/members/records/page.tsx#L576-L611)
 
 ### Bulk Operations
 Enhanced bulk-like operations supported:
@@ -446,9 +491,9 @@ Enhanced bulk-like operations supported:
 **Updated** Added certificate generation and enhanced bulk operations
 
 **Section sources**
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L252-L283)
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L204-L250)
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L252-L283)
+- [app/admin/members/records/page.tsx:252-283](file://app/admin/members/records/page.tsx#L252-L283)
+- [app/admin/members/records/page.tsx:204-250](file://app/admin/members/records/page.tsx#L204-L250)
+- [app/admin/members/records/page.tsx:252-283](file://app/admin/members/records/page.tsx#L252-L283)
 
 ### User Account and Member Profile Integration
 The User-Member Service:
@@ -499,12 +544,12 @@ Member --> OperatorInfo : "has"
 ```
 
 **Diagram sources**
-- [lib/userMemberService.ts](file://lib/userMemberService.ts#L14-L92)
-- [lib/types/member.ts](file://lib/types/member.ts#L1-L56)
+- [lib/userMemberService.ts:14-92](file://lib/userMemberService.ts#L14-L92)
+- [lib/types/member.ts:1-56](file://lib/types/member.ts#L1-L56)
 
 **Section sources**
-- [lib/userMemberService.ts](file://lib/userMemberService.ts#L1-L287)
-- [lib/types/member.ts](file://lib/types/member.ts#L1-L56)
+- [lib/userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [lib/types/member.ts:1-56](file://lib/types/member.ts#L1-L56)
 
 ### Enhanced Member Status Management and Compliance
 - Status fields: Active by default; archived flag maintained for historical records
@@ -519,26 +564,12 @@ Member --> OperatorInfo : "has"
 **Updated** Enhanced status management with auto-archiving, reactivation fees, and certificate capabilities
 
 **Section sources**
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L96-L146)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L148-L165)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L167-L237)
-- [lib/emailService.ts](file://lib/emailService.ts#L41-L67)
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L204-L250)
-- [components/admin/MemberDetailsModal.tsx](file://components/admin/MemberDetailsModal.tsx#L202-L257)
-
-### Certificate Generation and Management
-The Certificate Service provides comprehensive membership certificate functionality:
-- Generates professional PDF certificates with cooperative branding
-- Includes member details, role, registration date, and membership ID
-- Stores certificates in Firestore with base64 encoding
-- Provides certificate retrieval and display capabilities
-- Integrates with member registration workflow
-
-**Updated** Added comprehensive certificate generation and management system
-
-**Section sources**
-- [lib/certificateService.ts](file://lib/certificateService.ts#L1-L207)
-- [components/admin/MemberDetailsModal.tsx](file://components/admin/MemberDetailsModal.tsx#L202-L257)
+- [components/admin/MemberRecordsEnhanced.tsx:96-146](file://components/admin/MemberRecordsEnhanced.tsx#L96-L146)
+- [components/admin/MemberRecordsEnhanced.tsx:148-165](file://components/admin/MemberRecordsEnhanced.tsx#L148-L165)
+- [components/admin/MemberRecordsEnhanced.tsx:167-237](file://components/admin/MemberRecordsEnhanced.tsx#L167-L237)
+- [lib/emailService.ts:68-95](file://lib/emailService.ts#L68-L95)
+- [app/admin/members/records/page.tsx:204-250](file://app/admin/members/records/page.tsx#L204-L250)
+- [components/admin/MemberDetailsModal.tsx:202-257](file://components/admin/MemberDetailsModal.tsx#L202-L257)
 
 ### Role-Based Access Control
 The system now implements role-based access control for member records:
@@ -549,13 +580,14 @@ The system now implements role-based access control for member records:
 **Updated** Added role-based access control with specialized components for different user roles
 
 **Section sources**
-- [app/admin/members/page.tsx](file://app/admin/members/page.tsx#L1-L522)
-- [app/admin/chairman/members/page.tsx](file://app/admin/chairman/members/page.tsx#L1-L39)
+- [app/admin/members/page.tsx:1-522](file://app/admin/members/page.tsx#L1-L522)
+- [app/admin/chairman/members/page.tsx:1-39](file://app/admin/chairman/members/page.tsx#L1-L39)
 
 ### Practical Examples
-- Onboarding a new Driver:
-  - Open Registration Modal, select Driver role, fill personal and address info, enter license/TIN, confirm payment, submit.
-  - System creates linked user and member records, sends welcome email, and generates membership certificate.
+- Onboarding a new Driver with certificate generation:
+  - Open Enhanced Registration Modal, select Driver role, fill personal and address info, enter license/TIN, confirm payment, submit.
+  - System creates linked user and member records, sends welcome email, displays certificate preview modal with traditional formal design.
+  - Review and edit certificate details, generate professional PDF certificate, send email notification with download link.
 - Updating a member's contact details:
   - Navigate to Profile Edit, update phone/email/birthdate/address, submit; system syncs both collections.
 - Admin archiving a member:
@@ -568,17 +600,88 @@ The system now implements role-based access control for member records:
   - Use MemberRecordsReadOnly component for simplified member viewing without modification capabilities.
 - Using legacy MemberRecords component:
   - Import and embed the MemberRecords component for basic member listing functionality with fundamental features.
+- Secretary streamlined registration:
+  - Use Secretary Registration Modal for simplified member onboarding with direct certificate generation workflow.
 
-**Updated** Added certificate generation examples, enhanced member management workflows, and role-based access examples
+**Updated** Added certificate generation examples, enhanced member management workflows, role-based access examples, and Secretary registration workflow
 
 **Section sources**
-- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx#L1-L1247)
-- [app/profile/edit/page.tsx](file://app/profile/edit/page.tsx#L1-L498)
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L196-L250)
-- [components/admin/MemberDetailsModal.tsx](file://components/admin/MemberDetailsModal.tsx#L202-L257)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
-- [components/admin/MemberRecordsReadOnly.tsx](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
-- [components/admin/MemberRecords.tsx](file://components/admin/MemberRecords.tsx#L1-L748)
+- [components/admin/MemberRegistrationModal.tsx:1-1404](file://components/admin/MemberRegistrationModal.tsx#L1-L1404)
+- [app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx:1-1043](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L1-L1043)
+- [app/profile/edit/page.tsx:1-498](file://app/profile/edit/page.tsx#L1-L498)
+- [app/admin/members/records/page.tsx:196-250](file://app/admin/members/records/page.tsx#L196-L250)
+- [components/admin/MemberDetailsModal.tsx:202-257](file://components/admin/MemberDetailsModal.tsx#L202-L257)
+- [components/admin/MemberRecordsEnhanced.tsx:1-1034](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
+- [components/admin/MemberRecordsReadOnly.tsx:1-278](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
+- [components/admin/MemberRecords.tsx:1-748](file://components/admin/MemberRecords.tsx#L1-L748)
+
+## Enhanced Certificate Generation Workflow
+
+### Certificate Preview Modal with Traditional Formal Layout
+The Certificate Preview Modal provides a redesigned traditional formal layout for professional certificate generation:
+- **Traditional Formal Design**: Green border styling with decorative corners and official seal
+- **Editable Fields**: Certificate number, shares, cooperative name, secretary/chairman names, issue date
+- **Professional Typography**: Serif fonts for certificate text with proper spacing and alignment
+- **Interactive Elements**: Editable inputs for all certificate details with real-time validation
+- **Confirmation Workflow**: Modal dialog for certificate generation confirmation with summary details
+- **Responsive Layout**: Optimized for both desktop and mobile viewing with proper aspect ratio
+
+**Updated** Added comprehensive certificate preview modal with redesigned traditional formal layout
+
+```mermaid
+flowchart TD
+Start(["Open Certificate Preview Modal"]) --> Load["Load member data and defaults"]
+Load --> Display["Display traditional formal certificate layout"]
+Display --> Edit["Allow editing of certificate details"]
+Edit --> Validate["Validate certificate inputs"]
+Validate --> Generate{"Ready to generate?"}
+Generate --> |Yes| Confirm["Show confirmation dialog"]
+Generate --> |No| Edit
+Confirm --> Process["Process certificate generation"]
+Process --> Store["Store certificate in Firestore"]
+Store --> Email["Send email notification"]
+Email --> Success["Show success message"]
+Success --> Close["Close modal and refresh records"]
+```
+
+**Diagram sources**
+- [components/admin/CertificatePreviewModal.tsx:145-354](file://components/admin/CertificatePreviewModal.tsx#L145-L354)
+- [components/admin/CertificatePreviewModal.tsx:479-528](file://components/admin/CertificatePreviewModal.tsx#L479-L528)
+
+**Section sources**
+- [components/admin/CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
+
+### Professional Certificate Generation Process
+The enhanced certificate generation process provides professional PDF certificates with comprehensive workflow:
+- **Traditional Certificate Design**: Incorporation details, authorized capital, certificate number, shares
+- **Official Sealing**: Green starburst seal with "OFFICIAL SEAL" text
+- **Legal Text**: Transfer restrictions and endorsement requirements
+- **Witness Clause**: Proper legal language for certificate issuance
+- **Signature Areas**: Dedicated spaces for Secretary and Chairman signatures
+- **Footer Details**: Shares and each share value information
+- **Digital Storage**: Base64 encoded PDF stored in Firestore with metadata
+- **Email Notification**: Automated email with download link and certificate details
+
+**Updated** Enhanced certificate generation with professional PDF styling and comprehensive workflow
+
+**Section sources**
+- [lib/certificateService.ts:12-277](file://lib/certificateService.ts#L12-L277)
+- [lib/certificateService.ts:317-393](file://lib/certificateService.ts#L317-L393)
+
+### Integrated Registration and Certificate Workflow
+The enhanced registration workflow seamlessly integrates certificate generation:
+- **Step 3 Integration**: Certificate generation step appears after successful member registration
+- **Pre-filled Data**: Member information automatically populated in certificate preview
+- **Professional Design**: Immediate access to traditional formal certificate layout
+- **Real-time Editing**: Ability to modify certificate details before final generation
+- **Automated Email**: Certificate notification sent immediately after generation
+- **Data Persistence**: Certificate stored in both member document and dedicated collection
+
+**Updated** Added integrated registration and certificate workflow with seamless user experience
+
+**Section sources**
+- [components/admin/MemberRegistrationModal.tsx:425-464](file://components/admin/MemberRegistrationModal.tsx#L425-L464)
+- [app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx:202-237](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L202-L237)
 
 ## Dependency Analysis
 Key dependencies and relationships:
@@ -586,16 +689,20 @@ Key dependencies and relationships:
 - MemberRecordsEnhanced provides advanced functionality with auto-archiving and reactivation features
 - MemberRecordsReadOnly provides simplified functionality for non-admin roles
 - MemberRecords component provides legacy support with basic member management
-- Registration/Edit Details Modals depend on User-Member Service for linking and on Email Service for notifications
+- Enhanced Registration Modal depends on User-Member Service for linking and on Email Service for notifications
+- Certificate Preview Modal integrates with Certificate Service for PDF generation and Email Service for notifications
+- Secretary Registration Modal provides streamlined access to certificate workflow
 - Certificate Service depends on jsPDF and Firestore for PDF generation and storage
 - Profile Edit Page depends on auth context and Firestore for updates
-- Backend API route provides CRUD endpoints for members and collaborates with user-member service logic
+- Backend API routes provide CRUD endpoints for members and certificate retrieval
+- Certificate API route serves generated certificates to authenticated users
 
 ```mermaid
 graph LR
 MR["Enhanced Member Records Page"] --> MR3["MemberRecordsEnhanced"]
 MR --> MR2["MemberRecords (Legacy)"]
-MR --> RM["Registration Modal"]
+MR --> RM["Enhanced Registration Modal"]
+MR --> SM["Secretary Registration Modal"]
 MR --> EM["Edit Modal"]
 MR --> DM["Details Modal"]
 MR3 --> RM
@@ -604,51 +711,62 @@ MR3 --> DM
 MR3 --> AutoArchive["Auto-Archive Logic"]
 MR3 --> Reactivation["Reactivation Fees"]
 MR4["MemberRecordsReadOnly"] --> DM
+RM --> CPM["Certificate Preview Modal"]
+SM --> CPM
 RM --> UMS["User-Member Service"]
 EM --> UMS
 DM --> CS["Certificate Service"]
+CPM --> CS
 RM --> ES["Email Service"]
+SM --> ES
 PE["Profile Edit Page"] --> MT["Member Types"]
 PP["Profile Photo Upload"] --> MT
 API["Members API Route"] --> UMS
+CERTAPI["Certificate API Route"] --> CS
 CS --> MT
 ```
 
 **Diagram sources**
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L1-L655)
-- [app/admin/members/page.tsx](file://app/admin/members/page.tsx#L1-L522)
-- [app/admin/chairman/members/page.tsx](file://app/admin/chairman/members/page.tsx#L1-L39)
-- [components/admin/MemberRecords.tsx](file://components/admin/MemberRecords.tsx#L1-L748)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
-- [components/admin/MemberRecordsReadOnly.tsx](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
-- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx#L1-L1247)
-- [components/admin/MemberEditModal.tsx](file://components/admin/MemberEditModal.tsx#L1-L820)
-- [components/admin/MemberDetailsModal.tsx](file://components/admin/MemberDetailsModal.tsx#L1-L271)
-- [lib/userMemberService.ts](file://lib/userMemberService.ts#L1-L287)
-- [lib/emailService.ts](file://lib/emailService.ts#L1-L113)
-- [lib/certificateService.ts](file://lib/certificateService.ts#L1-L207)
-- [app/api/members/route.ts](file://app/api/members/route.ts#L1-L179)
-- [lib/types/member.ts](file://lib/types/member.ts#L1-L56)
-- [app/profile/edit/page.tsx](file://app/profile/edit/page.tsx#L1-L498)
-- [components/user/ProfilePhotoUpload.tsx](file://components/user/ProfilePhotoUpload.tsx#L1-L166)
+- [app/admin/members/records/page.tsx:1-655](file://app/admin/members/records/page.tsx#L1-L655)
+- [app/admin/members/page.tsx:1-522](file://app/admin/members/page.tsx#L1-L522)
+- [app/admin/chairman/members/page.tsx:1-39](file://app/admin/chairman/members/page.tsx#L1-L39)
+- [app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx:1-1043](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L1-L1043)
+- [components/admin/MemberRecords.tsx:1-748](file://components/admin/MemberRecords.tsx#L1-L748)
+- [components/admin/MemberRecordsEnhanced.tsx:1-1034](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
+- [components/admin/MemberRecordsReadOnly.tsx:1-278](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
+- [components/admin/MemberRegistrationModal.tsx:1-1404](file://components/admin/MemberRegistrationModal.tsx#L1-L1404)
+- [components/admin/MemberEditModal.tsx:1-820](file://components/admin/MemberEditModal.tsx#L1-L820)
+- [components/admin/MemberDetailsModal.tsx:1-271](file://components/admin/MemberDetailsModal.tsx#L1-L271)
+- [components/admin/CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
+- [lib/userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [lib/emailService.ts:1-281](file://lib/emailService.ts#L1-L281)
+- [lib/certificateService.ts:1-393](file://lib/certificateService.ts#L1-L393)
+- [app/api/members/route.ts:1-179](file://app/api/members/route.ts#L1-L179)
+- [app/api/certificate/[memberId]/route.ts](file://app/api/certificate/[memberId]/route.ts#L1-L200)
+- [lib/types/member.ts:1-56](file://lib/types/member.ts#L1-L56)
+- [app/profile/edit/page.tsx:1-498](file://app/profile/edit/page.tsx#L1-L498)
+- [components/user/ProfilePhotoUpload.tsx:1-166](file://components/user/ProfilePhotoUpload.tsx#L1-L166)
 
 **Section sources**
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L1-L655)
-- [app/admin/members/page.tsx](file://app/admin/members/page.tsx#L1-L522)
-- [app/admin/chairman/members/page.tsx](file://app/admin/chairman/members/page.tsx#L1-L39)
-- [components/admin/MemberRecords.tsx](file://components/admin/MemberRecords.tsx#L1-L748)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
-- [components/admin/MemberRecordsReadOnly.tsx](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
-- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx#L1-L1247)
-- [components/admin/MemberEditModal.tsx](file://components/admin/MemberEditModal.tsx#L1-L820)
-- [components/admin/MemberDetailsModal.tsx](file://components/admin/MemberDetailsModal.tsx#L1-L271)
-- [lib/userMemberService.ts](file://lib/userMemberService.ts#L1-L287)
-- [lib/emailService.ts](file://lib/emailService.ts#L1-L113)
-- [lib/certificateService.ts](file://lib/certificateService.ts#L1-L207)
-- [app/api/members/route.ts](file://app/api/members/route.ts#L1-L179)
-- [lib/types/member.ts](file://lib/types/member.ts#L1-L56)
-- [app/profile/edit/page.tsx](file://app/profile/edit/page.tsx#L1-L498)
-- [components/user/ProfilePhotoUpload.tsx](file://components/user/ProfilePhotoUpload.tsx#L1-L166)
+- [app/admin/members/records/page.tsx:1-655](file://app/admin/members/records/page.tsx#L1-L655)
+- [app/admin/members/page.tsx:1-522](file://app/admin/members/page.tsx#L1-L522)
+- [app/admin/chairman/members/page.tsx:1-39](file://app/admin/chairman/members/page.tsx#L1-L39)
+- [app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx:1-1043](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L1-L1043)
+- [components/admin/MemberRecords.tsx:1-748](file://components/admin/MemberRecords.tsx#L1-L748)
+- [components/admin/MemberRecordsEnhanced.tsx:1-1034](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1034)
+- [components/admin/MemberRecordsReadOnly.tsx:1-278](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
+- [components/admin/MemberRegistrationModal.tsx:1-1404](file://components/admin/MemberRegistrationModal.tsx#L1-L1404)
+- [components/admin/MemberEditModal.tsx:1-820](file://components/admin/MemberEditModal.tsx#L1-L820)
+- [components/admin/MemberDetailsModal.tsx:1-271](file://components/admin/MemberDetailsModal.tsx#L1-L271)
+- [components/admin/CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
+- [lib/userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [lib/emailService.ts:1-281](file://lib/emailService.ts#L1-L281)
+- [lib/certificateService.ts:1-393](file://lib/certificateService.ts#L1-L393)
+- [app/api/members/route.ts:1-179](file://app/api/members/route.ts#L1-L179)
+- [app/api/certificate/[memberId]/route.ts](file://app/api/certificate/[memberId]/route.ts#L1-L200)
+- [lib/types/member.ts:1-56](file://lib/types/member.ts#L1-L56)
+- [app/profile/edit/page.tsx:1-498](file://app/profile/edit/page.tsx#L1-L498)
+- [components/user/ProfilePhotoUpload.tsx:1-166](file://components/user/ProfilePhotoUpload.tsx#L1-L166)
 
 ## Performance Considerations
 - Enhanced pagination reduces DOM load and improves responsiveness for large datasets with smart page number calculation
@@ -661,8 +779,10 @@ CS --> MT
 - MemberRecordsReadOnly component offers streamlined performance for read-only operations
 - Certificate generation uses lazy loading to improve initial page load performance
 - PDF generation occurs client-side with jsPDF for immediate certificate availability
+- Email notifications are processed asynchronously to prevent blocking the user interface
+- Certificate storage uses base64 encoding for immediate access but may need optimization for large-scale deployment
 
-**Updated** Enhanced performance considerations for new MemberRecordsEnhanced and MemberRecordsReadOnly components
+**Updated** Enhanced performance considerations for new MemberRecordsEnhanced, MemberRecordsReadOnly, and certificate generation components
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -677,7 +797,9 @@ Common issues and resolutions:
 - Email delivery issues:
   - Verify EmailJS configuration and template IDs; ensure environment variables are set.
 - Certificate generation failures:
-  - Check certificate service availability and PDF generation permissions.
+  - Check certificate service availability and PDF generation permissions; verify jsPDF library loading.
+- Certificate preview modal issues:
+  - Ensure proper modal mounting and unmounting; verify certificate data loading and validation.
 - Pagination issues:
   - Verify Firestore query limits and pagination calculations for large datasets.
 - Auto-archiving failures:
@@ -686,17 +808,20 @@ Common issues and resolutions:
   - Verify receipt number validation and payment processing logic.
 - Role-based access issues:
   - Ensure proper authentication and role validation for component access.
+- Certificate workflow interruptions:
+  - Verify certificate generation completion and email notification delivery.
 
-**Updated** Added troubleshooting guidance for auto-archiving, reactivation fees, role-based access, and new component features
+**Updated** Added troubleshooting guidance for auto-archiving, reactivation fees, role-based access, certificate workflow, and new component features
 
 **Section sources**
-- [app/admin/members/records/page.tsx](file://app/admin/members/records/page.tsx#L44-L88)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L240-L271)
-- [components/admin/MemberRecordsEnhanced.tsx](file://components/admin/MemberRecordsEnhanced.tsx#L167-L237)
-- [lib/userMemberService.ts](file://lib/userMemberService.ts#L99-L198)
-- [lib/emailService.ts](file://lib/emailService.ts#L19-L38)
-- [components/admin/MemberDetailsModal.tsx](file://components/admin/MemberDetailsModal.tsx#L202-L257)
-- [components/admin/MemberRecords.tsx](file://components/admin/MemberRecords.tsx#L1-L748)
+- [app/admin/members/records/page.tsx:44-88](file://app/admin/members/records/page.tsx#L44-L88)
+- [components/admin/MemberRecordsEnhanced.tsx:240-271](file://components/admin/MemberRecordsEnhanced.tsx#L240-L271)
+- [components/admin/MemberRecordsEnhanced.tsx:167-237](file://components/admin/MemberRecordsEnhanced.tsx#L167-L237)
+- [lib/userMemberService.ts:99-198](file://lib/userMemberService.ts#L99-L198)
+- [lib/emailService.ts:19-38](file://lib/emailService.ts#L19-L38)
+- [components/admin/CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
+- [components/admin/MemberDetailsModal.tsx:202-257](file://components/admin/MemberDetailsModal.tsx#L202-L257)
+- [components/admin/MemberRecords.tsx:1-748](file://components/admin/MemberRecords.tsx#L1-L748)
 
 ## Conclusion
-The Member Management System provides a robust, integrated solution for managing cooperative members with significantly enhanced capabilities. The system now includes sophisticated member records management through the new MemberRecordsEnhanced component with auto-archiving, reactivation fees, and comprehensive administrative features, while the MemberRecordsReadOnly component provides simplified access for non-admin roles. The enhanced system offers advanced filtering, detailed member information display, improved administrative capabilities, and role-based access control. The modular architecture supports scalability and maintainability with enhanced certificate management, status tracking, responsive design features, and comprehensive audit trails. The new components provide excellent foundations for future enhancements and specialized member management scenarios, ensuring strong user-account-to-member-profile linkage, comprehensive validation, and smooth onboarding experiences for all user roles.
+The Member Management System provides a robust, integrated solution for managing cooperative members with significantly enhanced capabilities. The system now includes sophisticated member records management through the new MemberRecordsEnhanced component with auto-archiving, reactivation fees, and comprehensive administrative features, while the MemberRecordsReadOnly component provides simplified access for non-admin roles. The enhanced certificate generation workflow delivers a seamless, professional experience from member registration to certificate issuance with traditional formal design and automated email notifications. The enhanced system offers advanced filtering, detailed member information display, improved administrative capabilities, and role-based access control. The modular architecture supports scalability and maintainability with enhanced certificate management, status tracking, responsive design features, and comprehensive audit trails. The new components provide excellent foundations for future enhancements and specialized member management scenarios, ensuring strong user-account-to-member-profile linkage, comprehensive validation, and smooth onboarding experiences for all user roles. The integrated certificate workflow represents a significant improvement in user experience and professional standards for cooperative member management.

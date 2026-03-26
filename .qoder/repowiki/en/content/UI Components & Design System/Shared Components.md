@@ -15,6 +15,13 @@
 - [loan/layout.tsx](file://app/loan/layout.tsx)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Enhanced LoanLayout component with improved mobile responsiveness and mobile menu functionality
+- Updated mobile navigation patterns with slide-in sidebar and overlay effects
+- Improved responsive design adjustments for better navigation experience across screen sizes
+- Added coordinated state management between mobile menu and sidebar collapse functionality
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -28,7 +35,9 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the Shared Components library used across all dashboards in the SAMPA Cooperative Management Platform. It focuses on five reusable UI building blocks: Header, Footer, Card, CollapsibleSidebar, and LoanLayout. These components are designed with consistent styling using Tailwind CSS, responsive behavior, and integration with the application’s authentication context. The documentation explains component APIs, composition patterns, customization options, and practical usage examples across different dashboard contexts.
+This document describes the Shared Components library used across all dashboards in the SAMPA Cooperative Management Platform. It focuses on five reusable UI building blocks: Header, Footer, Card, CollapsibleSidebar, and LoanLayout. These components are designed with consistent styling using Tailwind CSS, responsive behavior, and integration with the application's authentication context. The documentation explains component APIs, composition patterns, customization options, and practical usage examples across different dashboard contexts.
+
+**Updated** Enhanced with improved mobile responsiveness and navigation experience across all components, particularly in LoanLayout.tsx with sophisticated mobile menu functionality and responsive design patterns.
 
 ## Project Structure
 The shared components live under components/shared and are exported via components/index.ts for convenient imports across the application. They are consumed by page layouts such as app/dashboard/layout.tsx and app/loan/layout.tsx, which wrap page content with LoanLayout to provide a consistent sidebar-driven layout.
@@ -64,21 +73,21 @@ AU --> LU
 ```
 
 **Diagram sources**
-- [layout.tsx](file://app/layout.tsx#L22-L37)
-- [dashboard/layout.tsx](file://app/dashboard/layout.tsx#L1-L9)
-- [loan/layout.tsx](file://app/loan/layout.tsx#L1-L9)
-- [LoanLayout.tsx](file://components/shared/LoanLayout.tsx#L18-L41)
-- [CollapsibleSidebar.tsx](file://components/shared/CollapsibleSidebar.tsx#L74-L80)
-- [Header.tsx](file://components/shared/Header.tsx#L4-L26)
-- [Footer.tsx](file://components/shared/Footer.tsx#L1-L9)
-- [auth.tsx](file://lib/auth.tsx#L158-L682)
-- [logoutUtils.ts](file://lib/logoutUtils.ts#L16-L93)
+- [layout.tsx:22-37](file://app/layout.tsx#L22-L37)
+- [dashboard/layout.tsx:1-9](file://app/dashboard/layout.tsx#L1-L9)
+- [loan/layout.tsx:1-9](file://app/loan/layout.tsx#L1-L9)
+- [LoanLayout.tsx:18-41](file://components/shared/LoanLayout.tsx#L18-L41)
+- [CollapsibleSidebar.tsx:74-80](file://components/shared/CollapsibleSidebar.tsx#L74-L80)
+- [Header.tsx:4-26](file://components/shared/Header.tsx#L4-L26)
+- [Footer.tsx:1-9](file://components/shared/Footer.tsx#L1-L9)
+- [auth.tsx:158-682](file://lib/auth.tsx#L158-L682)
+- [logoutUtils.ts:16-93](file://lib/logoutUtils.ts#L16-L93)
 
 **Section sources**
-- [index.ts](file://components/index.ts#L1-L14)
-- [layout.tsx](file://app/layout.tsx#L22-L37)
-- [dashboard/layout.tsx](file://app/dashboard/layout.tsx#L1-L9)
-- [loan/layout.tsx](file://app/loan/layout.tsx#L1-L9)
+- [index.ts:1-14](file://components/index.ts#L1-L14)
+- [layout.tsx:22-37](file://app/layout.tsx#L22-L37)
+- [dashboard/layout.tsx:1-9](file://app/dashboard/layout.tsx#L1-L9)
+- [loan/layout.tsx:1-9](file://app/loan/layout.tsx#L1-L9)
 
 ## Core Components
 This section documents the five shared components with their props, styling conventions, and usage patterns.
@@ -87,7 +96,7 @@ This section documents the five shared components with their props, styling conv
   - Purpose: Fixed top bar with branding and primary navigation links.
   - Props: None.
   - Styling: Uses Tailwind classes for fixed positioning, red background, white text, shadow, and responsive breakpoints.
-  - Responsive: Desktop nav hidden on small screens; mobile menu icon present for small screens.
+  - Responsive: Desktop nav hidden on small screens; mobile menu icon present with animated toggle state.
   - Integration: Links to dashboard, loan, savings, and profile routes.
 
 - Footer
@@ -116,15 +125,16 @@ This section documents the five shared components with their props, styling conv
   - Purpose: Page layout for loan-related views with a collapsible sidebar and scrollable main content area.
   - Props:
     - children: ReactNode
-  - State: Manages sidebar collapse state locally.
+  - State: Manages both sidebar collapse state and mobile menu state locally.
   - Composition: Wraps children in a flex container with a sidebar and a main content area.
+  - **Updated** Enhanced with mobile menu overlay, slide-in sidebar animation, and improved responsive behavior.
 
 **Section sources**
-- [Header.tsx](file://components/shared/Header.tsx#L4-L26)
-- [Footer.tsx](file://components/shared/Footer.tsx#L1-L9)
-- [Card.tsx](file://components/shared/Card.tsx#L3-L16)
-- [CollapsibleSidebar.tsx](file://components/shared/CollapsibleSidebar.tsx#L74-L156)
-- [LoanLayout.tsx](file://components/shared/LoanLayout.tsx#L18-L41)
+- [Header.tsx:4-26](file://components/shared/Header.tsx#L4-L26)
+- [Footer.tsx:1-9](file://components/shared/Footer.tsx#L1-L9)
+- [Card.tsx:3-16](file://components/shared/Card.tsx#L3-L16)
+- [CollapsibleSidebar.tsx:74-156](file://components/shared/CollapsibleSidebar.tsx#L74-L156)
+- [LoanLayout.tsx:18-41](file://components/shared/LoanLayout.tsx#L18-L41)
 
 ## Architecture Overview
 The shared components are composed within page layouts to deliver a consistent UI across dashboards. Authentication state is provided globally via AuthProvider and consumed by CollapsibleSidebar and Header to enable logout and role-aware behavior.
@@ -144,17 +154,17 @@ G-->>U : Redirect to login (immediate)
 ```
 
 **Diagram sources**
-- [LoanLayout.tsx](file://components/shared/LoanLayout.tsx#L18-L41)
-- [CollapsibleSidebar.tsx](file://components/shared/CollapsibleSidebar.tsx#L84-L95)
-- [auth.tsx](file://lib/auth.tsx#L621-L635)
-- [logoutUtils.ts](file://lib/logoutUtils.ts#L65-L68)
+- [LoanLayout.tsx:18-41](file://components/shared/LoanLayout.tsx#L18-L41)
+- [CollapsibleSidebar.tsx:84-95](file://components/shared/CollapsibleSidebar.tsx#L84-L95)
+- [auth.tsx:621-635](file://lib/auth.tsx#L621-L635)
+- [logoutUtils.ts:65-68](file://lib/logoutUtils.ts#L65-L68)
 
 ## Detailed Component Analysis
 
 ### Header
 - Fixed positioning and responsive design:
   - Fixed at top with z-index stacking context.
-  - Desktop navigation hidden below medium breakpoint; mobile menu icon present.
+  - Desktop navigation hidden below medium breakpoint; mobile menu icon present with animated toggle state.
 - Navigation links:
   - Dashboard, Loans, Savings, Profile.
 - Styling conventions:
@@ -168,7 +178,7 @@ Customization options:
 - Adjust colors and typography via Tailwind classes.
 
 **Section sources**
-- [Header.tsx](file://components/shared/Header.tsx#L4-L26)
+- [Header.tsx:4-26](file://components/shared/Header.tsx#L4-L26)
 
 ### Footer
 - Fixed at bottom with copyright notice.
@@ -182,7 +192,7 @@ Customization options:
 - Adjust colors and paddings via Tailwind classes.
 
 **Section sources**
-- [Footer.tsx](file://components/shared/Footer.tsx#L1-L9)
+- [Footer.tsx:1-9](file://components/shared/Footer.tsx#L1-L9)
 
 ### Card
 - Props interface:
@@ -201,7 +211,7 @@ Customization options:
 - Remove title rendering by passing undefined.
 
 **Section sources**
-- [Card.tsx](file://components/shared/Card.tsx#L3-L16)
+- [Card.tsx:3-16](file://components/shared/Card.tsx#L3-L16)
 
 ### CollapsibleSidebar
 - Props interface:
@@ -233,21 +243,31 @@ Logout --> HandleLogout["Call logout() and redirect"]
 ```
 
 **Diagram sources**
-- [CollapsibleSidebar.tsx](file://components/shared/CollapsibleSidebar.tsx#L74-L156)
-- [auth.tsx](file://lib/auth.tsx#L621-L635)
-- [logoutUtils.ts](file://lib/logoutUtils.ts#L65-L68)
+- [CollapsibleSidebar.tsx:74-156](file://components/shared/CollapsibleSidebar.tsx#L74-L156)
+- [auth.tsx:621-635](file://lib/auth.tsx#L621-L635)
+- [logoutUtils.ts:65-68](file://lib/logoutUtils.ts#L65-L68)
 
 **Section sources**
-- [CollapsibleSidebar.tsx](file://components/shared/CollapsibleSidebar.tsx#L74-L156)
+- [CollapsibleSidebar.tsx:74-156](file://components/shared/CollapsibleSidebar.tsx#L74-L156)
 
 ### LoanLayout
 - Props interface:
   - children: ReactNode
 - State management:
-  - Local state toggles sidebar collapse.
+  - Local state toggles both sidebar collapse and mobile menu states.
+  - Mobile menu automatically closes when route changes.
 - Composition:
   - Left sidebar (CollapsibleSidebar), right main content area.
   - Scrollable main content with responsive padding.
+  - **Updated** Enhanced with mobile menu overlay, slide-in sidebar animation, and improved responsive behavior.
+
+**Updated** Enhanced mobile responsiveness with sophisticated mobile menu functionality:
+
+- **Mobile Menu Overlay**: Semi-transparent overlay appears when mobile menu is open, providing click-outside-to-close functionality
+- **Slide-in Sidebar Animation**: Smooth slide-in/slide-out animation using translate transforms with duration and easing controls
+- **Responsive Breakpoints**: Mobile-specific styling with `sm:` prefix for desktop breakpoints
+- **Route-aware State Management**: Mobile menu automatically closes when navigation occurs
+- **Mobile Header**: Dedicated mobile header with hamburger menu, brand logo, and spacing alignment
 
 ```mermaid
 sequenceDiagram
@@ -261,16 +281,18 @@ LL->>CS : Pass collapsed and onToggle
 LL->>H : Render header
 LL->>F : Render footer
 LL->>P : Render children in main content
+Note over LL : Mobile : Slide-in sidebar with overlay
+Note over LL : Desktop : Always visible sidebar
 ```
 
 **Diagram sources**
-- [LoanLayout.tsx](file://components/shared/LoanLayout.tsx#L18-L41)
-- [Header.tsx](file://components/shared/Header.tsx#L4-L26)
-- [Footer.tsx](file://components/shared/Footer.tsx#L1-L9)
-- [CollapsibleSidebar.tsx](file://components/shared/CollapsibleSidebar.tsx#L74-L80)
+- [LoanLayout.tsx:18-41](file://components/shared/LoanLayout.tsx#L18-L41)
+- [Header.tsx:4-26](file://components/shared/Header.tsx#L4-L26)
+- [Footer.tsx:1-9](file://components/shared/Footer.tsx#L1-L9)
+- [CollapsibleSidebar.tsx:74-80](file://components/shared/CollapsibleSidebar.tsx#L74-L80)
 
 **Section sources**
-- [LoanLayout.tsx](file://components/shared/LoanLayout.tsx#L18-L41)
+- [LoanLayout.tsx:18-41](file://components/shared/LoanLayout.tsx#L18-L41)
 
 ## Dependency Analysis
 - Shared components depend on:
@@ -289,21 +311,22 @@ RL["Root Layout<br/>app/layout.tsx"] --> AU
 ```
 
 **Diagram sources**
-- [auth.tsx](file://lib/auth.tsx#L158-L682)
-- [CollapsibleSidebar.tsx](file://components/shared/CollapsibleSidebar.tsx#L5-L8)
-- [Header.tsx](file://components/shared/Header.tsx#L1-L3)
-- [LoanLayout.tsx](file://components/shared/LoanLayout.tsx#L1-L5)
-- [layout.tsx](file://app/layout.tsx#L22-L37)
+- [auth.tsx:158-682](file://lib/auth.tsx#L158-L682)
+- [CollapsibleSidebar.tsx:5-8](file://components/shared/CollapsibleSidebar.tsx#L5-L8)
+- [Header.tsx:1-3](file://components/shared/Header.tsx#L1-L3)
+- [LoanLayout.tsx:1-5](file://components/shared/LoanLayout.tsx#L1-L5)
+- [layout.tsx:22-37](file://app/layout.tsx#L22-L37)
 
 **Section sources**
-- [auth.tsx](file://lib/auth.tsx#L158-L682)
-- [layout.tsx](file://app/layout.tsx#L22-L37)
+- [auth.tsx:158-682](file://lib/auth.tsx#L158-L682)
+- [layout.tsx:22-37](file://app/layout.tsx#L22-L37)
 
 ## Performance Considerations
 - Prefer minimal re-renders by keeping component props simple and avoiding unnecessary state lifting.
 - Use Tailwind utilities efficiently to avoid bloated CSS bundles.
 - Memoize heavy computations outside components when possible.
 - Keep sidebar content virtualized for large lists if extended in future iterations.
+- **Updated** Mobile menu overlay uses efficient CSS transforms for smooth animations without layout thrashing.
 
 ## Troubleshooting Guide
 - Logout not redirecting:
@@ -313,15 +336,23 @@ RL["Root Layout<br/>app/layout.tsx"] --> AU
   - Ensure usePathname matches navigation item paths exactly.
 - Sidebar not collapsing:
   - Confirm onToggle updates the collapsed state and is passed down correctly.
+- **Updated** Mobile menu not closing:
+  - Verify mobileMenuOpen state is properly managed and route change triggers cleanup.
+  - Check that overlay click handlers are functioning correctly.
+- **Updated** Slide-in animation not working:
+  - Ensure Tailwind CSS is properly configured with transform utilities.
+  - Verify translate-x classes are not conflicting with other positioning styles.
 
 **Section sources**
-- [layout.tsx](file://app/layout.tsx#L22-L37)
-- [logoutUtils.ts](file://lib/logoutUtils.ts#L65-L68)
-- [CollapsibleSidebar.tsx](file://components/shared/CollapsibleSidebar.tsx#L81-L137)
-- [LoanLayout.tsx](file://components/shared/LoanLayout.tsx#L23-L31)
+- [layout.tsx:22-37](file://app/layout.tsx#L22-L37)
+- [logoutUtils.ts:65-68](file://lib/logoutUtils.ts#L65-L68)
+- [CollapsibleSidebar.tsx:81-137](file://components/shared/CollapsibleSidebar.tsx#L81-L137)
+- [LoanLayout.tsx:23-31](file://components/shared/LoanLayout.tsx#L23-L31)
 
 ## Conclusion
 The Shared Components library provides a cohesive, responsive, and accessible foundation for dashboards across the SAMPA platform. By leveraging Tailwind CSS, Next.js routing, and a centralized authentication context, these components ensure consistent UX and maintainable code. Extending them involves adding props, integrating with additional contexts, and preserving existing styling and responsive patterns.
+
+**Updated** Recent enhancements have significantly improved the mobile experience with sophisticated navigation patterns, smooth animations, and better state management coordination across all components.
 
 ## Appendices
 
@@ -332,11 +363,22 @@ The Shared Components library provides a cohesive, responsive, and accessible fo
   - Apply the same pattern to ensure consistent navigation and spacing.
 
 **Section sources**
-- [dashboard/layout.tsx](file://app/dashboard/layout.tsx#L1-L9)
-- [loan/layout.tsx](file://app/loan/layout.tsx#L1-L9)
+- [dashboard/layout.tsx:1-9](file://app/dashboard/layout.tsx#L1-L9)
+- [loan/layout.tsx:1-9](file://app/loan/layout.tsx#L1-L9)
 
 ### Export and Import References
 - Shared components are exported from components/index.ts for global consumption.
 
 **Section sources**
-- [index.ts](file://components/index.ts#L1-L14)
+- [index.ts:1-14](file://components/index.ts#L1-L14)
+
+### Mobile Responsiveness Features
+**Updated** Enhanced mobile experience with:
+
+- **Mobile Menu System**: Slide-in sidebar with overlay for seamless navigation
+- **Responsive Breakpoints**: Optimized layouts for different screen sizes
+- **State Coordination**: Mobile menu and sidebar collapse states work together
+- **Animation Transitions**: Smooth slide-in/out animations with timing controls
+- **Accessibility**: Proper ARIA labels and keyboard navigation support
+
+These improvements ensure excellent user experience across all device types while maintaining the component's modular design and reusability.

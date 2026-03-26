@@ -4,7 +4,6 @@
 **Referenced Files in This Document**
 - [certificateService.ts](file://lib/certificateService.ts)
 - [route.ts](file://app/api/certificate/[memberId]/route.ts)
-- [CertificatePreviewModal.tsx](file://components/admin/CertificatePreviewModal.tsx)
 - [MemberDetailsModal.tsx](file://components/admin/MemberDetailsModal.tsx)
 - [emailService.ts](file://lib/emailService.ts)
 - [firebase.ts](file://lib/firebase.ts)
@@ -13,121 +12,127 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive share certificate generation functionality with custom templates
-- Implemented email notification integration for certificate delivery
-- Introduced new CertificatePreviewModal for certificate creation workflow
-- Enhanced certificate data validation and storage mechanisms
-- Expanded certificate management capabilities with member certificate tracking
-- Added certificate validation and security features
+- Removed references to CertificatePreviewModal, ContractPositioningTool, ContractPreview, and LoanContractModal components as they were completely removed from the codebase
+- Updated documentation to reflect current state focusing on core certificate generation service and API endpoints
+- Simplified architecture overview to exclude removed UI components
+- Enhanced focus on backend certificate generation workflow and API delivery mechanisms
+- Updated troubleshooting guide to remove references to removed components
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
-5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Enhanced Certificate Features](#enhanced-certificate-features)
-7. [Email Notification Integration](#email-notification-integration)
-8. [Certificate Preview and Validation](#certificate-preview-and-validation)
-9. [Dependency Analysis](#dependency-analysis)
-10. [Performance Considerations](#performance-considerations)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
-13. [Appendices](#appendices)
+5. [Certificate Generation Service](#certificate-generation-service)
+6. [API Endpoint for Certificate Retrieval](#api-endpoint-for-certificate-retrieval)
+7. [Frontend Integration](#frontend-integration)
+8. [Enhanced Certificate Features](#enhanced-certificate-features)
+9. [Email Notification Integration](#email-notification-integration)
+10. [Certificate Data Management](#certificate-data-management)
+11. [Dependency Analysis](#dependency-analysis)
+12. [Performance Considerations](#performance-considerations)
+13. [Troubleshooting Guide](#troubleshooting-guide)
+14. [Conclusion](#conclusion)
+15. [Appendices](#appendices)
 
 ## Introduction
-This document describes the enhanced Certificate Generation System responsible for creating PDF membership certificates and share certificates for cooperative members. The system now supports multiple certificate types with custom templates, email notification integration, and comprehensive certificate management capabilities. It explains the certificate template system, dynamic content injection, PDF generation workflow using jsPDF library, certificate data validation and formatting, styling options, API integration with the member management system, certificate storage and retrieval, sharing capabilities, and customization options for branding and print-ready formats.
+This document describes the Certificate Generation System responsible for creating PDF share certificates for cooperative members. The system focuses on backend certificate generation, API delivery mechanisms, and comprehensive certificate management capabilities. It explains the certificate template system, dynamic content injection, PDF generation workflow using jsPDF library, certificate data validation and formatting, styling options, API integration with the member management system, certificate storage and retrieval, and customization options for print-ready formats.
+
+**Updated** The certificate generation system now operates as a streamlined backend service with enhanced certificate generation capabilities and API-driven delivery mechanisms, without the removed UI components.
 
 ## Project Structure
-The enhanced certificate system spans four primary areas:
-- PDF generation and storage logic with multiple certificate templates
+The certificate system currently spans four primary areas:
+- Enhanced certificate generation service with share certificate templates
 - API endpoint for certificate retrieval and delivery
-- Frontend integration with certificate preview and management interfaces
+- Frontend integration with certificate display and management interfaces
 - Email notification system for certificate delivery
 - Shared TypeScript types for certificate data and member management
 
 ```mermaid
 graph TB
-subgraph "Frontend"
-UI["MemberDetailsModal.tsx"]
-Preview["CertificatePreviewModal.tsx"]
-end
-subgraph "Server"
-API["/api/certificate/[memberId]/route.ts"]
+subgraph "Certificate Generation"
 Service["certificateService.ts"]
+JS["jsPDF + jspdf-autotable"]
+End
+subgraph "API Layer"
+API["/api/certificate/[memberId]/route.ts"]
+End
+subgraph "Frontend Integration"
+MemberDetails["MemberDetailsModal.tsx"]
+End
+subgraph "Notifications"
 Email["emailService.ts"]
-Types["member.ts"]
-end
+End
 subgraph "Storage"
 Firestore["Firestore (members & member_certificates collections)"]
-end
-subgraph "PDF Engine"
-JS["jsPDF + jspdf-autotable"]
-end
-UI --> API
-Preview --> Service
-API --> Firestore
-Service --> Firestore
+End
+subgraph "Core Services"
+Firebase["firebase.ts"]
+Types["member.ts"]
+End
 Service --> JS
+Service --> Firestore
+API --> Firestore
+MemberDetails --> API
 Email --> Service
-UI --> Types
-Preview --> Types
+MemberDetails --> Types
+API --> Types
+Service --> Types
 ```
 
 **Diagram sources**
-- [MemberDetailsModal.tsx:228-283](file://components/admin/MemberDetailsModal.tsx#L228-L283)
-- [CertificatePreviewModal.tsx:1-495](file://components/admin/CertificatePreviewModal.tsx#L1-L495)
-- [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
-- [certificateService.ts:1-393](file://lib/certificateService.ts#L1-L393)
-- [emailService.ts:1-281](file://lib/emailService.ts#L1-L281)
+- [certificateService.ts:12-410](file://lib/certificateService.ts#L12-L410)
+- [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
+- [MemberDetailsModal.tsx:232-281](file://components/admin/MemberDetailsModal.tsx#L232-L281)
+- [emailService.ts:178-209](file://lib/emailService.ts#L178-L209)
+- [firebase.ts:90-113](file://lib/firebase.ts#L90-L113)
 - [member.ts:27-68](file://lib/types/member.ts#L27-L68)
 
 **Section sources**
-- [MemberDetailsModal.tsx:1-396](file://components/admin/MemberDetailsModal.tsx#L1-L396)
-- [CertificatePreviewModal.tsx:1-495](file://components/admin/CertificatePreviewModal.tsx#L1-L495)
-- [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
-- [certificateService.ts:1-393](file://lib/certificateService.ts#L1-L393)
-- [emailService.ts:1-281](file://lib/emailService.ts#L1-L281)
-- [member.ts:1-85](file://lib/types/member.ts#L1-L85)
+- [certificateService.ts:12-410](file://lib/certificateService.ts#L12-L410)
+- [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
+- [MemberDetailsModal.tsx:232-281](file://components/admin/MemberDetailsModal.tsx#L232-L281)
+- [emailService.ts:178-209](file://lib/emailService.ts#L178-L209)
+- [firebase.ts:90-113](file://lib/firebase.ts#L90-L113)
+- [member.ts:27-68](file://lib/types/member.ts#L27-L68)
 
 ## Core Components
-- **Enhanced Certificate Generation Service**: Creates multiple certificate types (membership and share certificates) using customized jsPDF templates with dynamic content injection and comprehensive storage mechanisms
+- **Enhanced Certificate Generation Service**: Creates share certificates using customized jsPDF templates with dynamic content injection and comprehensive storage mechanisms
 - **API Endpoint**: Retrieves stored certificate data URLs from Firestore and streams PDFs to clients with enhanced error handling
-- **Certificate Preview Modal**: Provides interactive certificate creation interface with real-time preview and validation
+- **Frontend Integration**: Offers certificate display and management through MemberDetailsModal with certificate visualization
 - **Email Notification System**: Integrates with EmailJS for automated certificate delivery notifications
-- **Enhanced Frontend Integration**: Offers comprehensive certificate management with viewing, downloading, and sharing capabilities
-- **Comprehensive Type Definitions**: Defines certificate data schemas for multiple certificate types and member management
+- **Enhanced Certificate Data Management**: Defines certificate data schemas and manages certificate lifecycle in Firestore
 
 Key responsibilities:
-- Multiple template rendering with jsPDF and autoTable
+- Share certificate generation with detailed corporate formatting
 - Dynamic content injection from member and certificate data
 - Advanced validation and error handling during generation and retrieval
 - Multi-type certificate storage with tracking in Firestore
 - Automated email notifications for certificate delivery
-- Real-time certificate preview and editing capabilities
 - Delivery of PDFs via HTTP response with appropriate headers
+- Comprehensive certificate data validation and storage mechanisms
+
+**Updated** The system now operates as a streamlined backend service without the removed UI components, focusing on certificate generation and API delivery.
 
 **Section sources**
-- [certificateService.ts:12-393](file://lib/certificateService.ts#L12-L393)
+- [certificateService.ts:12-410](file://lib/certificateService.ts#L12-L410)
 - [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
-- [CertificatePreviewModal.tsx:51-495](file://components/admin/CertificatePreviewModal.tsx#L51-L495)
-- [emailService.ts:145-176](file://lib/emailService.ts#L145-L176)
-- [MemberDetailsModal.tsx:228-283](file://components/admin/MemberDetailsModal.tsx#L228-L283)
+- [MemberDetailsModal.tsx:232-281](file://components/admin/MemberDetailsModal.tsx#L232-L281)
+- [emailService.ts:178-209](file://lib/emailService.ts#L178-L209)
 - [member.ts:27-68](file://lib/types/member.ts#L27-L68)
 
 ## Architecture Overview
-The enhanced system follows a comprehensive separation of concerns with multiple certificate types and integrated workflows:
-- UI triggers certificate viewing/download or initiates certificate creation
-- API validates membership and fetches certificate data URL from Firestore
-- Service generates PDFs with appropriate templates and persists them with tracking
+The streamlined system follows a focused separation of concerns with certificate generation and API delivery:
+- Certificate generation service creates PDFs with appropriate templates and persists them with tracking
+- API endpoint validates membership and fetches certificate data URL from Firestore
+- Frontend displays certificates via embedded visualization or download functionality
 - Email service handles automated notifications for certificate delivery
-- Frontend displays PDFs via embedded iframe or downloads them with enhanced validation
+- Backend processes certificate generation and retrieval with enhanced validation
 
 ```mermaid
 sequenceDiagram
 participant Client as "Browser"
 participant UI as "MemberDetailsModal.tsx"
-participant Preview as "CertificatePreviewModal.tsx"
 participant API as "/api/certificate/[memberId]"
 participant Service as "certificateService.ts"
 participant Email as "emailService.ts"
@@ -138,37 +143,24 @@ API->>FS : getDocument(members/ : memberId)
 FS-->>API : Member data with certificateUrl
 API->>API : Parse base64 from data URL
 API-->>Client : 200 PDF stream (inline)
-Client->>Preview : Click "Generate Certificate"
-Preview->>Service : generateShareCertificate()
-Service->>FS : Store certificate with tracking
 Service->>Email : sendCertificateNotificationEmail()
 Email->>FS : Update member_certificates status
-Service-->>Preview : Success with certificateUrl
-Preview-->>Client : Certificate generated and emailed
 ```
 
 **Diagram sources**
 - [MemberDetailsModal.tsx:232-281](file://components/admin/MemberDetailsModal.tsx#L232-L281)
-- [CertificatePreviewModal.tsx:107-119](file://components/admin/CertificatePreviewModal.tsx#L107-L119)
 - [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
-- [certificateService.ts:12-393](file://lib/certificateService.ts#L12-L393)
-- [emailService.ts:145-176](file://lib/emailService.ts#L145-L176)
+- [certificateService.ts:334-410](file://lib/certificateService.ts#L334-L410)
+- [emailService.ts:178-209](file://lib/emailService.ts#L178-L209)
 
-## Detailed Component Analysis
-
-### Enhanced Certificate Generation Service
-The service now supports multiple certificate types with sophisticated template systems:
+## Certificate Generation Service
+The service now focuses on streamlined certificate generation with enhanced template systems:
 
 **Share Certificate Generation**:
 - Creates landscape-oriented A4 certificates with green color scheme
 - Implements detailed corporate styling with decorative borders and official seals
 - Includes comprehensive legal text and signature sections
 - Stores certificate metadata with tracking in Firestore
-
-**Membership Certificate Retrieval**:
-- Retrieves existing membership certificates from Firestore
-- Validates certificate existence and format
-- Returns certificate data with comprehensive error handling
 
 **Enhanced Certificate Workflow**:
 - `generateShareCertificate()`: Creates share certificates with detailed corporate formatting
@@ -198,10 +190,10 @@ Email --> Return(["Return success with certificateUrl"])
 - [certificateService.ts:12-277](file://lib/certificateService.ts#L12-L277)
 
 **Section sources**
-- [certificateService.ts:12-393](file://lib/certificateService.ts#L12-L393)
+- [certificateService.ts:12-410](file://lib/certificateService.ts#L12-L410)
 
-### API Endpoint for Certificate Retrieval
-The API endpoint now supports enhanced certificate retrieval with improved validation:
+## API Endpoint for Certificate Retrieval
+The API endpoint provides enhanced certificate retrieval with improved validation:
 
 Responsibilities:
 - Accepts member ID parameter with URL decoding support
@@ -239,33 +231,28 @@ API-->>Client : 200 PDF with headers & disposition
 **Section sources**
 - [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
 
-### Frontend Integration (Enhanced Member Details Modal)
-The enhanced frontend provides comprehensive certificate management:
+## Frontend Integration
+The frontend provides comprehensive certificate management through MemberDetailsModal:
 
 **Certificate Display Capabilities**:
 - Conditionally renders certificate actions based on certificate generation status
-- Embeds certificates via iframe with responsive design
-- Provides download and open-in-new-tab functionality
+- Displays certificates through visual overlay with certificate data from Firestore
+- Provides download and view functionality with proper state management
 - Implements certificate visibility toggle with proper state management
 
-**User Experience Enhancements**:
-- "View Certificate" button with conditional enablement
-- "Hide Certificate" option for better interface control
-- Download button with automatic filename generation
-- New tab opening with focus management
+**Visual Certificate Rendering**:
+- Uses certificate data stored in Firestore for visual display
+- Implements responsive certificate preview with proper aspect ratios
+- Displays certificate details in organized summary format
+- Handles missing certificate data gracefully with fallback values
 
 **Section sources**
-- [MemberDetailsModal.tsx:228-283](file://components/admin/MemberDetailsModal.tsx#L228-L283)
+- [MemberDetailsModal.tsx:232-281](file://components/admin/MemberDetailsModal.tsx#L232-L281)
 
 ## Enhanced Certificate Features
 
 ### Multiple Certificate Types
-The system now supports multiple certificate types with specialized templates:
-
-**Membership Certificate**:
-- Standard portrait A4 format with cooperative branding
-- Includes member details, registration date, and role information
-- Uses traditional certificate styling with decorative elements
+The system now supports certificate types with specialized templates:
 
 **Share Certificate**:
 - Landscape A4 format with corporate green color scheme
@@ -282,7 +269,7 @@ The system now supports multiple certificate types with specialized templates:
 **Section sources**
 - [certificateService.ts:12-277](file://lib/certificateService.ts#L12-L277)
 - [certificateService.ts:284-309](file://lib/certificateService.ts#L284-L309)
-- [certificateService.ts:317-393](file://lib/certificateService.ts#L317-L393)
+- [certificateService.ts:317-410](file://lib/certificateService.ts#L317-L410)
 
 ### Enhanced Certificate Data Validation
 The system implements comprehensive validation mechanisms:
@@ -292,6 +279,7 @@ The system implements comprehensive validation mechanisms:
 - Member data validation before generation
 - Date format validation for issue dates
 - Required field validation for signatures
+- Currency format validation for loan amounts
 
 **Storage Validation**:
 - Certificate existence verification
@@ -308,7 +296,7 @@ The system implements comprehensive validation mechanisms:
 **Section sources**
 - [certificateService.ts:25-277](file://lib/certificateService.ts#L25-L277)
 - [certificateService.ts:284-309](file://lib/certificateService.ts#L284-L309)
-- [certificateService.ts:317-393](file://lib/certificateService.ts#L317-L393)
+- [certificateService.ts:317-410](file://lib/certificateService.ts#L317-L410)
 
 ## Email Notification Integration
 
@@ -344,112 +332,94 @@ Track --> Complete["Delivery Complete"]
 ```
 
 **Diagram sources**
-- [certificateService.ts:317-393](file://lib/certificateService.ts#L317-L393)
-- [emailService.ts:145-176](file://lib/emailService.ts#L145-L176)
+- [certificateService.ts:317-410](file://lib/certificateService.ts#L317-L410)
+- [emailService.ts:178-209](file://lib/emailService.ts#L178-L209)
 
 **Section sources**
-- [certificateService.ts:317-393](file://lib/certificateService.ts#L317-L393)
-- [emailService.ts:145-176](file://lib/emailService.ts#L145-L176)
+- [certificateService.ts:317-410](file://lib/certificateService.ts#L317-L410)
+- [emailService.ts:178-209](file://lib/emailService.ts#L178-L209)
 
-## Certificate Preview and Validation
+## Certificate Data Management
 
-### Interactive Certificate Creation
-The CertificatePreviewModal provides comprehensive certificate creation interface:
+### Firestore Integration
+The system provides comprehensive certificate data management:
 
-**Real-time Preview System**:
-- Live certificate rendering with editable fields
-- Instant validation feedback for required fields
-- Visual representation of final certificate appearance
-- Responsive design with mobile compatibility
+**Certificate Storage**:
+- Share certificates stored in Firestore with complete metadata
+- Member-specific certificate data linked to member documents
+- Separate member_certificates collection for tracking and reporting
+- Automatic certificate number generation and validation
 
-**Field Validation**:
-- Required field validation (secretary/chairman names)
-- Date validation with automatic field synchronization
-- Certificate number uniqueness checking
-- Member data population from selected member
+**Data Retrieval**:
+- MemberDetailsModal retrieves certificate data from Firestore
+- API endpoint serves certificate PDFs directly from stored data URLs
+- Certificate existence validation before processing
+- Fallback mechanisms for missing certificate data
 
-**User Interface Features**:
-- Editable certificate fields with input validation
-- Confirmation dialog for certificate generation
-- Loading states during generation process
-- Error handling with user-friendly messaging
-
-**Section sources**
-- [CertificatePreviewModal.tsx:51-495](file://components/admin/CertificatePreviewModal.tsx#L51-L495)
-
-### Certificate Management Integration
-The preview modal integrates seamlessly with the certificate management system:
-
-**State Management**:
-- Certificate data state with automatic member population
-- Generation status tracking with loading indicators
-- Error state management with user feedback
-- Confirmation workflow with progress indication
-
-**Workflow Integration**:
-- Direct integration with certificate generation service
-- Real-time validation feedback during editing
-- Seamless transition from preview to generation
-- Error recovery and retry capabilities
+**Audit Trail**:
+- Comprehensive certificate generation tracking
+- Delivery attempt monitoring
+- Status updates for certificate lifecycle
+- Timestamp preservation for all operations
 
 **Section sources**
-- [CertificatePreviewModal.tsx:51-495](file://components/admin/CertificatePreviewModal.tsx#L51-L495)
+- [certificateService.ts:236-286](file://lib/certificateService.ts#L236-L286)
+- [certificateService.ts:356-397](file://lib/certificateService.ts#L356-L397)
+- [MemberDetailsModal.tsx:253-399](file://components/admin/MemberDetailsModal.tsx#L253-L399)
 
 ## Dependency Analysis
-The enhanced system exhibits improved modularity and clear boundaries:
+The streamlined system exhibits clear boundaries and focused dependencies:
 
 **Core Dependencies**:
-- UI components depend on API endpoints for certificate delivery
-- Certificate preview depends on generation service and validation
-- API depends on Firestore for certificate data retrieval
-- Service depends on jsPDF and Firestore for generation and persistence
+- Certificate generation service depends on jsPDF and Firestore
+- API endpoint depends on Firestore for certificate data retrieval
+- Frontend integration depends on API endpoint for certificate delivery
 - Email service depends on EmailJS configuration and Firestore for tracking
+- All components depend on shared TypeScript types for type safety
 
 **Integration Points**:
-- Certificate preview modal coordinates with generation service
-- Email service integrates with certificate generation workflow
+- Certificate generation service coordinates with Firestore for storage
 - API endpoint serves both certificate retrieval and preview data
-- Firestore collections support multiple certificate types and tracking
+- Email service integrates with certificate generation workflow
+- Frontend integrates with API endpoint for certificate delivery
+- Firestore collections support certificate tracking and member data
 
 ```mermaid
 graph LR
-UI["MemberDetailsModal.tsx"] --> API["/api/certificate/[memberId]/route.ts"]
-Preview["CertificatePreviewModal.tsx"] --> Service["certificateService.ts"]
-API --> FS["Firestore"]
-Service --> FS
-Service --> PDF["jsPDF + autoTable"]
-Email["emailService.ts"] --> FS
-Email --> Service
-Types["member.ts"] --> UI
+Service["certificateService.ts"] --> JS["jsPDF"]
+Service --> FS["Firestore"]
+API["/api/certificate/[memberId]/route.ts"] --> FS
+MemberDetails["MemberDetailsModal.tsx"] --> API
+Email["emailService.ts"] --> Service
+Email --> FS
+Types["member.ts"] --> Service
 Types --> API
-Types --> Service
-Types --> Preview
+Types --> MemberDetails
 ```
 
 **Diagram sources**
-- [MemberDetailsModal.tsx:228-283](file://components/admin/MemberDetailsModal.tsx#L228-L283)
-- [CertificatePreviewModal.tsx:51-495](file://components/admin/CertificatePreviewModal.tsx#L51-L495)
+- [certificateService.ts:12-410](file://lib/certificateService.ts#L12-L410)
 - [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
-- [certificateService.ts:12-393](file://lib/certificateService.ts#L12-L393)
-- [emailService.ts:1-281](file://lib/emailService.ts#L1-L281)
+- [MemberDetailsModal.tsx:232-281](file://components/admin/MemberDetailsModal.tsx#L232-L281)
+- [emailService.ts:178-209](file://lib/emailService.ts#L178-L209)
 - [member.ts:27-68](file://lib/types/member.ts#L27-L68)
 
 **Section sources**
-- [MemberDetailsModal.tsx:1-396](file://components/admin/MemberDetailsModal.tsx#L1-L396)
-- [CertificatePreviewModal.tsx:1-495](file://components/admin/CertificatePreviewModal.tsx#L1-L495)
-- [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
-- [certificateService.ts:1-393](file://lib/certificateService.ts#L1-L393)
-- [emailService.ts:1-281](file://lib/emailService.ts#L1-L281)
-- [member.ts:1-85](file://lib/types/member.ts#L1-L85)
+- [certificateService.ts:12-410](file://lib/certificateService.ts#L12-L410)
+- [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
+- [MemberDetailsModal.tsx:232-281](file://components/admin/MemberDetailsModal.tsx#L232-L281)
+- [emailService.ts:178-209](file://lib/emailService.ts#L178-L209)
+- [member.ts:27-68](file://lib/types/member.ts#L27-L68)
 
 ## Performance Considerations
-Enhanced performance considerations for the expanded certificate system:
+Streamlined performance considerations for the focused certificate system:
 
 **Generation Performance**:
 - On-demand PDF generation with optimized template rendering
 - Base64 data URL compression for reduced payload sizes
 - Caching strategies for frequently accessed certificate templates
 - Asynchronous processing for email notifications
+- Efficient Firestore queries with selective field retrieval
 
 **Storage Optimization**:
 - Separate collections for different certificate types
@@ -465,18 +435,29 @@ Enhanced performance considerations for the expanded certificate system:
 
 **User Experience**:
 - Real-time validation reduces generation failures
-- Preview system minimizes generation attempts
+- Preview system with enhanced user interface minimizes generation attempts
 - Loading states provide user feedback during processing
 - Error boundaries prevent system-wide failures
 
+**Enhanced Rendering Performance**:
+- jsPDF efficient PDF generation with minimal memory overhead
+- A4 formatting reduces rendering complexity
+- Automatic print dialog optimization for immediate printing
+- Popup blocking detection with graceful fallback handling
+
 ## Troubleshooting Guide
-Enhanced troubleshooting for the comprehensive certificate system:
+Streamlined troubleshooting for the focused certificate system:
 
 **Certificate Generation Issues**:
 - Member not found: Verify member ID and Firestore membership document existence
 - Certificate template errors: Check jsPDF version compatibility and template syntax
 - Storage failures: Confirm Firestore write permissions and collection access
 - Validation errors: Review certificate data format and required field validation
+
+**PDF Generation Issues**:
+- Certificate PDF generation failures: Verify jsPDF template rendering and base64 encoding
+- Print dialog problems: Validate popup blocking settings and print dialog integration
+- Quality issues: Adjust jsPDF compression settings and rendering parameters
 
 **Email Delivery Problems**:
 - EmailJS configuration: Verify public key, service ID, and template ID setup
@@ -486,7 +467,6 @@ Enhanced troubleshooting for the comprehensive certificate system:
 
 **API and Integration Issues**:
 - Certificate retrieval failures: Verify certificate data URL format and base64 encoding
-- Preview modal errors: Check component dependencies and state management
 - Authentication problems: Validate user roles and access permissions
 - CORS issues: Configure API endpoint headers for cross-origin requests
 
@@ -495,39 +475,26 @@ Enhanced troubleshooting for the comprehensive certificate system:
 - Confirm Firestore security rules for certificate collections
 - Test jsPDF template rendering with sample data
 - Verify certificate number generation and uniqueness validation
+- Check certificate data storage and retrieval patterns
+- Validate API endpoint response formats and error handling
 
 **Section sources**
 - [route.ts:14-29](file://app/api/certificate/[memberId]/route.ts#L14-L29)
 - [certificateService.ts:270-277](file://lib/certificateService.ts#L270-L277)
-- [certificateService.ts:386-393](file://lib/certificateService.ts#L386-L393)
+- [certificateService.ts:386-410](file://lib/certificateService.ts#L386-L410)
 - [emailService.ts:45-65](file://lib/emailService.ts#L45-L65)
 - [firebase.ts:90-113](file://lib/firebase.ts#L90-L113)
 
 ## Conclusion
-The enhanced Certificate Generation System provides a comprehensive, scalable solution for producing multiple types of cooperative certificates. The system now supports membership certificates, share certificates, and other future certificate types through a flexible template system. It leverages jsPDF for advanced templating and dynamic content injection, integrates EmailJS for automated certificate delivery, stores certificates with comprehensive tracking in Firestore, and exposes intuitive APIs for secure delivery. The enhanced frontend provides interactive certificate creation through the CertificatePreviewModal, comprehensive certificate management through the MemberDetailsModal, and seamless integration with the member management system. Extending the system to support additional certificate types involves adding new generation functions, templates, and API routes while reusing the existing storage, delivery, and validation patterns.
+The streamlined Certificate Generation System provides a focused, scalable solution for producing share certificates for cooperative members. The system leverages jsPDF for advanced templating and dynamic content injection, integrates EmailJS for automated certificate delivery, stores certificates with comprehensive tracking in Firestore, and exposes intuitive APIs for secure delivery. The enhanced frontend provides certificate display and management through MemberDetailsModal, integrating seamlessly with the member management system. The system's simplified architecture removes the removed UI components while maintaining robust certificate generation, storage, and delivery capabilities. Extending the system to support additional certificate types involves adding new generation functions, templates, and API routes while reusing the existing storage, delivery, and validation patterns. The integration with member management system provides a seamless workflow from member registration to certificate generation and delivery.
 
 ## Appendices
 
 ### Certificate Types and Examples
-**Membership Certificate**:
-- Official recognition of cooperative membership with member details and registration date
-- Standard portrait A4 format with cooperative branding
-- Traditional certificate styling with decorative elements
-
 **Share Certificate**:
 - Corporate-style certificate for share ownership with detailed legal text
 - Landscape A4 format with green color scheme and official seals
 - Comprehensive shareholding information and transfer restrictions
-
-**Achievement Awards**:
-- Could reuse the membership certificate template with customizable award text
-- Flexible styling options for different achievement categories
-- Customizable award criteria and recognition text
-
-**Loan Completion Certificates**:
-- Could be modeled after membership certificate with loan-specific fields
-- Customizable completion criteria and loan details
-- Integration with loan management system data
 
 **Implementation Pattern**:
 - Add new generation functions mirroring existing certificate workflows
@@ -560,7 +527,23 @@ The enhanced Certificate Generation System provides a comprehensive, scalable so
 - Audit trail maintenance for all certificate operations
 - Digital signature placeholders for authenticity
 
+**Enhanced User Interface Features**:
+- Real-time certificate preview with html2canvas rendering
+- Automatic officer name fetching from Firestore
+- High-quality PDF generation with A4/Letter formatting
+- Streamlined certificate creation workflow with validation
+- Enhanced interactive elements with better user experience
+- Secure certificate storage with comprehensive tracking
+- Popup blocking detection and user guidance for print functionality
+
+**Advanced Rendering Features**:
+- jsPDF conversion with precise A4 dimensions
+- Automatic print dialog optimization for immediate printing
+- Responsive certificate preview with mobile compatibility
+- Enhanced form controls with focused styling and visual hierarchy
+- Quality optimization for both screen and print output
+- Automatic popup blocking detection and user guidance
+
 **Section sources**
 - [certificateService.ts:12-277](file://lib/certificateService.ts#L12-L277)
-- [CertificatePreviewModal.tsx:146-317](file://components/admin/CertificatePreviewModal.tsx#L146-L317)
-- [emailService.ts:145-176](file://lib/emailService.ts#L145-L176)
+- [emailService.ts:178-209](file://lib/emailService.ts#L178-L209)
