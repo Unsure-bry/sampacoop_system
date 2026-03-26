@@ -379,7 +379,7 @@ export async function generateAndSendCertificate(
     await firestore.setDocument('member_certificates', certificateRecord.certificateNumber, certificateRecord);
 
     // Send email notification with certificate link
-    const certificateDownloadUrl = `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/api/certificate/${memberData.id}`;
+    const certificateDownloadUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://sampacoop-system.vercel.app'}/api/certificate/${memberData.id}`;
     
     const emailSent = await sendCertificateNotificationEmail(
       memberData.email,
