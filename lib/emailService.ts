@@ -336,7 +336,7 @@ export const depositApplicationMessage = async (
     I hope you're doing well!
 
   
-    This is to confirm that we have received your deposit of ${deposit}. Your total amount deposited is ${depositotalAmount} with the control # ${ControlNumber}.
+    This is to confirm that we have received your deposit of ${Deposit}. Your total amount deposited is ${DepositotalAmount} with the control # ${ControlNumber}.
 
     Thank you for being a valued member of SAMPA Cooperative.
 
@@ -370,12 +370,12 @@ export const withdrawalApplicationMessage = async (
 
     I hope you're doing well!
 
-    This is to inform you that you have made a withdrawal of ${withdrawal} with the withdrawal number ${withdrawalNumber}.
+    This is to inform you that you have made a withdrawal of ${Withdrawal} with the withdrawal number ${WithdrawalNumber}.
 
     Thank you for being a valued member of SAMPA Cooperative.
 
-    Withdrawal: ${withdrawal}
-    WithdrawalNumber: ${withdrawalNumber}
+    Withdrawal: ${Withdrawal}
+    WithdrawalNumber: ${WithdrawalNumber}
 
 
     Best Regards,
