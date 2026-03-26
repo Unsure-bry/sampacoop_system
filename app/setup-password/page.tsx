@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import AuthLayout from '@/components/auth/AuthLayout';
 import Input from '@/components/auth/Input';
 import Button from '@/components/auth/Button';
 
-export default function SetupPasswordPage() {
+function SetupPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || '';
@@ -203,5 +203,19 @@ export default function SetupPasswordPage() {
         </p>
       </form>
     </AuthLayout>
+  );
+}
+
+export default function SetupPasswordPage() {
+  return (
+    <Suspense fallback={
+      <AuthLayout title="Set Up Your Password" subtitle="Complete your account setup by creating a password">
+        <div className="mt-8 flex justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+        </div>
+      </AuthLayout>
+    }>
+      <SetupPasswordContent />
+    </Suspense>
   );
 }
