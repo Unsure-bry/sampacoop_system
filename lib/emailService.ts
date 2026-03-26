@@ -323,7 +323,7 @@ export const depositApplicationMessage = async (
   name: string, 
   deposit: number,
   depositotalAmount: number,
-  depositControlNumber: number,  
+  ControlNumber: number,  
 ) => {
   const emailData = {
     to_name: name,
@@ -336,13 +336,13 @@ export const depositApplicationMessage = async (
     I hope you're doing well!
 
   
-    This is to confirm that we have received your deposit of ${deposit}. Your total amount deposited is ${depositotalAmount}.
+    This is to confirm that we have received your deposit of ${deposit}. Your total amount deposited is ${depositotalAmount} with the control number ${ControlNumber}.
 
     Thank you for being a valued member of SAMPA Cooperative.
 
     deposit: ${deposit}
     depositotalAmount: ${depositotalAmount}
-    depositControlNumber: ${depositControlNumber}
+    ControlNumber: ${ControlNumber}
 
 
     Best Regards,
@@ -359,7 +359,7 @@ export const withdrawalApplicationMessage = async (
   email: string, 
   name: string, 
   withdrawal: number,
-  withdrawalControlNumber: number,
+  withdrawalNumber: number,
 
 )=> {
   const emailData = {
@@ -372,12 +372,12 @@ export const withdrawalApplicationMessage = async (
 
     I hope you're doing well!
 
-    This is to inform you that you have made a withdrawal of ${withdrawal}.
+    This is to inform you that you have made a withdrawal of ${withdrawal} with the withdrawal number ${withdrawalNumber}.
 
     Thank you for being a valued member of SAMPA Cooperative.
 
     withdrawal: ${withdrawal}
-    withdrawalControlNumber: ${withdrawalControlNumber}
+    withdrawalNumber: ${withdrawalNumber}
 
 
     Best Regards,
