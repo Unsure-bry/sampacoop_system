@@ -125,9 +125,9 @@ export async function POST(req: Request) {
     const userDoc = queryResult.data[0];
     const userData: any = userDoc;
 
-    // Check if account is archived
+    // Check if account is archived in users collection
     if (userData.status === 'archived' || userData.archived === true) {
-      console.log("Account is archived for user:", email);
+      console.log("Account is archived in users collection:", email);
       return NextResponse.json(
         { 
           success: false, 
@@ -138,6 +138,35 @@ export async function POST(req: Request) {
         }, 
         { status: 403 }
       );
+    }
+
+    // Also check if the associated member record is archived
+    try {
+      const memberQueryResult = await adminFirestore.queryDocuments("members", [
+        { field: "email", operator: "==", value: email }
+      ]);
+      
+      if (memberQueryResult.success && memberQueryResult.data && memberQueryResult.data.length > 0) {
+        const memberDoc = memberQueryResult.data[0];
+        const memberData: any = memberDoc;
+        
+        if (memberData.status === 'archived' || memberData.archived === true) {
+          console.log("Account is archived in members collection:", email);
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: "Your account has been archived due to inactivity. Please contact SAMPA staff for account restoration assistance.",
+              isArchived: true,
+              archivedAt: memberData.archivedAt || null,
+              archiveReason: memberData.archiveReason || "Account archived due to inactivity"
+            }, 
+            { status: 403 }
+          );
+        }
+      }
+    } catch (memberCheckError) {
+      console.error("Error checking member collection for archived status:", memberCheckError);
+      // Don't fail login if the member check fails, continue with login
     }
 
     // Check if password is set
