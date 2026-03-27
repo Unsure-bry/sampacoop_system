@@ -549,40 +549,53 @@ export default function CapitalSharesPage() {
 
             {/* Modal Body */}
             <div className="p-6">
-              {/* Member Summary Cards */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-blue-50 rounded-lg p-4 text-center">
-                  <p className="text-xs text-blue-600 mb-1">Required</p>
-                  <p className="text-lg font-bold text-blue-800">{formatCurrency(selectedMember.requiredCapitalShare)}</p>
-                </div>
-                <div className="bg-green-50 rounded-lg p-4 text-center">
-                  <p className="text-xs text-green-600 mb-1">Paid</p>
-                  <p className="text-lg font-bold text-green-800">{formatCurrency(selectedMember.capitalShare)}</p>
-                </div>
-                <div className={`rounded-lg p-4 text-center ${selectedMember.remainingBalance > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
-                  <p className={`text-xs mb-1 ${selectedMember.remainingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>Remaining</p>
-                  <p className={`text-lg font-bold ${selectedMember.remainingBalance > 0 ? 'text-red-800' : 'text-green-800'}`}>
-                    {formatCurrency(selectedMember.remainingBalance)}
-                  </p>
-                </div>
-              </div>
+              {/* Member Summary Cards - Calculate from transactions for accuracy */}
+              {(() => {
+                const totalPaidFromTransactions = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+                const actualRemainingBalance = Math.max(0, selectedMember.requiredCapitalShare - totalPaidFromTransactions);
+                const actualStatus = actualRemainingBalance === 0 ? 'Paid' : totalPaidFromTransactions > 0 ? 'Partial' : 'Pending';
+                
+                return (
+                  <>
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                      <div className="bg-blue-50 rounded-lg p-4 text-center">
+                        <p className="text-xs text-blue-600 mb-1">Required</p>
+                        <p className="text-lg font-bold text-blue-800">{formatCurrency(selectedMember.requiredCapitalShare)}</p>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-4 text-center">
+                        <p className="text-xs text-green-600 mb-1">Paid</p>
+                        <p className="text-lg font-bold text-green-800">{formatCurrency(totalPaidFromTransactions)}</p>
+                      </div>
+                      <div className={`rounded-lg p-4 text-center ${actualRemainingBalance > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                        <p className={`text-xs mb-1 ${actualRemainingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>Remaining</p>
+                        <p className={`text-lg font-bold ${actualRemainingBalance > 0 ? 'text-red-800' : 'text-green-800'}`}>
+                          {formatCurrency(actualRemainingBalance)}
+                        </p>
+                      </div>
+                    </div>
 
-              {/* Status Badge */}
-              <div className="flex items-center justify-center mb-6">
-                <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
-                  selectedMember.status === 'Paid' 
-                    ? 'bg-green-100 text-green-800' 
-                    : selectedMember.status === 'Partial'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-orange-100 text-orange-800'
-                }`}>
-                  Status: {selectedMember.status}
-                </span>
-              </div>
+                    {/* Status Badge */}
+                    <div className="flex items-center justify-center mb-6">
+                      <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
+                        actualStatus === 'Paid' 
+                          ? 'bg-green-100 text-green-800' 
+                          : actualStatus === 'Partial'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-orange-100 text-orange-800'
+                      }`}>
+                        Status: {actualStatus}
+                      </span>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Add Payment Button */}
               <div className="mb-6">
-                {selectedMember.remainingBalance > 0 ? (
+                {(() => {
+                  const totalPaidFromTransactions = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+                  const actualRemainingBalance = Math.max(0, selectedMember.requiredCapitalShare - totalPaidFromTransactions);
+                  return actualRemainingBalance > 0 ? (
                   !showPaymentForm ? (
                     <button
                       onClick={() => setShowPaymentForm(true)}
@@ -701,7 +714,8 @@ export default function CapitalSharesPage() {
                     <Plus className="h-5 w-5" />
                     Fully Paid - No Payment Needed
                   </button>
-                )}
+                );
+                })()}
               </div>
 
               {/* Transactions List */}
