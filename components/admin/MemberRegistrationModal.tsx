@@ -394,7 +394,8 @@ export default function MemberRegistrationModal({
           createdAt: new Date().toISOString(),
           driverInfo: driverInfo || undefined,
           operatorInfo: operatorInfo || undefined,
-          beneficiaries: beneficiaries.length > 0 ? beneficiaries : undefined
+          beneficiaries: beneficiaries.length > 0 ? beneficiaries : undefined,
+          capitalShare: capitalShare || 0
         };
         setRegisteredMemberData(memberData);
         

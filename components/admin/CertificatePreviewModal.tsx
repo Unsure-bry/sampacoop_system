@@ -37,6 +37,7 @@ interface CertificatePreviewModalProps {
     email: string;
     phoneNumber: string;
     createdAt: string;
+    capitalShare?: number;
     driverInfo?: {
       street?: string;
       barangay?: string;
@@ -63,7 +64,7 @@ export default function CertificatePreviewModal({
     memberId: '',
     fullName: '',
     certificateNumber: '',
-    shares: '10000',
+    shares: '',
     shareCapital: 'Common Share Capital',
     cooperativeName: 'SAMPA COOPERATIVE',
     registrationDate: '',
@@ -117,12 +118,15 @@ export default function CertificatePreviewModal({
       const fullName = `${memberData.firstName} ${memberData.middleName || ''} ${memberData.lastName} ${memberData.suffix || ''}`.trim();
       const now = new Date();
       
+      // Use capital share from memberData, format as string without decimals
+      const capitalShareValue = memberData.capitalShare ? memberData.capitalShare.toString() : '';
+      
       setCertificateData(prev => ({
         ...prev,
         memberId: memberData.id,
         fullName: fullName,
         certificateNumber: `SC-${Date.now().toString().slice(-8)}`,
-        shares: '10000',
+        shares: capitalShareValue,
         shareCapital: 'Common Share Capital',
         cooperativeName: 'SAMPA COOPERATIVE',
         registrationDate: new Date(memberData.createdAt).toLocaleDateString('en-US', {
