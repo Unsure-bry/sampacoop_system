@@ -42,17 +42,17 @@ export const roleSidebarConfig: RoleSidebarConfig = {
       ],
     },
     {
-      title: 'Capital Shares',
-      permission: 'viewMembers',
-      items: [
-        { name: 'Capital Shares', path: '/admin/capital-shares', icon: PiggyBank, permission: 'viewMembers' },
-      ],
-    },
-    {
       title: 'Members',
       permission: 'viewMembers',
       items: [
         { name: 'Members Record', path: '/admin/members/records', icon: Users, permission: 'viewMembers' },
+      ],
+    },
+    {
+      title: 'Capital Shares',
+      permission: 'viewMembers',
+      items: [
+        { name: 'Capital Shares', path: '/admin/capital-shares', icon: PiggyBank, permission: 'viewMembers' },
       ],
     },
     {
