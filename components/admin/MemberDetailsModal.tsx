@@ -521,17 +521,35 @@ export default function MemberDetailsModal({
                           let loanPreview = null;
                           if (wouldBeArchived) {
                             const loansResult = await firestore.getCollection('loans');
-                            const memberLoans = loansResult.success && loansResult.data 
-                              ? loansResult.data.filter((loan: any) => 
-                                  loan.memberId === member.id && 
-                                  (loan.status === 'active' || loan.status === 'Active')
-                                )
-                              : [];
+                            console.log('Loans result:', loansResult);
+                            console.log('Member ID:', member.id);
+                            
+                            let memberLoans: any[] = [];
+                            if (loansResult.success && loansResult.data) {
+                              // Check all loans and log for debugging
+                              console.log('All loans:', loansResult.data);
+                              
+                              memberLoans = loansResult.data.filter((loan: any) => {
+                                const loanData = loan as any;
+                                // Check multiple possible ID fields
+                                const loanMemberId = loanData.memberId || loanData.userId || loanData.member_id;
+                                const loanStatus = (loanData.status || '').toLowerCase();
+                                const isActive = loanStatus === 'active' || loanStatus === 'approved' || loanStatus === 'pending';
+                                
+                                console.log('Checking loan:', loanData.id, 'MemberId:', loanMemberId, 'Status:', loanStatus, 'IsActive:', isActive);
+                                
+                                return loanMemberId === member.id && isActive;
+                              });
+                            }
+                            
+                            console.log('Filtered member loans:', memberLoans);
                             
                             let totalLoan = 0;
                             for (const loan of memberLoans) {
                               const loanData = loan as any;
-                              totalLoan += loanData.remainingAmount || loanData.amount || 0;
+                              const remainingAmount = loanData.remainingAmount || loanData.remainingBalance || loanData.balance || loanData.amount || 0;
+                              console.log('Loan:', loanData.id, 'Remaining:', remainingAmount);
+                              totalLoan += remainingAmount;
                             }
                             
                             const savingsResult = await firestore.getCollection(`members/${member.id}/savings`);
