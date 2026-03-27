@@ -548,12 +548,16 @@ export default function MemberDetailsModal({
                               }
                             }
                             
+                            const autoDeductionAmount = Math.min(totalLoan, totalSavings);
                             loanPreview = {
                               totalLoan,
                               totalSavings,
-                              deductionAmount: Math.min(totalLoan, totalSavings),
+                              deductionAmount: autoDeductionAmount,
                               loanCount: memberLoans.length
                             };
+                            // Auto-set the deduction input to the loan-based amount
+                            setDeductionInput(autoDeductionAmount.toFixed(2));
+                            setDeductionAmount(autoDeductionAmount);
                           }
                           
                           setTestResult({
@@ -619,7 +623,7 @@ export default function MemberDetailsModal({
                             <span className="font-medium">{testResult.loanPreview.loanCount}</span>
                           </div>
                           
-                          {/* Deduction Amount Input */}
+                          {/* Deduction Amount Display (Auto-calculated from Loan Balance) */}
                           <div className="mt-4 pt-3 border-t border-amber-200">
                             <label className="block text-sm font-medium text-amber-800 mb-2">
                               Amount to Deduct from Savings
@@ -637,7 +641,10 @@ export default function MemberDetailsModal({
                               />
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
-                              Maximum deductible: ₱{Math.min(testResult.loanPreview.totalLoan, testResult.loanPreview.totalSavings).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              Auto-calculated based on remaining loan balance. Maximum: ₱{Math.min(testResult.loanPreview.totalLoan, testResult.loanPreview.totalSavings).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-xs text-amber-600 mt-1">
+                              Deduction = Loan Balance (₱{testResult.loanPreview.totalLoan.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) or Savings (₱{testResult.loanPreview.totalSavings.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}), whichever is lower
                             </p>
                           </div>
                           
