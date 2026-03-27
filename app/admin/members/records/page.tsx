@@ -35,10 +35,6 @@ export default function MemberRecordsPage() {
   const [controlNumber, setControlNumber] = useState('');
   const [restoreLoading, setRestoreLoading] = useState(false);
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
-  
-  // Test date state for testing auto-archive functionality
-  const [testDate, setTestDate] = useState<string>('');
-  const [showTestDateInput, setShowTestDateInput] = useState<boolean>(false);
 
   useEffect(() => {
     // Check if user has permission to view members
@@ -379,17 +375,11 @@ export default function MemberRecordsPage() {
   };
 
   // Auto-archive inactive members
-  const autoArchiveInactiveMembers = async (membersList: Member[], isTestMode: boolean = false): Promise<{checked: number; archived: number; testResults?: any[]}> => {
-    // Use test date if set
-    const referenceDate = testDate ? new Date(testDate) : new Date();
-    const isUsingTestDate = !!testDate;
-    
-    console.log(`=== AUTO ARCHIVE CHECK (6 Months Inactivity) ===`);
-    console.log(`Reference Date: ${referenceDate.toISOString()} ${isUsingTestDate ? '(TEST MODE)' : ''}`);
+  const autoArchiveInactiveMembers = async (membersList: Member[]): Promise<{checked: number; archived: number}> => {
+    console.log('=== AUTO ARCHIVE CHECK (6 Months Inactivity) ===');
     
     let archivedCount = 0;
     let checkedCount = 0;
-    const testResults: any[] = [];
     
     for (const member of membersList) {
       // Skip already archived members
@@ -398,26 +388,9 @@ export default function MemberRecordsPage() {
       }
       
       checkedCount++;
-      const { shouldArchive, reason, daysInactive } = shouldAutoArchiveMember(member, referenceDate);
+      const { shouldArchive, reason, daysInactive } = shouldAutoArchiveMember(member);
       
       console.log(`Member: ${member.firstName} ${member.lastName}, Days Inactive: ${daysInactive}, Should Archive: ${shouldArchive}`);
-      
-      // In test mode, collect results without actually archiving
-      if (isTestMode) {
-        if (shouldArchive) {
-          // Calculate loan deduction preview
-          const loanInfo = await calculateLoanDeductionPreview(member);
-          testResults.push({
-            memberId: member.id,
-            memberName: `${member.firstName} ${member.lastName}`,
-            daysInactive,
-            reason,
-            wouldBeArchived: true,
-            loanDeductionPreview: loanInfo
-          });
-        }
-        continue;
-      }
       
       if (shouldArchive) {
         const archiveReason = `No transaction for 6 months (${daysInactive} days inactive)`;
@@ -432,7 +405,7 @@ export default function MemberRecordsPage() {
     }
     
     console.log(`=== AUTO ARCHIVE COMPLETE: ${archivedCount} of ${checkedCount} checked members archived ===`);
-    return { checked: checkedCount, archived: archivedCount, testResults: isTestMode ? testResults : undefined };
+    return { checked: checkedCount, archived: archivedCount };
   };
 
   useEffect(() => {
@@ -851,79 +824,6 @@ export default function MemberRecordsPage() {
         </div>
       </div>
       
-      {/* Test Date Input for Auto-Archive Testing */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span className="text-sm font-medium text-gray-700">Auto-Archive Test Date</span>
-          </div>
-          <button
-            onClick={() => setShowTestDateInput(!showTestDateInput)}
-            className="text-sm text-red-600 hover:text-red-800 font-medium"
-          >
-            {showTestDateInput ? 'Hide' : 'Show'} Test Controls
-          </button>
-        </div>
-        
-        {showTestDateInput && (
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">Test Reference Date</label>
-                <input
-                  type="date"
-                  value={testDate}
-                  onChange={(e) => setTestDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Set a future date to simulate what would happen on that date
-                </p>
-              </div>
-              <div className="flex gap-2 items-end">
-                <button
-                  onClick={async () => {
-                    setArchivingInProgress(true);
-                    const result = await autoArchiveInactiveMembers(members, true); // Test mode
-                    setAutoArchiveInfo({ checked: result.checked, archived: result.testResults?.length || 0 });
-                    if (result.testResults && result.testResults.length > 0) {
-                      console.log('=== TEST MODE RESULTS ===', result.testResults);
-                      toast.success(`Test: ${result.testResults.length} member(s) would be archived`);
-                    } else {
-                      toast('Test: No members would be archived on this date');
-                    }
-                    setArchivingInProgress(false);
-                  }}
-                  disabled={!testDate || archivingInProgress}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Test Auto-Archive
-                </button>
-                <button
-                  onClick={() => {
-                    setTestDate('');
-                    setAutoArchiveInfo(null);
-                  }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-            
-            {testDate && (
-              <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
-                <strong>Test Mode Active:</strong> Using {new Date(testDate).toLocaleDateString()} as reference date for inactivity calculations.
-                Members inactive for 6+ months from this date would be archived and have loans deducted from savings.
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
       {/* Auto-archive info */}
       {autoArchiveInfo && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
@@ -933,7 +833,6 @@ export default function MemberRecordsPage() {
             </svg>
             <span className="text-sm text-blue-800">
               Auto-checked {autoArchiveInfo.checked} members, {autoArchiveInfo.archived} archived for inactivity
-              {testDate && ' (TEST MODE - No actual changes made)'}
             </span>
           </div>
         </div>

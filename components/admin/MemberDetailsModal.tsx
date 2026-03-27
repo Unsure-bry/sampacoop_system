@@ -585,6 +585,93 @@ export default function MemberDetailsModal({
                             <span>Active Loans:</span>
                             <span className="font-medium">{testResult.loanPreview.loanCount}</span>
                           </div>
+                          
+                          {/* Execute Archive Button */}
+                          <div className="mt-4 pt-3 border-t border-amber-300">
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`Are you sure you want to archive this member and deduct ₱${testResult.loanPreview.deductionAmount.toLocaleString()} from savings for loan repayment?`)) {
+                                  return;
+                                }
+                                
+                                setTestLoading(true);
+                                try {
+                                  // Archive the member
+                                  const archiveReason = `No transaction for 6 months (${testResult.daysInactive} days inactive) - Archived via test on ${new Date().toLocaleDateString()}`;
+                                  
+                                  await firestore.updateDocument('members', member.id, {
+                                    status: 'archived',
+                                    archived: true,
+                                    archivedAt: new Date().toISOString(),
+                                    archiveReason: archiveReason,
+                                    previousStatus: member.status || 'active',
+                                    updatedAt: new Date().toISOString()
+                                  });
+                                  
+                                  // Deduct loan from savings if applicable
+                                  if (testResult.loanPreview.deductionAmount > 0) {
+                                    const deductionTransaction = {
+                                      amount: testResult.loanPreview.deductionAmount,
+                                      type: 'withdrawal',
+                                      description: `Loan deduction due to account archival (inactivity) - Auto-deducted from savings`,
+                                      date: new Date().toISOString(),
+                                      createdAt: new Date().toISOString(),
+                                      status: 'completed',
+                                      category: 'loan_deduction',
+                                      recordedBy: 'system',
+                                      isAutoDeduction: true,
+                                      deductionReason: 'Account archived due to 6 months inactivity'
+                                    };
+                                    
+                                    await firestore.addDocument(`members/${member.id}/savings`, deductionTransaction);
+                                    
+                                    // Update loans to paid status
+                                    const loansResult = await firestore.getCollection('loans');
+                                    if (loansResult.success && loansResult.data) {
+                                      const memberLoans = loansResult.data.filter((loan: any) => 
+                                        loan.memberId === member.id && 
+                                        (loan.status === 'active' || loan.status === 'Active')
+                                      );
+                                      
+                                      for (const loan of memberLoans) {
+                                        const loanData = loan as any;
+                                        await firestore.updateDocument('loans', loanData.id, {
+                                          remainingAmount: 0,
+                                          status: 'paid',
+                                          lastPaymentDate: new Date().toISOString(),
+                                          lastPaymentAmount: loanData.remainingAmount || loanData.amount || 0,
+                                          paidViaSavingsDeduction: true,
+                                          deductionReason: 'Account archived due to inactivity'
+                                        });
+                                      }
+                                    }
+                                  }
+                                  
+                                  toast.success(`Member archived successfully! ₱${testResult.loanPreview.deductionAmount.toLocaleString()} deducted from savings for loan repayment.`);
+                                  
+                                  // Close modal after successful archive
+                                  setTimeout(() => {
+                                    onClose();
+                                    // Refresh the page to show updated member list
+                                    window.location.reload();
+                                  }, 2000);
+                                  
+                                } catch (error) {
+                                  console.error('Error archiving member:', error);
+                                  toast.error('Failed to archive member. Please try again.');
+                                } finally {
+                                  setTestLoading(false);
+                                }
+                              }}
+                              disabled={testLoading}
+                              className="w-full px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {testLoading ? 'Processing...' : `Execute Archive & Deduct ₱${testResult.loanPreview.deductionAmount.toLocaleString()}`}
+                            </button>
+                            <p className="text-xs text-amber-600 mt-2 text-center">
+                              This will permanently archive the account and deduct the loan amount from savings.
+                            </p>
+                          </div>
                         </div>
                       )}
                     </div>
