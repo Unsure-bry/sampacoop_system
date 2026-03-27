@@ -1010,11 +1010,11 @@ export default function MemberRegistrationModal({
                       </button>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 mb-3">You can add up to 2 beneficiaries (optional).</p>
+                  <p className="text-sm text-gray-500 mb-3">You can add up to a Maximum of two(2) beneficiaries.</p>
                   
                   {beneficiaries.length === 0 ? (
                     <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500 border border-dashed border-gray-300">
-                      No beneficiaries added. Click "Add Beneficiary" to add one.
+                      
                     </div>
                   ) : (
                     <div className="space-y-4">
