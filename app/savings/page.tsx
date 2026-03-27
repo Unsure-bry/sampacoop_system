@@ -12,8 +12,6 @@ import {
 } from '@/lib/savingsService';
 import { firestore } from '@/lib/firebase';
 import DynamicDashboard from '@/components/user/DynamicDashboard';
-import { useCapitalShare } from '@/hooks/useCapitalShare';
-import { ShieldAlert, AlertCircle, Plus } from 'lucide-react';
 
 interface FirestoreTimestampLike {
   toDate?: () => Date;
@@ -37,9 +35,6 @@ export default function UserSavingsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const { user } = useAuth();
-  
-  // Capital Share check
-  const { capitalShare, loading: capitalShareLoading } = useCapitalShare(user?.uid);
 
   const fetchSavingsTransactions = useCallback(async () => {
     try {
@@ -225,57 +220,9 @@ export default function UserSavingsPage() {
     );
   }
 
-  if (loading || capitalShareLoading) {
-    return (
-      <DynamicDashboard>
-        <div className="flex items-center justify-center min-h-[40vh]">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
-        </div>
-      </DynamicDashboard>
-    );
-  }
-
   return (
     <DynamicDashboard>
       <div className="max-w-7xl mx-auto w-full">
-        {/* Capital Share Restriction Warning */}
-        {!capitalShare.isFullyPaid && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-lg">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <ShieldAlert className="h-6 w-6 text-red-500" />
-              </div>
-              <div className="ml-3 flex-1">
-                <h3 className="text-lg font-semibold text-red-800">Capital Share Required</h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p className="mb-2">
-                    You cannot add savings at this time because your capital share contribution is incomplete.
-                  </p>
-                  <div className="bg-white rounded-lg p-3 mt-3 border border-red-200">
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                        <p className="text-xs text-gray-500">Required</p>
-                        <p className="text-lg font-bold text-gray-800">{formatCurrency(capitalShare.requiredAmount)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Paid</p>
-                        <p className="text-lg font-bold text-green-600">{formatCurrency(capitalShare.paidAmount)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Remaining</p>
-                        <p className="text-lg font-bold text-red-600">{formatCurrency(capitalShare.remainingBalance)}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm">
-                    Please contact the cooperative office to settle your remaining balance of <strong>{formatCurrency(capitalShare.remainingBalance)}</strong>.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="grid grid-cols-1 gap-6">
           <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -283,37 +230,25 @@ export default function UserSavingsPage() {
                 <p className="text-xs sm:text-sm text-gray-600 mb-1">Current Savings Balance</p>
                 <p className="text-2xl sm:text-4xl font-bold text-green-600">{formatCurrency(totalSavings)}</p>
               </div>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                  <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3">
-                    <p className="text-xs text-gray-500 mb-1">Transactions</p>
-                    <p className="text-base sm:text-lg font-semibold text-gray-800">{transactions.length}</p>
-                  </div>
-                  <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3">
-                    <p className="text-xs text-gray-500 mb-1">Last Updated</p>
-                    <p className="text-xs sm:text-sm font-medium text-gray-800">
-                      {lastUpdated ? formatDate(lastUpdated) : '—'}
-                    </p>
-                  </div>
-                  <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3">
-                    <p className="text-xs text-gray-500 mb-1">Total Deposits</p>
-                    <p className="text-base sm:text-lg font-semibold text-green-600">{formatCurrency(totalDeposits)}</p>
-                  </div>
-                  <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3">
-                    <p className="text-xs text-gray-500 mb-1">Total Withdrawals</p>
-                    <p className="text-base sm:text-lg font-semibold text-red-600">{formatCurrency(totalWithdrawals)}</p>
-                  </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3">
+                  <p className="text-xs text-gray-500 mb-1">Transactions</p>
+                  <p className="text-base sm:text-lg font-semibold text-gray-800">{transactions.length}</p>
                 </div>
-                {/* Add Transaction Button - Only show if capital share is fully paid */}
-                {capitalShare.isFullyPaid && (
-                  <button
-                    onClick={() => setShowAddModal(true)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-sm whitespace-nowrap"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Transaction
-                  </button>
-                )}
+                <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3">
+                  <p className="text-xs text-gray-500 mb-1">Last Updated</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-800">
+                    {lastUpdated ? formatDate(lastUpdated) : '—'}
+                  </p>
+                </div>
+                <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3">
+                  <p className="text-xs text-gray-500 mb-1">Total Deposits</p>
+                  <p className="text-base sm:text-lg font-semibold text-green-600">{formatCurrency(totalDeposits)}</p>
+                </div>
+                <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3">
+                  <p className="text-xs text-gray-500 mb-1">Total Withdrawals</p>
+                  <p className="text-base sm:text-lg font-semibold text-red-600">{formatCurrency(totalWithdrawals)}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -463,7 +398,7 @@ export default function UserSavingsPage() {
         </div>
 
         <AddSavingsTransactionModal
-          isOpen={showAddModal && capitalShare.isFullyPaid}
+          isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
           onAddSavings={handleAddSavings}
           currentBalance={totalSavings}
