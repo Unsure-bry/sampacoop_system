@@ -235,6 +235,51 @@ export async function getMemberInfoByUserId(userId: string): Promise<MemberInfo 
 }
 
 /**
+ * Check if member has fully paid capital share
+ */
+export async function checkCapitalShareStatus(memberId: string): Promise<{ 
+  isFullyPaid: boolean; 
+  remainingBalance: number;
+  requiredAmount: number;
+  paidAmount: number;
+}> {
+  try {
+    const REQUIRED_CAPITAL_SHARE = 10000;
+    const memberResult = await firestore.getDocument('members', memberId);
+    
+    if (memberResult.success && memberResult.data) {
+      const memberData = memberResult.data as any;
+      const paymentInfo = memberData.paymentInfo || {};
+      const capitalShare = paymentInfo.capitalShare || 0;
+      const remainingBalance = Math.max(0, REQUIRED_CAPITAL_SHARE - capitalShare);
+      
+      return {
+        isFullyPaid: remainingBalance === 0,
+        remainingBalance,
+        requiredAmount: REQUIRED_CAPITAL_SHARE,
+        paidAmount: capitalShare
+      };
+    }
+    
+    // If member not found, assume not fully paid
+    return {
+      isFullyPaid: false,
+      remainingBalance: REQUIRED_CAPITAL_SHARE,
+      requiredAmount: REQUIRED_CAPITAL_SHARE,
+      paidAmount: 0
+    };
+  } catch (error) {
+    console.error('Error checking capital share status:', error);
+    return {
+      isFullyPaid: false,
+      remainingBalance: 10000,
+      requiredAmount: 10000,
+      paidAmount: 0
+    };
+  }
+}
+
+/**
  * Atomically update savings transaction and member's total
  */
 export async function addSavingsTransaction(
@@ -254,6 +299,15 @@ export async function addSavingsTransaction(
       return { 
         success: false, 
         error: `Member record not found for user: ${userDisplayName} (ID: ${userId})` 
+      };
+    }
+    
+    // Check if member has fully paid capital share
+    const capitalShareStatus = await checkCapitalShareStatus(memberId);
+    if (!capitalShareStatus.isFullyPaid) {
+      return {
+        success: false,
+        error: `Cannot process savings transaction. Member has remaining capital share balance of ₱${capitalShareStatus.remainingBalance.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Please settle the capital share contribution first.`
       };
     }
 

@@ -2,10 +2,10 @@
 
 <cite>
 **Referenced Files in This Document**
-- [README.md](file://README.md)
-- [package.json](file://package.json)
-- [app/admin/capital-shares/page.tsx](file://app/admin/capital-shares/page.tsx)
 - [hooks/useCapitalShare.ts](file://hooks/useCapitalShare.ts)
+- [app/admin/capital-shares/page.tsx](file://app/admin/capital-shares/page.tsx)
+- [app/dashboard/page.tsx](file://app/dashboard/page.tsx)
+- [app/loan/page.tsx](file://app/loan/page.tsx)
 - [lib/savingsService.ts](file://lib/savingsService.ts)
 - [lib/userMemberService.ts](file://lib/userMemberService.ts)
 - [lib/firebase.ts](file://lib/firebase.ts)
@@ -19,18 +19,18 @@
 - [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx)
 - [app/admin/dashboard/page.tsx](file://app/admin/dashboard/page.tsx)
 - [middleware.ts](file://middleware.ts)
-- [app/dashboard/page.tsx](file://app/dashboard/page.tsx)
-- [app/loan/page.tsx](file://app/loan/page.tsx)
-- [components/user/actions/LoanActions.tsx](file://components/user/actions/LoanActions.tsx)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced capital share contribution system with new useCapitalShare hook for real-time monitoring
+- Complete rewrite of capital shares system with new useCapitalShare hook for real-time monitoring
 - Integrated comprehensive financial requirement enforcement across loan application restrictions
-- Improved user experience with dynamic capital share status tracking in dashboard and loan interfaces
+- Enhanced user experience with dynamic capital share status tracking in dashboard and loan interfaces
 - Added standardized capital share amount processing (10,000 units) with enhanced UI visual indicators
 - Implemented real-time monitoring capabilities with automatic status updates and dynamic restrictions
+- Added new administrative interface for capital share management with payment tracking
+- Enhanced dashboard integration with real-time capital share status display
+- Implemented dynamic loan restrictions based on capital share status
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -68,6 +68,7 @@ Hooks[Custom Hooks]
 useCapitalShare[useCapitalShare Hook]
 DynamicDashboard[Dynamic Dashboard]
 LoanInterface[Loan Application Interface]
+AdminCapitalShares[Admin Capital Shares Interface]
 end
 subgraph "Real-Time Monitoring"
 RealTime[Real-Time Listeners]
@@ -79,12 +80,14 @@ API[API Routes]
 Auth[Authentication Service]
 Permissions[Permission System]
 LoanRestrictions[Loan Application Restrictions]
+SavingsValidation[Savings Transaction Validation]
 end
 subgraph "Data Layer"
 Firestore[(Firebase Firestore)]
-Collections[members, users, loans, savings]
-Subcollections[member savings subcollections]
+Collections[members, users, loans, savings, rolePermissions]
+Subcollections[member savings subcollections, capitalShareTransactions]
 PaymentInfo[paymentInfo object with capitalShare]
+MemberDocuments[Member Documents with paymentInfo]
 end
 subgraph "External Services"
 Email[Email Service]
@@ -99,10 +102,12 @@ useCapitalShare --> RealTime
 RealTime --> Firestore
 DynamicDashboard --> useCapitalShare
 LoanInterface --> useCapitalShare
+AdminCapitalShares --> useCapitalShare
 API --> Firestore
 Auth --> Firestore
 Permissions --> Firestore
 LoanRestrictions --> useCapitalShare
+SavingsValidation --> useCapitalShare
 API --> Email
 Components --> PDF
 Components --> Validation
@@ -110,6 +115,7 @@ Components --> Toast
 Firestore --> Collections
 Collections --> Subcollections
 Subcollections --> PaymentInfo
+MemberDocuments --> PaymentInfo
 ```
 
 **Diagram sources**
@@ -117,8 +123,9 @@ Subcollections --> PaymentInfo
 - [lib/auth.tsx:1-706](file://lib/auth.tsx#L1-706)
 - [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-226)
 - [hooks/useCapitalShare.ts:1-115](file://hooks/useCapitalShare.ts#L1-115)
-- [app/dashboard/page.tsx:1-200](file://app/dashboard/page.tsx#L1-200)
-- [app/loan/page.tsx:370-569](file://app/loan/page.tsx#L370-569)
+- [app/dashboard/page.tsx:1-800](file://app/dashboard/page.tsx#L1-800)
+- [app/loan/page.tsx:1-800](file://app/loan/page.tsx#L1-800)
+- [app/admin/capital-shares/page.tsx:1-758](file://app/admin/capital-shares/page.tsx#L1-758)
 
 The architecture consists of several key layers with enhanced real-time monitoring:
 
@@ -456,7 +463,9 @@ The savings transaction system provides comprehensive financial tracking with en
 flowchart TD
 TransactionRequest[Transaction Request] --> ValidateUser[Validate User]
 ValidateUser --> GetUserMember[Get Member Info]
-GetUserMember --> CalculateBalance[Calculate Running Balance]
+GetUserMember --> CheckCapitalShare[Check Capital Share Status]
+CheckCapitalShare --> |Fully Paid| CalculateBalance[Calculate Running Balance]
+CheckCapitalShare --> |Not Fully Paid| RejectTransaction[Reject Transaction]
 CalculateBalance --> ValidateAmount{Validate Amount}
 ValidateAmount --> |Insufficient Funds| RejectTransaction[Reject Transaction]
 ValidateAmount --> |Valid Amount| ProcessTransaction[Process Transaction]
@@ -484,7 +493,7 @@ The system supports two primary transaction types with enhanced capital share pr
 **Updated** The transaction system now integrates seamlessly with capital share processing, allowing savings deposits to directly contribute toward meeting the standardized 10,000-unit capital share requirement with real-time status updates.
 
 **Section sources**
-- [lib/savingsService.ts:1-615](file://lib/savingsService.ts#L1-615)
+- [lib/savingsService.ts:1-669](file://lib/savingsService.ts#L1-669)
 - [lib/types/savings.ts:1-22](file://lib/types/savings.ts#L1-22)
 
 ## Certificate Generation
@@ -631,7 +640,7 @@ string systemSettings
 }
 SUBCOLLECTIONS {
 string members/{memberId}/savings
-string members/{memberId}/loans
+string members/{memberId}/capitalShareTransactions
 }
 RELATIONSHIPS {
 string members.userId = users.id
@@ -897,6 +906,10 @@ The frontend implements performance best practices with enhanced UI components a
 **Loan Application Restrictions Not Working**
 - **Issue**: Loan applications not properly restricted despite unpaid capital shares
 - **Solution**: Verify useCapitalShare hook integration, check loan application components, confirm real-time status updates
+
+**Savings Transaction Validation Issues**
+- **Issue**: Savings transactions being rejected despite having capital share payments
+- **Solution**: Verify checkCapitalShareStatus function, check member paymentInfo structure, confirm real-time status updates
 
 **Section sources**
 - [lib/auth.tsx:366-372](file://lib/auth.tsx#L366-372)
