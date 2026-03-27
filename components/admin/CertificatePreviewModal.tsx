@@ -63,7 +63,7 @@ export default function CertificatePreviewModal({
     memberId: '',
     fullName: '',
     certificateNumber: '',
-    shares: '100',
+    shares: '10000',
     shareCapital: 'Common Share Capital',
     cooperativeName: 'SAMPA COOPERATIVE',
     registrationDate: '',
@@ -122,7 +122,7 @@ export default function CertificatePreviewModal({
         memberId: memberData.id,
         fullName: fullName,
         certificateNumber: `SC-${Date.now().toString().slice(-8)}`,
-        shares: '100',
+        shares: '10000',
         shareCapital: 'Common Share Capital',
         cooperativeName: 'SAMPA COOPERATIVE',
         registrationDate: new Date(memberData.createdAt).toLocaleDateString('en-US', {

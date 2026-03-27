@@ -261,7 +261,7 @@ export default function ManagerHomePage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(value) => value >= 1000 ? `₱${(value / 1000).toFixed(0)}k` : `₱${value}`} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value) || 0)} />
                 <Bar dataKey="disbursed" fill="#EF4444" name="Disbursed" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="collected" fill="#10B981" name="Collected" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -302,7 +302,7 @@ export default function ManagerHomePage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(value) => value >= 1000 ? `₱${(value / 1000).toFixed(0)}k` : `₱${value}`} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value) || 0)} />
                 <Line type="monotone" dataKey="amount" stroke="#8B5CF6" strokeWidth={2} dot={{ fill: '#8B5CF6' }} />
               </LineChart>
             </ResponsiveContainer>

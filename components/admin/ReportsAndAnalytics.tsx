@@ -270,7 +270,7 @@ export default function ReportsAndAnalytics() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(value) => `₱${value / 1000}k`} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value) || 0)} />
                 <Legend />
                 <Bar dataKey="disbursed" name="Disbursed" fill="#3B82F6" />
                 <Bar dataKey="collected" name="Collected" fill="#10B981" />

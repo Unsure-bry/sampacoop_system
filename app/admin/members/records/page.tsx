@@ -913,7 +913,6 @@ export default function MemberRecordsPage() {
         member={viewingMember} 
         isOpen={!!viewingMember} 
         onClose={() => setViewingMember(null)} 
-        onMarkInactive={() => fetchMembers()}
       />
       
       {/* Member Edit Modal */}

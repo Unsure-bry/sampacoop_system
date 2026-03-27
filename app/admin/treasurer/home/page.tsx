@@ -254,7 +254,7 @@ export default function TreasurerHomePage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(value) => value >= 1000 ? `₱${(value / 1000).toFixed(0)}k` : `₱${value}`} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value) || 0)} />
                 <Area type="monotone" dataKey="deposits" stackId="1" stroke="#10B981" fill="#D1FAE5" name="Deposits" />
                 <Area type="monotone" dataKey="withdrawals" stackId="1" stroke="#EF4444" fill="#FEE2E2" name="Withdrawals" />
               </AreaChart>
