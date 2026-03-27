@@ -108,6 +108,7 @@ export default function MemberRegistrationModal({
   const [isPaid, setIsPaid] = useState(false); // Payment confirmation checkbox
   const [controlNumber, setControlNumber] = useState(''); // Receipt control number
   const [capitalShare, setCapitalShare] = useState<number>(0); // Capital share amount
+  const [capitalShareDisplay, setCapitalShareDisplay] = useState(''); // Capital share formatted display
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
   const [showCertificatePreview, setShowCertificatePreview] = useState(false);
   const [isGeneratingCertificate, setIsGeneratingCertificate] = useState(false);
@@ -453,6 +454,8 @@ export default function MemberRegistrationModal({
         setRole(null);
         setLicenseNumberValid(null);
         setControlNumber('');
+        setCapitalShare(0);
+        setCapitalShareDisplay('');
         setRegisteredMemberData(null);
         onClose();
         onMemberAdded();
@@ -477,6 +480,8 @@ export default function MemberRegistrationModal({
     setRole(null);
     setLicenseNumberValid(null);
     setControlNumber('');
+    setCapitalShare(0);
+    setCapitalShareDisplay('');
     setRegisteredMemberData(null);
     onClose();
     onMemberAdded();
@@ -1357,15 +1362,74 @@ export default function MemberRegistrationModal({
                       <label className="block text-sm font-medium text-black mb-1">
                         Capital Share <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="number"
-                        value={capitalShare || ''}
-                        onChange={(e) => setCapitalShare(Number(e.target.value))}
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
-                        placeholder="Enter capital share amount"
-                        min="0"
-                        step="100"
-                      />
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-black font-medium">₱</span>
+                        <input
+                          type="text"
+                          value={capitalShareDisplay}
+                          onChange={(e) => {
+                            const input = e.target.value;
+                            // Remove non-numeric characters except decimal point
+                            const cleaned = input.replace(/[^\d.]/g, '');
+                            
+                            // Handle multiple decimal points - keep only the first one
+                            const parts = cleaned.split('.');
+                            let formatted = parts[0];
+                            if (parts.length > 1) {
+                              formatted = parts[0] + '.' + parts.slice(1).join('');
+                            }
+                            
+                            // Limit to 2 decimal places
+                            if (formatted.includes('.')) {
+                              const [intPart, decPart] = formatted.split('.');
+                              formatted = intPart + '.' + decPart.substring(0, 2);
+                            }
+                            
+                            // Parse to number for storage
+                            const numValue = parseFloat(formatted) || 0;
+                            setCapitalShare(numValue);
+                            
+                            // Format with commas for display
+                            if (formatted) {
+                              const [intPart, decPart] = formatted.includes('.') 
+                                ? formatted.split('.') 
+                                : [formatted, ''];
+                              const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                              setCapitalShareDisplay(decPart !== '' 
+                                ? `${formattedInt}.${decPart}`
+                                : formatted.includes('.') 
+                                  ? `${formattedInt}.`
+                                  : formattedInt
+                              );
+                            } else {
+                              setCapitalShareDisplay('');
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // Format on blur to ensure proper decimal display
+                            const value = capitalShare;
+                            if (value > 0) {
+                              setCapitalShareDisplay(value.toLocaleString('en-PH', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              }));
+                            } else {
+                              setCapitalShareDisplay('');
+                            }
+                          }}
+                          onFocus={(e) => {
+                            // On focus, show simpler format for editing
+                            if (capitalShare > 0) {
+                              setCapitalShareDisplay(capitalShare.toLocaleString('en-PH', {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 2
+                              }));
+                            }
+                          }}
+                          className="w-full p-2 pl-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
+                          placeholder="0.00"
+                        />
+                      </div>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-black">Payment Method:</span>
