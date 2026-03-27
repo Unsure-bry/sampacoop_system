@@ -690,7 +690,8 @@ export default function ReportsPage() {
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                             <YAxis tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
-<<<<<<< HEAD
+                            <Tooltip formatter={(value) => [`₱${Number(value).toLocaleString()}`, 'Amount']} />
+>>>>>>> 1b75e3f664c7b391e0582fb01d1e4da1c832570e
                             <Tooltip formatter={(value) => [`₱${Number(value || 0).toLocaleString()}`, 'Amount']} />
 =======
                             <Tooltip formatter={(value) => [`₱${Number(value).toLocaleString()}`, 'Amount']} />
@@ -803,7 +804,8 @@ export default function ReportsPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                         <YAxis tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
-<<<<<<< HEAD
+                        <Tooltip formatter={(value) => [`₱${Number(value).toLocaleString()}`, 'Savings']} />
+>>>>>>> 1b75e3f664c7b391e0582fb01d1e4da1c832570e
                         <Tooltip formatter={(value) => [`₱${Number(value || 0).toLocaleString()}`, 'Savings']} />
 =======
                         <Tooltip formatter={(value) => [`₱${Number(value).toLocaleString()}`, 'Savings']} />
