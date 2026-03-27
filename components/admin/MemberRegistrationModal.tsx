@@ -56,6 +56,13 @@ interface PaymentInfo {
   remainingBalance: number;
 }
 
+interface BeneficiaryInfo {
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  relationship: string;
+}
+
 interface FormData {
   firstName: string;
   lastName: string;
@@ -85,6 +92,7 @@ interface FormData {
   numberOfJeepneys?: number;
   plateNumbers?: string[];
   paymentInfo?: PaymentInfo;
+  beneficiaries?: BeneficiaryInfo[];
   fullName?: string;
   status?: string;
   createdAt?: string;
@@ -109,6 +117,7 @@ export default function MemberRegistrationModal({
   const [controlNumber, setControlNumber] = useState(''); // Receipt control number
   const [capitalShare, setCapitalShare] = useState<number>(0); // Capital share amount
   const [capitalShareDisplay, setCapitalShareDisplay] = useState(''); // Capital share formatted display
+  const [beneficiaries, setBeneficiaries] = useState<BeneficiaryInfo[]>([]); // Beneficiaries array (max 2)
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
   const [showCertificatePreview, setShowCertificatePreview] = useState(false);
   const [isGeneratingCertificate, setIsGeneratingCertificate] = useState(false);
@@ -367,7 +376,8 @@ export default function MemberRegistrationModal({
         birthdate: data.birthdate,
         driverInfo,
         operatorInfo,
-        paymentInfo: paymentData
+        paymentInfo: paymentData,
+        beneficiaries: beneficiaries.length > 0 ? beneficiaries : undefined
       });
 
       if (success && memberId) {
@@ -383,7 +393,8 @@ export default function MemberRegistrationModal({
           phoneNumber: data.phoneNumber,
           createdAt: new Date().toISOString(),
           driverInfo: driverInfo || undefined,
-          operatorInfo: operatorInfo || undefined
+          operatorInfo: operatorInfo || undefined,
+          beneficiaries: beneficiaries.length > 0 ? beneficiaries : undefined
         };
         setRegisteredMemberData(memberData);
         
@@ -456,6 +467,7 @@ export default function MemberRegistrationModal({
         setControlNumber('');
         setCapitalShare(0);
         setCapitalShareDisplay('');
+        setBeneficiaries([]);
         setRegisteredMemberData(null);
         onClose();
         onMemberAdded();
@@ -482,6 +494,7 @@ export default function MemberRegistrationModal({
     setControlNumber('');
     setCapitalShare(0);
     setCapitalShareDisplay('');
+    setBeneficiaries([]);
     setRegisteredMemberData(null);
     onClose();
     onMemberAdded();
@@ -978,6 +991,131 @@ export default function MemberRegistrationModal({
                   </div>
                 </div>
                 
+                {/* Beneficiary Information Section */}
+                <div className="md:col-span-2 mt-6">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="text-md font-semibold text-black">Beneficiary Information</h4>
+                    {beneficiaries.length < 2 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBeneficiaries([...beneficiaries, { firstName: '', middleName: '', lastName: '', relationship: '' }]);
+                        }}
+                        className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-medium"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Beneficiary
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500 mb-3">You can add up to 2 beneficiaries (optional).</p>
+                  
+                  {beneficiaries.length === 0 ? (
+                    <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500 border border-dashed border-gray-300">
+                      No beneficiaries added. Click "Add Beneficiary" to add one.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {beneficiaries.map((beneficiary, index) => (
+                        <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                          <div className="flex justify-between items-center mb-3">
+                            <h5 className="font-medium text-black">Beneficiary {index + 1}</h5>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newBeneficiaries = beneficiaries.filter((_, i) => i !== index);
+                                setBeneficiaries(newBeneficiaries);
+                              }}
+                              className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Remove
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-black mb-1">
+                                First Name <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={beneficiary.firstName}
+                                onChange={(e) => {
+                                  // Only allow letters and spaces
+                                  const value = e.target.value.replace(/[^A-Za-z\s]/g, '');
+                                  const newBeneficiaries = [...beneficiaries];
+                                  newBeneficiaries[index] = { ...newBeneficiaries[index], firstName: value };
+                                  setBeneficiaries(newBeneficiaries);
+                                }}
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
+                                placeholder="Enter first name"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-black mb-1">
+                                Middle Name
+                              </label>
+                              <input
+                                type="text"
+                                value={beneficiary.middleName || ''}
+                                onChange={(e) => {
+                                  // Only allow letters and spaces
+                                  const value = e.target.value.replace(/[^A-Za-z\s]/g, '');
+                                  const newBeneficiaries = [...beneficiaries];
+                                  newBeneficiaries[index] = { ...newBeneficiaries[index], middleName: value };
+                                  setBeneficiaries(newBeneficiaries);
+                                }}
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
+                                placeholder="Enter middle name"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-black mb-1">
+                                Surname <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={beneficiary.lastName}
+                                onChange={(e) => {
+                                  // Only allow letters and spaces
+                                  const value = e.target.value.replace(/[^A-Za-z\s]/g, '');
+                                  const newBeneficiaries = [...beneficiaries];
+                                  newBeneficiaries[index] = { ...newBeneficiaries[index], lastName: value };
+                                  setBeneficiaries(newBeneficiaries);
+                                }}
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
+                                placeholder="Enter surname"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-black mb-1">
+                                Relationship to {role} <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={beneficiary.relationship}
+                                onChange={(e) => {
+                                  // Only allow letters, spaces, and hyphens for relationships
+                                  const value = e.target.value.replace(/[^A-Za-z\s\-]/g, '');
+                                  const newBeneficiaries = [...beneficiaries];
+                                  newBeneficiaries[index] = { ...newBeneficiaries[index], relationship: value };
+                                  setBeneficiaries(newBeneficiaries);
+                                }}
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
+                                placeholder="e.g., Spouse, Child, Parent"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
                 <div className="flex flex-col sm:flex-row justify-end pt-4 gap-3">
                   <button
                     type="button"
@@ -1340,6 +1478,26 @@ export default function MemberRegistrationModal({
                       </div>
                     )}
                   </div>
+                  
+                  {/* Beneficiary Information in Confirmation */}
+                  {beneficiaries && beneficiaries.length > 0 && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-black mb-2">Beneficiary Information</h4>
+                      <div className="space-y-2">
+                        {beneficiaries.map((beneficiary, index) => (
+                          <div key={index} className="text-sm">
+                            <p className="font-medium text-black">Beneficiary {index + 1}:</p>
+                            <p className="text-black ml-2">
+                              {beneficiary.firstName} {beneficiary.middleName} {beneficiary.lastName}
+                            </p>
+                            <p className="text-black ml-2">
+                              <span className="font-medium">Relationship:</span> {beneficiary.relationship}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="bg-red-50 rounded-lg p-4 border border-red-200">

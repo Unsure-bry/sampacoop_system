@@ -24,12 +24,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added capital share payment feature with dynamic fee calculation
-- Implemented strict jeepney plate number validation system with automatic formatting
-- Enhanced payment calculation logic to include capital share in total fee computation
-- Improved input formatting with automatic uppercase conversion and hyphen insertion
-- Updated system settings integration for dynamic membership fee calculation
-- Enhanced real-time validation for license numbers and TIN IDs
+- Enhanced capital share input functionality with sophisticated dual-state currency formatting
+- Implemented real-time thousand separators and decimal precision control
+- Added multi-state display formatting (focused/blurred/initial states)
+- Integrated sophisticated payment calculation system with system settings
+- Enhanced real-time validation and user feedback mechanisms
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -43,12 +42,12 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the complete Member Registration Workflow within the SAMPA Cooperative Management System. It covers the end-to-end process from initial form submission through account activation, including API endpoints, front-end validation, automatic account creation, role assignment defaults, and integration with Firebase Authentication and Firestore. The workflow now includes enhanced multi-step validation, dynamic role-specific fields, integrated certificate preview functionality, and a comprehensive capital share payment system with strict jeepney plate number validation.
+This document explains the complete Member Registration Workflow within the SAMPA Cooperative Management System. It covers the end-to-end process from initial form submission through account activation, including API endpoints, front-end validation, automatic account creation, role assignment defaults, and integration with Firebase Authentication and Firestore. The workflow now includes enhanced multi-step validation, dynamic role-specific fields, integrated certificate preview functionality, and a comprehensive capital share payment system with sophisticated dual-state currency formatting, real-time thousand separators, decimal precision control, and multi-state display formatting.
 
 ## Project Structure
 The registration workflow spans client-side pages, server-side API routes, and shared libraries for authentication, Firestore utilities, and email services. Key areas include:
 - Front-end registration page with form validation and submission
-- Enhanced Member Registration Modal with multi-step validation, dynamic fields, and payment processing
+- Enhanced Member Registration Modal with multi-step validation, dynamic fields, and sophisticated payment processing
 - Certificate Preview Modal for interactive certificate generation
 - API route for member creation with input validation and payment calculation
 - Firestore utilities for database operations
@@ -116,7 +115,7 @@ AUTHCTX --> EMAIL
 - [userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
-- [MemberRegistrationModal.tsx:1-1444](file://components/admin/MemberRegistrationModal.tsx#L1-L1444)
+- [MemberRegistrationModal.tsx:1-1508](file://components/admin/MemberRegistrationModal.tsx#L1-L1508)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
@@ -132,7 +131,7 @@ AUTHCTX --> EMAIL
 - [userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
-- [MemberRegistrationModal.tsx:1-1444](file://components/admin/MemberRegistrationModal.tsx#L1-L1444)
+- [MemberRegistrationModal.tsx:1-1508](file://components/admin/MemberRegistrationModal.tsx#L1-L1508)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
@@ -142,12 +141,12 @@ AUTHCTX --> EMAIL
 - [settingsService.ts:1-54](file://lib/settingsService.ts#L1-L54)
 
 ## Core Components
-- **Enhanced Member Registration Modal**: Multi-step form with dynamic fields for Driver/Operator roles, advanced validation, real-time license number formatting, integrated certificate preview functionality, and comprehensive payment processing with capital share calculation.
+- **Enhanced Member Registration Modal**: Multi-step form with dynamic fields for Driver/Operator roles, advanced validation, real-time license number formatting, integrated certificate preview functionality, and comprehensive payment processing with sophisticated capital share input system featuring dual-state currency formatting.
 - **Certificate Preview Modal**: Interactive modal for reviewing and customizing share certificates before generation, featuring real-time preview with editable fields and formal certificate design.
 - **Advanced Certificate Service**: Comprehensive PDF generation service with official cooperative styling, automatic data extraction, and Firestore integration for certificate storage.
 - **Dynamic Validation System**: Enhanced form validation with step-by-step validation, role-specific field requirements, real-time license number validation, dynamic plate number field management, and strict input formatting.
 - **System Settings Integration**: Dynamic membership fee calculation based on system configuration, ensuring consistent fee amounts across the application.
-- **Capital Share Payment System**: New payment processing feature that calculates total fees by combining membership payment with capital share contributions, with automatic fee computation and receipt control number validation.
+- **Sophisticated Capital Share Payment System**: Enhanced payment processing feature with dual-state currency formatting, real-time thousand separators, decimal precision control, and multi-state display formatting (focused/blurred/initial states).
 - **Strict Jeepney Plate Number Validation**: Enhanced validation system for jeepney plate numbers with automatic uppercase conversion, hyphen insertion, and format enforcement (ABC-1234 pattern).
 - **Register Page**: Client-side form with validation, email uniqueness check, and password hashing prior to Firestore write.
 - **Members API Route**: Server-side endpoint for creating members with robust input validation, email format checks, duplicate detection, and PBKDF2-based password hashing.
@@ -158,7 +157,7 @@ AUTHCTX --> EMAIL
 - **Setup Password API**: Handles password setup for accounts that were created without an initial password, enforcing PBKDF2 hashing and preventing duplicate setups.
 
 **Section sources**
-- [MemberRegistrationModal.tsx:1-1444](file://components/admin/MemberRegistrationModal.tsx#L1-L1444)
+- [MemberRegistrationModal.tsx:1-1508](file://components/admin/MemberRegistrationModal.tsx#L1-L1508)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [page.tsx:1-323](file://app/register/page.tsx#L1-L323)
@@ -173,7 +172,7 @@ AUTHCTX --> EMAIL
 ## Architecture Overview
 The registration workflow integrates client-side forms, server-side APIs, and Firestore. Two complementary flows exist with enhanced certificate integration and comprehensive payment processing:
 - Direct registration via the Register Page (client-side hashing and Firestore write)
-- Admin-driven registration via the Enhanced Member Registration Modal (server-side hashing, user-member linking, integrated certificate generation, and payment processing)
+- Admin-driven registration via the Enhanced Member Registration Modal (server-side hashing, user-member linking, integrated certificate generation, and sophisticated payment processing)
 
 ```mermaid
 sequenceDiagram
@@ -189,7 +188,7 @@ Admin->>Modal : Fill multi-step form with dynamic fields
 Modal->>Settings : Fetch system settings for membership fee
 Settings-->>Modal : Return membership payment amount
 Modal->>Modal : Validate current step with enhanced validation
-Modal->>Modal : Calculate total fee (membership + capital share)
+Modal->>Modal : Process capital share with dual-state currency formatting
 Modal->>UMS : Check email existence
 UMS->>FS : Get user by ID
 FS-->>UMS : Exists/Not Found
@@ -230,14 +229,14 @@ end
 ## Detailed Component Analysis
 
 ### Enhanced Member Registration Modal (Admin-Driven)
-**Updated** Enhanced with improved multi-step form validation, dynamic role-specific fields, integrated certificate preview functionality, and comprehensive payment processing system.
+**Updated** Enhanced with improved multi-step form validation, dynamic role-specific fields, integrated certificate preview functionality, and sophisticated payment processing system featuring dual-state currency formatting.
 
 - **Multi-step Validation System**: Implements `validateCurrentStep()` function for step-by-step validation with dynamic field requirements based on selected role.
 - **Dynamic Role Fields**: Role-specific fields appear based on Driver/Operator selection with conditional validation for address, license numbers, and jeepney information.
 - **Real-time License Validation**: Advanced license number validation with auto-formatting for both Driver and Operator licenses (format: A12-34-567890 for Drivers, XXX-XXX-XXX-XXXXX for Operators).
 - **Dynamic Plate Number Management**: Automatic generation of plate number input fields based on jeepney count with individual validation for each plate number using strict format validation (ABC-1234 pattern).
 - **System Settings Integration**: Dynamic membership fee calculation from system configuration with formatted currency display and automatic total fee computation.
-- **Capital Share Payment System**: New payment processing feature that allows administrators to specify capital share amounts, with automatic calculation of total fees (membership + capital share).
+- **Sophisticated Capital Share Payment System**: Enhanced payment processing feature with dual-state currency formatting, real-time thousand separators, decimal precision control, and multi-state display formatting (focused/blurred/initial states).
 - **Strict Input Formatting**: Enhanced input formatting with automatic uppercase conversion and hyphen insertion for license numbers, TIN IDs, and jeepney plate numbers.
 - **Certificate Preview Integration**: Seamless integration with Certificate Preview Modal for immediate certificate generation after registration.
 - **Progress Tracking**: Visual progress indicators showing current step completion status.
@@ -246,7 +245,7 @@ end
 flowchart TD
 Start(["Registration Start"]) --> Step1["Step 1: Personal Info<br/>- Role Selection<br/>- Basic Info Validation<br/>- Address Fields"]
 Step1 --> Step2["Step 2: Role Details<br/>- Driver: License/TIN<br/>- Operator: Jeepney Count<br/>- Real-time Validation<br/>- Plate Number Formatting"]
-Step2 --> Step3["Step 3: Payment & Confirmation<br/>- System Settings Integration<br/>- Capital Share Input<br/>- Total Fee Calculation<br/>- Receipt Control Number"]
+Step2 --> Step3["Step 3: Payment & Confirmation<br/>- System Settings Integration<br/>- Capital Share Input<br/>- Dual-State Currency Formatting<br/>- Real-time Thousand Separators<br/>- Decimal Precision Control<br/>- Total Fee Calculation<br/>- Receipt Control Number"]
 Step3 --> Validate["Final Validation<br/>- All Fields Complete<br/>- Email Uniqueness Check<br/>- Payment Validation"]
 Validate --> Success{"Registration Success?"}
 Success --> |Yes| CertificatePreview["Show Certificate Preview Modal"]
@@ -260,13 +259,34 @@ ShowErrors --> End(["Stop"])
 - [MemberRegistrationModal.tsx:127-168](file://components/admin/MemberRegistrationModal.tsx#L127-L168)
 - [MemberRegistrationModal.tsx:237-276](file://components/admin/MemberRegistrationModal.tsx#L237-L276)
 - [MemberRegistrationModal.tsx:424-464](file://components/admin/MemberRegistrationModal.tsx#L424-L464)
-- [MemberRegistrationModal.tsx:1356-1381](file://components/admin/MemberRegistrationModal.tsx#L1356-L1381)
+- [MemberRegistrationModal.tsx:1356-1444](file://components/admin/MemberRegistrationModal.tsx#L1356-L1444)
 
 **Section sources**
-- [MemberRegistrationModal.tsx:1-1444](file://components/admin/MemberRegistrationModal.tsx#L1-L1444)
+- [MemberRegistrationModal.tsx:1-1508](file://components/admin/MemberRegistrationModal.tsx#L1-L1508)
 - [settingsService.ts:19-54](file://lib/settingsService.ts#L19-L54)
 - [userMemberService.ts:23-92](file://lib/userMemberService.ts#L23-L92)
 - [emailService.ts:41-67](file://lib/emailService.ts#L41-L67)
+
+### Sophisticated Capital Share Input System
+**New** Enhanced capital share input functionality with sophisticated dual-state currency formatting, real-time thousand separators, decimal precision control, and multi-state display formatting.
+
+- **Dual-State Currency Formatting**: The capital share input features sophisticated dual-state formatting that displays simplified numbers during editing and precise two-decimal formatting when blurred.
+- **Real-time Thousand Separators**: Automatically inserts thousand separators (commas) as users type, improving readability of large amounts.
+- **Decimal Precision Control**: Limits input to two decimal places while allowing flexible editing during focus state.
+- **Multi-State Display Formatting**: 
+  - **Focused State**: Shows simplified format (e.g., "1,234.56") for easy editing
+  - **Blurred State**: Shows standardized format with trailing zeros (e.g., "1,234.56")
+  - **Initial State**: Empty placeholder until user interaction begins
+- **Advanced Input Processing**: 
+  - Removes non-numeric characters except decimal points
+  - Handles multiple decimal points by keeping only the first occurrence
+  - Parses values to numbers for storage while maintaining formatted display
+- **Real-time Total Calculation**: Automatically updates total fee calculation as users type capital share amounts.
+- **Currency Symbol Integration**: Includes Philippine Peso symbol (₱) with proper positioning and styling.
+
+**Section sources**
+- [MemberRegistrationModal.tsx:109-111](file://components/admin/MemberRegistrationModal.tsx#L109-L111)
+- [MemberRegistrationModal.tsx:1361-1444](file://components/admin/MemberRegistrationModal.tsx#L1361-L1444)
 
 ### Certificate Preview Modal
 **New** Interactive modal for reviewing and customizing share certificates before generation.
@@ -462,7 +482,7 @@ The registration workflow exhibits clear separation of concerns with enhanced ce
 - Certificate service provides PDF generation and storage capabilities.
 - Certificate preview modal integrates with certificate service for interactive certificate management.
 - System settings service provides dynamic configuration for membership fees.
-- **Updated** Payment processing system integrates with system settings for dynamic fee calculation.
+- **Updated** Sophisticated capital share input system integrates with dual-state currency formatting and real-time validation.
 
 ```mermaid
 graph TB
@@ -494,7 +514,7 @@ API_AUTH --> UMS
 - [userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
-- [MemberRegistrationModal.tsx:1-1444](file://components/admin/MemberRegistrationModal.tsx#L1-L1444)
+- [MemberRegistrationModal.tsx:1-1508](file://components/admin/MemberRegistrationModal.tsx#L1-L1508)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
@@ -510,7 +530,7 @@ API_AUTH --> UMS
 - [userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
-- [MemberRegistrationModal.tsx:1-1444](file://components/admin/MemberRegistrationModal.tsx#L1-L1444)
+- [MemberRegistrationModal.tsx:1-1508](file://components/admin/MemberRegistrationModal.tsx#L1-L1508)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
@@ -525,7 +545,8 @@ API_AUTH --> UMS
 - Firestore queries for email uniqueness should be indexed appropriately to minimize latency.
 - Email sending is asynchronous; consider queueing for high-volume scenarios.
 - Parallelize user-member writes only when safe; rollback on failure to maintain consistency.
-- **Updated** Certificate generation uses efficient PDF rendering with proper memory management for large documents.
+- **Updated** Sophisticated capital share input system uses efficient real-time formatting with minimal DOM manipulation overhead.
+- **Updated** Dual-state currency formatting optimizes user experience while maintaining performance through careful state management.
 - **Updated** Real-time validation provides immediate feedback without excessive server requests.
 - **Updated** Dynamic field generation optimizes form rendering based on role selection.
 - **Updated** System settings caching reduces repeated Firestore queries for membership fees.
@@ -548,6 +569,12 @@ Common validation errors and resolutions:
 - Password confirmation mismatch:
   - Client-side: Confirmation field must match password.
   - Resolution: Clear error on input change and re-validate on submit.
+- **Updated** Capital share input validation failures:
+  - Dual-state formatting issues: Ensure proper state transitions between focused and blurred states.
+  - Real-time thousand separator problems: Verify regex patterns for non-numeric character removal.
+  - Decimal precision errors: Check that input is limited to two decimal places during editing.
+  - Multi-state display inconsistencies: Ensure proper handling of empty states and zero values.
+  - Resolution: Test each state transition and verify formatting consistency across all states.
 - **Updated** License number validation failures:
   - Real-time validation prevents invalid formats; ensure proper format (A12-34-567890 for Drivers, XXX-XXX-XXX-XXXXX for Operators).
   - Resolution: Use auto-formatting feature or manually enter correct format.
@@ -582,7 +609,7 @@ Security considerations:
 - Role validation: Enforce allowed roles server-side to prevent privilege escalation.
 - Email verification: Implement email verification flow to confirm ownership.
 - Data privacy: Comply with applicable regulations; minimize stored PII; encrypt sensitive fields if required.
-- **Updated** Certificate security: PDF certificates are stored securely in Firestore with proper access controls.
+- **Updated** Capital share security: Sophisticated input processing prevents injection attacks while maintaining usability.
 - **Updated** Real-time validation: Client-side validation prevents invalid data entry before server processing.
 - **Updated** Payment security: Total fee calculation is performed client-side for immediate feedback but validated server-side for security.
 
@@ -595,9 +622,9 @@ Security considerations:
 - [route.ts:128-140](file://app/api/auth/route.ts#L128-L140)
 - [MemberRegistrationModal.tsx:1020-1072](file://components/admin/MemberRegistrationModal.tsx#L1020-L1072)
 - [MemberRegistrationModal.tsx:1183-1227](file://components/admin/MemberRegistrationModal.tsx#L1183-L1227)
-- [MemberRegistrationModal.tsx:1356-1381](file://components/admin/MemberRegistrationModal.tsx#L1356-L1381)
+- [MemberRegistrationModal.tsx:1356-1444](file://components/admin/MemberRegistrationModal.tsx#L1356-L1444)
 - [CertificatePreviewModal.tsx:455-473](file://components/admin/CertificatePreviewModal.tsx#L455-L473)
 - [settingsService.ts:19-35](file://lib/settingsService.ts#L19-L35)
 
 ## Conclusion
-The SAMPA Cooperative Management System implements a robust and secure member registration workflow supporting both self-registration and admin-driven registration. The enhanced Member Registration Modal provides a comprehensive multi-step validation system with dynamic role-specific fields, real-time license number validation, integrated certificate preview functionality, and a sophisticated capital share payment system with strict jeepney plate number validation. The workflow seamlessly integrates certificate generation with professional PDF creation, ensuring members receive official share certificates immediately after registration. Client-side and server-side flows share consistent validation, hashing, and error handling patterns, while user-member linking ensures data integrity across collections. The integration with Firestore, EmailJS, certificate service, and system settings provides a reliable foundation for user onboarding, complemented by strong security practices, comprehensive troubleshooting guidance, and dynamic payment processing capabilities. The addition of capital share payment functionality and strict input validation significantly enhances the system's ability to manage cooperative membership fees and maintain data quality standards.
+The SAMPA Cooperative Management System implements a robust and secure member registration workflow supporting both self-registration and admin-driven registration. The enhanced Member Registration Modal provides a comprehensive multi-step validation system with dynamic role-specific fields, real-time license number validation, integrated certificate preview functionality, and a sophisticated capital share payment system with dual-state currency formatting, real-time thousand separators, decimal precision control, and multi-state display formatting. The workflow seamlessly integrates certificate generation with professional PDF creation, ensuring members receive official share certificates immediately after registration. Client-side and server-side flows share consistent validation, hashing, and error handling patterns, while user-member linking ensures data integrity across collections. The integration with Firestore, EmailJS, certificate service, and system settings provides a reliable foundation for user onboarding, complemented by strong security practices, comprehensive troubleshooting guidance, and dynamic payment processing capabilities. The addition of sophisticated capital share input functionality significantly enhances the system's ability to manage cooperative membership fees with improved user experience and data quality standards.

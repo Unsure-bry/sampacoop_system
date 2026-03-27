@@ -32,6 +32,7 @@ export async function createLinkedUserMember(userData: {
   driverInfo?: any;
   operatorInfo?: any;
   paymentInfo?: any;
+  beneficiaries?: any;
 }): Promise<{ success: boolean; userId?: string; memberId?: string; error?: string }> {
   try {
     const userId = generateUserId(userData.email);
@@ -66,6 +67,7 @@ export async function createLinkedUserMember(userData: {
       driverInfo: userData.driverInfo || null,
       operatorInfo: userData.operatorInfo || null,
       paymentInfo: userData.paymentInfo || null,
+      beneficiaries: userData.beneficiaries || null,
       status: 'Active',
       userId: userId, // Critical: Link to user account
       createdAt: new Date().toISOString(),
