@@ -104,7 +104,7 @@ export const sendEmail = async (templateId: string, emailData: EmailData): Promi
 // Specific email templates
 export const sendMemberRegistrationEmail = async (email: string, name: string) => {
   // Generate a temporary password reset link
-  const resetLink = `https://sampa-coop.vercel.app/setup-password?email=${encodeURIComponent(email)}`;
+  const resetLink = `https://sampacoop-system.vercel.app/setup-password?email=${encodeURIComponent(email)}`;
   
   const emailData = {
     to_name: name,
@@ -121,7 +121,7 @@ SET UP YOUR PASSWORD: ${resetLink}
 
 For security reasons, this link should be used within 24 hours. After setting your password, you can log in to the system using your email address.
 
-To access your account after setting up your password, please visit: https://sampa-coop.vercel.app/login
+To access your account after setting up your password, please visit: https://sampacoop-system.vercel.app/login
 
 Best regards,
 SAMPA Cooperative Team`
@@ -147,7 +147,7 @@ Temporary Password: ${tempPassword}
 
 For security, please change your password immediately after your first login.
 
-To access your account, please log in at: https://sampa-coop.vercel.app/login
+To access your account, please log in at: https://sampacoop-system.vercel.app/login
 
 Best regards,
 SAMPA Cooperative Team`
@@ -169,7 +169,7 @@ Your loan application has been approved. Please check your account for more deta
 
 Loan ID: ${loanId}
 
-To access your account, please log in at: https://sampa-coop.vercel.app/login
+To access your account, please log in at: https://sampacoop-system.vercel.app/login
 
 Best regards,
 SAMPA Cooperative Team`
@@ -321,9 +321,9 @@ export const rejectedLoanMessage = async (
 export const depositApplicationMessage = async (
   email: string, 
   name: string, 
-  deposit: number,
-  depositotalAmount: number,
-  depositControlNumber: number,  
+  Deposit: number,
+  DepositotalAmount: number,
+  ControlNumber: number,  
 ) => {
   const emailData = {
     to_name: name,
@@ -336,13 +336,11 @@ export const depositApplicationMessage = async (
     I hope you're doing well!
 
   
-    This is to confirm that we have received your deposit of ${deposit}. Your total amount deposited is ${depositotalAmount}.
+    This is to confirm that we have received your deposit of ${Deposit}. Your total amount deposited is ${DepositotalAmount} with the control # ${ControlNumber}.
 
     Thank you for being a valued member of SAMPA Cooperative.
 
-    deposit: ${deposit}
-    depositotalAmount: ${depositotalAmount}
-    depositControlNumber: ${depositControlNumber}
+
 
 
     Best Regards,
@@ -358,8 +356,8 @@ export const depositApplicationMessage = async (
 export const withdrawalApplicationMessage = async (
   email: string, 
   name: string, 
-  withdrawal: number,
-  withdrawalControlNumber: number,
+  Withdrawal: number,
+  WithdrawalNumber: number,
 
 )=> {
   const emailData = {
@@ -372,12 +370,12 @@ export const withdrawalApplicationMessage = async (
 
     I hope you're doing well!
 
-    This is to inform you that you have made a withdrawal of ${withdrawal}.
+    This is to inform you that you have made a withdrawal of ${Withdrawal} with the withdrawal number ${WithdrawalNumber}.
 
     Thank you for being a valued member of SAMPA Cooperative.
 
-    withdrawal: ${withdrawal}
-    withdrawalControlNumber: ${withdrawalControlNumber}
+    Withdrawal: ${Withdrawal}
+    WithdrawalNumber: ${WithdrawalNumber}
 
 
     Best Regards,
