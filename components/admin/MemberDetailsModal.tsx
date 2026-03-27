@@ -721,21 +721,40 @@ export default function MemberDetailsModal({
                                     // Update loans to paid status
                                     const loansResult = await firestore.getCollection('loans');
                                     if (loansResult.success && loansResult.data) {
-                                      const memberLoans = loansResult.data.filter((loan: any) => 
-                                        loan.memberId === member.id && 
-                                        (loan.status === 'active' || loan.status === 'Active')
-                                      );
+                                      const memberLoans = loansResult.data.filter((loan: any) => {
+                                        const loanData = loan as any;
+                                        const loanMemberId = loanData.memberId || loanData.userId || loanData.member_id;
+                                        const loanStatus = (loanData.status || '').toLowerCase();
+                                        return loanMemberId === member.id && 
+                                               (loanStatus === 'active' || loanStatus === 'approved' || loanStatus === 'pending');
+                                      });
+                                      
+                                      let remainingDeduction = deductionAmount;
                                       
                                       for (const loan of memberLoans) {
                                         const loanData = loan as any;
-                                        await firestore.updateDocument('loans', loanData.id, {
-                                          remainingAmount: 0,
-                                          status: 'paid',
-                                          lastPaymentDate: new Date().toISOString(),
-                                          lastPaymentAmount: loanData.remainingAmount || loanData.amount || 0,
-                                          paidViaSavingsDeduction: true,
-                                          deductionReason: 'Account archived due to inactivity'
-                                        });
+                                        const remainingAmount = loanData.remainingAmount || loanData.amount || 0;
+                                        const loanDeduction = Math.min(remainingAmount, remainingDeduction);
+                                        
+                                        if (loanDeduction > 0) {
+                                          const newRemainingAmount = remainingAmount - loanDeduction;
+                                          const loanStatus = newRemainingAmount <= 0 ? 'paid' : 'active';
+                                          
+                                          await firestore.updateDocument('loans', loanData.id, {
+                                            remainingAmount: Math.max(0, newRemainingAmount),
+                                            status: loanStatus,
+                                            lastPaymentDate: new Date().toISOString(),
+                                            lastPaymentAmount: loanDeduction,
+                                            paidViaSavingsDeduction: true,
+                                            deductionReason: 'Account archived due to inactivity'
+                                          });
+                                          
+                                          remainingDeduction -= loanDeduction;
+                                        }
+                                        
+                                        if (remainingDeduction <= 0) {
+                                          break;
+                                        }
                                       }
                                     }
                                   }

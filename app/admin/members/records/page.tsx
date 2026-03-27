@@ -257,10 +257,12 @@ export default function MemberRecordsPage() {
         console.log(`✓ Deducted ₱${deductionAmount} from savings for loan repayment due to archival`);
         
         // Update loans to reflect partial or full payment
+        let remainingDeduction = deductionAmount;
+        
         for (const loan of memberLoans) {
           const loanData = loan as any;
           const remainingAmount = loanData.remainingAmount || loanData.amount || 0;
-          const loanDeduction = Math.min(remainingAmount, deductionAmount);
+          const loanDeduction = Math.min(remainingAmount, remainingDeduction);
           
           if (loanDeduction > 0) {
             const newRemainingAmount = remainingAmount - loanDeduction;
@@ -275,7 +277,15 @@ export default function MemberRecordsPage() {
               deductionReason: 'Account archived due to inactivity'
             });
             
-            console.log(`✓ Updated loan ${loan.id}: deducted ₱${loanDeduction}, remaining: ₱${Math.max(0, newRemainingAmount)}`);
+            console.log(`✓ Updated loan ${loan.id}: deducted ₱${loanDeduction}, remaining: ₱${Math.max(0, newRemainingAmount)}, status: ${loanStatus}`);
+            
+            // Reduce the remaining deduction amount
+            remainingDeduction -= loanDeduction;
+          }
+          
+          // Stop if we've used up all the deduction amount
+          if (remainingDeduction <= 0) {
+            break;
           }
         }
         
