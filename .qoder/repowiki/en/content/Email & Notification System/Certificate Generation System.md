@@ -13,10 +13,11 @@
 
 ## Update Summary
 **Changes Made**
-- Updated certificate generation functionality with URL changes pointing to production Vercel deployment instead of localhost
-- Ensured proper certificate delivery in live environment with HTTPS protocol
-- Enhanced certificate download URL generation for production deployments
+- Updated certificate generation functionality with corrected production URL handling
+- Fixed certificate service URL from 'https://sampacoop-system.vercel.app' to 'https://sampa-coop.vercel.app' in lib/certificateService.ts
+- Enhanced certificate download URL generation for production deployments with proper HTTPS protocol
 - Maintained backward compatibility with development environments using window.location.origin
+- Updated email service URL references to match the corrected production domain
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -39,7 +40,7 @@
 ## Introduction
 This document describes the Certificate Generation System responsible for creating PDF share certificates for cooperative members. The system features an enhanced certificate preview modal with improved UI elements, better responsive design, PDF generation capabilities, and dynamic officer name fetching. It explains the certificate template system, dynamic content injection, PDF generation workflow using jsPDF library, certificate data validation and formatting, styling options, API integration with the member management system, certificate storage and retrieval, and customization options for print-ready formats.
 
-**Updated** The certificate generation system now includes production-ready URL handling with Vercel deployment support, ensuring proper certificate delivery in live environments while maintaining development flexibility.
+**Updated** The certificate generation system now includes production-ready URL handling with corrected Vercel deployment support, ensuring proper certificate delivery in live environments while maintaining development flexibility. The system has been updated to use the correct production domain 'sampa-coop.vercel.app' instead of the previous incorrect 'sampacoop-system.vercel.app'.
 
 ## Project Structure
 The certificate system now encompasses five primary areas with enhanced functionality:
@@ -111,10 +112,10 @@ Email --> ProductionEmail
 
 ## Core Components
 - **Enhanced Certificate Preview Modal**: Features real-time certificate generation, interactive editing, responsive design, and PDF download capabilities
-- **Advanced Certificate Generation Service**: Creates share certificates using customized jsPDF templates with dynamic content injection, comprehensive storage mechanisms, and production-ready URL handling
+- **Advanced Certificate Generation Service**: Creates share certificates using customized jsPDF templates with dynamic content injection, comprehensive storage mechanisms, and production-ready URL handling with corrected domain
 - **API Endpoint**: Retrieves stored certificate data URLs from Firestore and streams PDFs to clients with enhanced error handling and HTTPS support
 - **Frontend Integration**: Offers certificate display and management through MemberDetailsModal with certificate visualization
-- **Email Notification System**: Integrates with EmailJS for automated certificate delivery notifications with production-safe URLs
+- **Email Notification System**: Integrates with EmailJS for automated certificate delivery notifications with production-safe URLs using the corrected domain
 - **Enhanced Certificate Data Management**: Defines certificate data schemas and manages certificate lifecycle in Firestore
 
 Key responsibilities:
@@ -124,11 +125,11 @@ Key responsibilities:
 - Responsive certificate rendering with A4/Letter formatting
 - Comprehensive certificate data validation and storage mechanisms
 - Multi-type certificate storage with tracking in Firestore
-- Automated email notifications for certificate delivery with production URL handling
+- Automated email notifications for certificate delivery with production URL handling using the correct domain
 - Delivery of PDFs via HTTP response with appropriate headers
 - Production-ready URL generation for certificate downloads
 
-**Updated** The system now features production-ready URL handling with HTTPS protocol support for Vercel deployment, ensuring proper certificate delivery in live environments.
+**Updated** The system now features production-ready URL handling with HTTPS protocol support for Vercel deployment, ensuring proper certificate delivery in live environments using the corrected 'sampa-coop.vercel.app' domain.
 
 **Section sources**
 - [CertificatePreviewModal.tsx:1-668](file://components/admin/CertificatePreviewModal.tsx#L1-L668)
@@ -144,7 +145,7 @@ The enhanced system follows a comprehensive separation of concerns with certific
 - Advanced certificate generation service creates PDFs with appropriate templates and persists them with tracking
 - API endpoint validates membership and fetches certificate data URL from Firestore with HTTPS support
 - Frontend displays certificates via embedded visualization or download functionality
-- Email service handles automated notifications for certificate delivery with production-safe URLs
+- Email service handles automated notifications for certificate delivery with production-safe URLs using the corrected domain
 - Backend processes certificate generation and retrieval with enhanced validation
 
 ```mermaid
@@ -235,7 +236,7 @@ The service now focuses on streamlined certificate generation with enhanced temp
 - Implements detailed corporate styling with decorative borders and official seals
 - Includes comprehensive legal text and signature sections
 - Stores certificate metadata with tracking in Firestore
-- Generates production-safe download URLs using HTTPS protocol
+- Generates production-safe download URLs using HTTPS protocol with corrected domain
 
 **Enhanced Certificate Workflow**:
 - `generateShareCertificate()`: Creates share certificates with detailed corporate formatting
@@ -244,7 +245,7 @@ The service now focuses on streamlined certificate generation with enhanced temp
 
 **Production URL Handling**:
 - Uses `window.location.origin` for development environments
-- Falls back to `'https://sampa-coop.vercel.app'` for production environments
+- Falls back to `'https://sampa-coop.vercel.app'` for production environments (corrected domain)
 - Ensures HTTPS protocol for secure certificate delivery
 - Maintains backward compatibility across deployment environments
 
@@ -253,7 +254,7 @@ Processing logic highlights:
 - Implements comprehensive certificate data validation
 - Stores certificates with timestamps and metadata tracking
 - Returns detailed success/failure states with error messages
-- Generates secure download URLs for email notifications
+- Generates secure download URLs for email notifications using the correct production domain
 
 ```mermaid
 flowchart TD
@@ -416,11 +417,11 @@ The system integrates with EmailJS for automated certificate notifications:
 - Dedicated certificate notification template
 - Dynamic content injection with member and certificate details
 - Professional email formatting with cooperative branding
-- Automatic download link generation with HTTPS protocol
+- Automatic download link generation with HTTPS protocol using the corrected domain
 
 **Production URL Handling**:
 - Uses `window.location.origin` for development environments
-- Falls back to `'https://sampa-coop.vercel.app'` for production environments
+- Falls back to `'https://sampa-coop.vercel.app'` for production environments (corrected domain)
 - Ensures secure HTTPS delivery of certificate links
 - Maintains backward compatibility across deployment environments
 
@@ -441,7 +442,7 @@ flowchart TD
 Generate["Certificate Generated"] --> Store["Store in Firestore<br/>member_certificates"]
 Store --> Email["sendCertificateNotificationEmail()"]
 Email --> Template["Process Email Template<br/>with dynamic content"]
-Template --> URL["Generate HTTPS Download URL"]
+Template --> URL["Generate HTTPS Download URL<br/>sampa-coop.vercel.app"]
 URL --> Send["Send via EmailJS"]
 Send --> Track["Update Firestore Status<br/>to 'sent'"]
 Track --> Complete["Delivery Complete"]
@@ -509,13 +510,13 @@ Preview --> JSPDF["jsPDF"]
 Preview --> FS["Firestore"]
 Service["certificateService.ts"] --> JS["jsPDF"]
 Service --> FS
-Service --> ProdURL["Production URL Handler"]
+Service --> ProdURL["Production URL Handler<br/>sampa-coop.vercel.app"]
 API["/api/certificate/[memberId]/route.ts"] --> FS
 API --> HTTPS["HTTPS Protocol"]
 MemberDetails["MemberDetailsModal.tsx"] --> API
 Email["emailService.ts"] --> Service
 Email --> FS
-Email --> ProdEmail["Production Email URLs"]
+Email --> ProdEmail["Production Email URLs<br/>sampa-coop.vercel.app"]
 Types["member.ts"] --> Service
 Types --> API
 Types --> MemberDetails
@@ -617,9 +618,9 @@ Comprehensive troubleshooting for the enhanced certificate system:
 
 **Production URL Issues**:
 - Development vs Production URL conflicts: Check `window.location.origin` vs hardcoded Vercel URL
-- Mixed content warnings: Ensure all certificate links use HTTPS protocol
+- Mixed content warnings: Ensure all certificate links use HTTPS protocol with correct domain
 - Environment detection failures: Verify production environment detection logic
-- Fallback URL errors: Check hardcoded Vercel URL accessibility
+- Fallback URL errors: Check hardcoded Vercel URL accessibility using 'sampa-coop.vercel.app'
 
 **Operational Checks**:
 - Validate EmailJS configuration and environment variables
@@ -632,6 +633,7 @@ Comprehensive troubleshooting for the enhanced certificate system:
 - Verify dynamic officer name fetching from Firestore
 - Test production URL generation logic across different environments
 - Validate HTTPS protocol compliance for certificate delivery
+- Ensure certificate download URLs use the corrected 'sampa-coop.vercel.app' domain
 
 **Section sources**
 - [CertificatePreviewModal.tsx:170-323](file://components/admin/CertificatePreviewModal.tsx#L170-L323)
@@ -644,7 +646,7 @@ Comprehensive troubleshooting for the enhanced certificate system:
 ## Conclusion
 The enhanced Certificate Generation System provides a comprehensive, scalable solution for producing share certificates for cooperative members. The system features a sophisticated preview modal with real-time certificate generation, interactive editing capabilities, and seamless integration with the member management system. The enhanced frontend provides certificate display and management through MemberDetailsModal, integrating seamlessly with the member management system. The system's comprehensive architecture maintains robust certificate generation, storage, and delivery capabilities while introducing advanced user interaction features and production-ready URL handling for Vercel deployment.
 
-The recent update ensures proper certificate delivery in live environments by implementing production-safe URL generation with HTTPS protocol support, while maintaining backward compatibility for development environments. Extending the system to support additional certificate types involves adding new generation functions, templates, and API routes while reusing the existing storage, delivery, validation patterns, and production URL handling mechanisms. The integration with member management system provides a seamless workflow from member registration to certificate generation and delivery, now enhanced with secure production deployment capabilities.
+The recent update ensures proper certificate delivery in live environments by implementing production-safe URL generation with HTTPS protocol support using the corrected 'sampa-coop.vercel.app' domain, while maintaining backward compatibility for development environments. Extending the system to support additional certificate types involves adding new generation functions, templates, and API routes while reusing the existing storage, delivery, validation patterns, and production URL handling mechanisms. The integration with member management system provides a seamless workflow from member registration to certificate generation and delivery, now enhanced with secure production deployment capabilities using the correct domain name.
 
 ## Appendices
 
@@ -693,7 +695,7 @@ The recent update ensures proper certificate delivery in live environments by im
 - Enhanced interactive elements with better user experience
 - Secure certificate storage with comprehensive tracking
 - Popup blocking detection and user guidance for print functionality
-- Production-ready URL handling for certificate downloads
+- Production-ready URL handling for certificate downloads using corrected domain
 
 **Advanced Rendering Features**:
 - jsPDF conversion with precise A4 dimensions
@@ -706,10 +708,10 @@ The recent update ensures proper certificate delivery in live environments by im
 
 **Production Deployment Features**:
 - Environment-aware URL generation using `window.location.origin`
-- Fallback to production Vercel URL for server-side rendering
+- Fallback to production Vercel URL for server-side rendering using 'sampa-coop.vercel.app'
 - HTTPS protocol enforcement for secure certificate delivery
 - Backward compatibility across development and production environments
-- Mixed content prevention for secure certificate links
+- Mixed content prevention for secure certificate links using correct domain
 
 **Section sources**
 - [CertificatePreviewModal.tsx:1-668](file://components/admin/CertificatePreviewModal.tsx#L1-L668)

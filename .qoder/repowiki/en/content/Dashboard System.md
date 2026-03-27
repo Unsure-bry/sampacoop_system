@@ -29,6 +29,12 @@
 - [components/auth/AuthLayout.tsx](file://components/auth/AuthLayout.tsx)
 - [components/auth/Input.tsx](file://components/auth/Input.tsx)
 - [components/auth/Button.tsx](file://components/auth/Button.tsx)
+- [app/admin/chairman/home/page.tsx](file://app/admin/chairman/home/page.tsx)
+- [app/admin/manager/home/page.tsx](file://app/admin/manager/home/page.tsx)
+- [app/admin/bod/home/page.tsx](file://app/admin/bod/home/page.tsx)
+- [app/admin/treasurer/home/page.tsx](file://app/admin/treasurer/home/page.tsx)
+- [components/admin/ReportsAndAnalytics.tsx](file://components/admin/ReportsAndAnalytics.tsx)
+- [lib/settingsService.ts](file://lib/settingsService.ts)
 </cite>
 
 ## Update Summary
@@ -38,6 +44,8 @@
 - Added comprehensive password setup functionality with secure password hashing and validation
 - Implemented robust error handling and user feedback mechanisms for password setup operations
 - Enhanced authentication flow with proper loading states and fallback components
+- **Updated** Fixed currency formatting issues in chart tooltips across all admin dashboard components using nullish coalescing operator (|| 0) to resolve inconsistent currency display formatting where values were showing as zero incorrectly
+- **Updated** Implemented consistent currency formatting across all admin dashboard components with standardized formatCurrency function usage
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -50,15 +58,16 @@
 8. [Error Handling Improvements](#error-handling-improvements)
 9. [Frontend Infrastructure Enhancements](#frontend-infrastructure-enhancements)
 10. [Password Setup System](#password-setup-system)
-11. [Dependency Analysis](#dependency-analysis)
-12. [Performance Considerations](#performance-considerations)
-13. [Troubleshooting Guide](#troubleshooting-guide)
-14. [Conclusion](#conclusion)
+11. [Enhanced Currency Formatting System](#enhanced-currency-formatting-system)
+12. [Dependency Analysis](#dependency-analysis)
+13. [Performance Considerations](#performance-considerations)
+14. [Troubleshooting Guide](#troubleshooting-guide)
+15. [Conclusion](#conclusion)
 
 ## Introduction
 This document provides comprehensive documentation for the SAMPA Cooperative Dashboard System. The system consists of multiple role-based dashboards integrated with Firebase for data persistence, authentication, and real-time updates. It supports member, driver, operator, and administrative roles, each with tailored views and capabilities. The dashboard system emphasizes responsive design, real-time notifications, savings tracking, and loan management functionalities.
 
-**Updated** Enhanced with improved loan calculation system that aggregates data from both loans and loanRequests collections to ensure accurate reporting regardless of where loan records are stored. The system now features comprehensive loan monitoring capabilities with enhanced error handling, improved data accuracy, and modern React Suspense integration for better user experience during initial page rendering.
+**Updated** Enhanced with improved loan calculation system that aggregates data from both loans and loanRequests collections to ensure accurate reporting regardless of where loan records are stored. The system now features comprehensive loan monitoring capabilities with enhanced error handling, improved data accuracy, modern React Suspense integration for better user experience during initial page rendering, and standardized currency formatting across all admin dashboard components.
 
 ## Project Structure
 The dashboard system follows a modular structure with role-specific pages, shared components, and utility libraries:
@@ -79,31 +88,36 @@ E --> K[Notifications]
 F --> L[Executive Dashboard]
 F --> M[Admin Sidebar]
 F --> N[Enhanced Loan Calculations]
-G --> O[Driver Dashboard]
-G --> P[Operator Dashboard]
-H --> Q[React Suspense Loading]
-H --> R[Secure Password Setup]
+F --> O[Enhanced Currency Formatting]
+G --> P[Driver Dashboard]
+G --> Q[Operator Dashboard]
+H --> R[React Suspense Loading]
+H --> S[Secure Password Setup]
+O --> T[Chart Tooltip Formatters]
+O --> U[Nullish Coalescing Operators]
 end
 subgraph "Backend Services"
-S[Firebase Firestore]
-T[Auth API Route]
-U[Savings Service]
-V[User-Member Service]
-W[Loan Data Aggregation]
-X[Custom Hooks]
-Y[Loan Calculation Script]
-Z[Password Setup API]
+V[Firebase Firestore]
+W[Auth API Route]
+X[Savings Service]
+Y[User-Member Service]
+Z[Loan Data Aggregation]
+AA[Custom Hooks]
+BB[Loan Calculation Script]
+CC[Password Setup API]
+DD[Settings Service]
 end
-D --> S
-S --> W
-S --> X
-T --> S
-U --> S
-V --> S
-W --> S
-X --> S
-Y --> S
-Z --> S
+D --> V
+V --> Z
+V --> AA
+W --> V
+X --> V
+Y --> V
+Z --> V
+AA --> V
+BB --> V
+CC --> V
+DD --> V
 ```
 
 **Diagram sources**
@@ -113,6 +127,7 @@ Z --> S
 - [app/admin/dashboard/page.tsx:235-349](file://app/admin/dashboard/page.tsx#L235-L349)
 - [app/setup-password/page.tsx:209-221](file://app/setup-password/page.tsx#L209-L221)
 - [scripts/fix-loan-calculations.js:1-140](file://scripts/fix-loan-calculations.js#L1-L140)
+- [lib/settingsService.ts:40-46](file://lib/settingsService.ts#L40-L46)
 
 **Section sources**
 - [app/layout.tsx:1-37](file://app/layout.tsx#L1-L37)
@@ -134,10 +149,13 @@ The Dynamic Dashboard component serves as a wrapper that provides role-appropria
 The savings system tracks member deposits, withdrawals, and balances with real-time updates and notification generation for transaction activities.
 
 ### Administrative Dashboards
-Multiple administrative dashboards provide executive summaries, member management, loan oversight, and system administration capabilities.
+Multiple administrative dashboards provide executive summaries, member management, loan oversight, and system administration capabilities with enhanced currency formatting consistency.
 
 ### Frontend Infrastructure
 **New** The system now features modern React Suspense integration that provides seamless loading states and improved user experience during initial page rendering. This infrastructure enhancement ensures better deployment requirements and more responsive user interfaces.
+
+### Enhanced Currency Formatting System
+**Updated** The system now features standardized currency formatting across all admin dashboard components with consistent use of nullish coalescing operators to prevent zero formatting issues in chart tooltips.
 
 **Section sources**
 - [lib/auth.tsx:158-680](file://lib/auth.tsx#L158-L680)
@@ -157,6 +175,7 @@ participant Firebase as "Firebase Firestore"
 participant Dashboard as "Dashboard Page"
 participant SetupPassword as "Setup Password Page"
 participant Suspense as "React Suspense"
+participant CurrencyFormatter as "Currency Formatter"
 Browser->>Auth : Load Application
 Auth->>Firebase : Check Cookie Authentication
 Firebase-->>Auth : User Data
@@ -170,6 +189,9 @@ Firebase-->>API : Confirmation
 API->>SetupPassword : Success Response
 SetupPassword->>Suspense : Hide Loading Indicator
 Suspense->>Browser : Render Content
+Dashboard->>CurrencyFormatter : Format Currency Values
+CurrencyFormatter->>CurrencyFormatter : Apply Nullish Coalescing
+CurrencyFormatter-->>Dashboard : Formatted Currency Strings
 ```
 
 **Diagram sources**
@@ -178,8 +200,9 @@ Suspense->>Browser : Render Content
 - [app/dashboard/page.tsx:11-361](file://app/dashboard/page.tsx#L11-L361)
 - [app/admin/dashboard/page.tsx:337-349](file://app/admin/dashboard/page.tsx#L337-L349)
 - [app/setup-password/page.tsx:209-221](file://app/setup-password/page.tsx#L209-L221)
+- [lib/settingsService.ts:40-46](file://lib/settingsService.ts#L40-L46)
 
-The architecture implements role-based routing through middleware that validates user access to specific dashboard areas. The system uses a unified authentication approach where user roles determine dashboard access and navigation paths. **Updated** The new React Suspense integration provides seamless loading states for better user experience.
+The architecture implements role-based routing through middleware that validates user access to specific dashboard areas. The system uses a unified authentication approach where user roles determine dashboard access and navigation paths. **Updated** The new React Suspense integration provides seamless loading states for better user experience, and the enhanced currency formatting system ensures consistent monetary value display across all chart tooltips.
 
 **Section sources**
 - [middleware.ts:5-55](file://middleware.ts#L5-L55)
@@ -292,11 +315,18 @@ class RoleSidebarConfig {
 +roleSidebarConfig : RoleSidebarConfig
 +getSidebarConfig() SidebarSection[]
 }
+class CurrencyFormatter {
++formatCurrency() string
++applyNullishCoalescing() number
++formatTooltipValues() string
+}
 ExecutiveDashboard --> DashboardStats : "displays"
 OfficerDashboard --> DashboardStats : "displays"
 OfficerDashboard --> LoanAggregator : "uses"
 AdminSidebar --> RoleSidebarConfig : "uses"
 RoleSidebarConfig --> SidebarSection : "defines"
+CurrencyFormatter --> Tooltip : "formats"
+CurrencyFormatter --> Chart : "formats"
 ```
 
 **Diagram sources**
@@ -304,6 +334,7 @@ RoleSidebarConfig --> SidebarSection : "defines"
 - [components/admin/OfficerDashboard.tsx:8-184](file://components/admin/OfficerDashboard.tsx#L8-L184)
 - [components/admin/Sidebar.tsx:92-278](file://components/admin/Sidebar.tsx#L92-L278)
 - [lib/sidebarConfig.ts:30-269](file://lib/sidebarConfig.ts#L30-L269)
+- [lib/settingsService.ts:40-46](file://lib/settingsService.ts#L40-L46)
 
 **Section sources**
 - [components/admin/ExecutiveDashboard.tsx:1-260](file://components/admin/ExecutiveDashboard.tsx#L1-L260)
@@ -591,6 +622,88 @@ The system enforces strict password requirements:
 - [components/auth/Input.tsx:1-27](file://components/auth/Input.tsx#L1-L27)
 - [components/auth/Button.tsx:1-51](file://components/auth/Button.tsx#L1-L51)
 
+## Enhanced Currency Formatting System
+
+**Updated** The dashboard system now features a comprehensive currency formatting system that ensures consistent monetary value display across all admin dashboard components:
+
+### Standardized Currency Formatting
+All admin dashboards now use a consistent `formatCurrency` function that applies proper currency formatting:
+
+```mermaid
+flowchart TD
+A[Currency Value] --> B{Value Type Check}
+B --> |Number| C[Apply Intl.NumberFormat]
+B --> |Undefined| D[Apply Nullish Coalescing]
+B --> |NaN| E[Apply Nullish Coalescing]
+D --> F[Default to 0]
+E --> F
+F --> G[Format as PHP Currency]
+G --> H[Display in Chart Tooltips]
+H --> I[Display in Dashboard Cards]
+I --> J[Display in Reports]
+```
+
+### Chart Tooltip Currency Formatting
+**Updated** All chart components now use standardized tooltip formatting with nullish coalescing:
+
+```mermaid
+sequenceDiagram
+participant Chart as "Chart Component"
+participant Tooltip as "Tooltip Formatter"
+participant CurrencyFormatter as "formatCurrency Function"
+participant NullishCoalescing as "|| 0 Operator"
+Chart->>Tooltip : Render Tooltip
+Tooltip->>NullishCoalescing : Convert Value
+NullishCoalescing->>CurrencyFormatter : Format Currency
+CurrencyFormatter-->>Tooltip : Formatted String
+Tooltip-->>Chart : Display Currency
+```
+
+### Nullish Coalescing Implementation
+**Updated** The system now uses nullish coalescing operators to prevent zero formatting issues:
+
+1. **Chart Tooltip Values**: `Number(value) || 0` ensures numeric conversion
+2. **Loan Amount Calculations**: `Number(loan.amount) || 0` prevents null values
+3. **Savings Amount Calculations**: `Number(item.amount) || 0` handles missing data
+4. **Transaction Amounts**: `transaction.amount || 0` ensures safe defaults
+
+### Consistent Currency Display
+**Updated** The enhanced system provides consistent currency display across all components:
+
+- **Philippine Peso (PHP)**: All currency values display as Philippine Pesos
+- **Zero Handling**: Proper handling of undefined, null, and NaN values
+- **Decimal Precision**: Consistent decimal formatting across all components
+- **Chart Integration**: Seamless integration with Recharts tooltip formatters
+
+### Settings Service Integration
+**Updated** The system now includes a centralized settings service for currency formatting:
+
+```mermaid
+classDiagram
+class SettingsService {
++getSystemSettings() SystemSettings
++formatCurrency(amount : number) string
++formatNumberWithCommas(amount : number) string
+}
+class SystemSettings {
++membershipPayment : number
++reactivationFee : number
++updatedAt : string
++updatedBy : string
+}
+SettingsService --> SystemSettings : "returns"
+```
+
+**Diagram sources**
+- [lib/settingsService.ts:19-46](file://lib/settingsService.ts#L19-L46)
+
+**Section sources**
+- [app/admin/chairman/home/page.tsx:243](file://app/admin/chairman/home/page.tsx#L243)
+- [app/admin/manager/home/page.tsx:263](file://app/admin/manager/home/page.tsx#L263)
+- [app/admin/manager/home/page.tsx:304](file://app/admin/manager/home/page.tsx#L304)
+- [components/admin/ReportsAndAnalytics.tsx:272](file://components/admin/ReportsAndAnalytics.tsx#L272)
+- [lib/settingsService.ts:40-46](file://lib/settingsService.ts#L40-L46)
+
 ## Dependency Analysis
 The dashboard system exhibits well-structured dependencies with clear separation of concerns:
 
@@ -624,6 +737,8 @@ U[Loan Calculation Service] --> D
 V[Error Handling Service] --> D
 W[Password Setup Service] --> D
 X[React Suspense Manager] --> O
+Y[Settings Service] --> D
+Z[Currency Formatting Service] --> M
 end
 A --> D
 K --> O
@@ -648,6 +763,8 @@ V --> Q
 V --> T
 W --> D
 X --> O
+Y --> D
+Z --> M
 ```
 
 **Diagram sources**
@@ -657,8 +774,9 @@ X --> O
 - [hooks/useFirestoreData.ts:1-182](file://hooks/useFirestoreData.ts#L1-L182)
 - [app/setup-password/page.tsx:209-221](file://app/setup-password/page.tsx#L209-L221)
 - [scripts/fix-loan-calculations.js:1-140](file://scripts/fix-loan-calculations.js#L1-L140)
+- [lib/settingsService.ts:40-46](file://lib/settingsService.ts#L40-L46)
 
-The dependency graph reveals a clean architecture where UI components depend on service layers, which in turn depend on the Firebase client. Authentication and validation services provide cross-cutting concerns that are reused throughout the application. **Updated** The new React Suspense integration adds a dedicated layer for managing loading states and user experience improvements.
+The dependency graph reveals a clean architecture where UI components depend on service layers, which in turn depend on the Firebase client. Authentication and validation services provide cross-cutting concerns that are reused throughout the application. **Updated** The new React Suspense integration adds a dedicated layer for managing loading states and user experience improvements, while the enhanced currency formatting system provides centralized monetary value display across all admin components.
 
 **Section sources**
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
@@ -673,6 +791,7 @@ The dashboard system implements several performance optimization strategies:
 - **Efficient Queries**: Firebase queries are optimized with specific field filters and sorting
 - **Dual-Collection Processing**: Smart fallback mechanisms prevent unnecessary repeated queries
 - **React Suspense**: Provides better loading state management and improved perceived performance
+- **Enhanced Currency Formatting**: Nullish coalescing operators prevent unnecessary computations
 
 ### Caching and State Management
 - **Local State Caching**: Recent data is cached locally to reduce redundant API calls
@@ -680,6 +799,7 @@ The dashboard system implements several performance optimization strategies:
 - **Error Boundaries**: Graceful degradation when API calls fail
 - **Real-Time Listeners**: Custom hooks manage efficient real-time data synchronization
 - **Suspense Caching**: React Suspense provides built-in caching for suspended components
+- **Consistent Formatting**: Centralized currency formatting reduces redundant formatting operations
 
 ### Memory Management
 - **Cleanup Functions**: Event listeners and subscriptions are properly cleaned up
@@ -687,6 +807,7 @@ The dashboard system implements several performance optimization strategies:
 - **Component Unmounting**: Resources are released when components unmount
 - **Client-Side Sorting**: Efficient sorting algorithms minimize memory overhead
 - **Suspense Cleanup**: Proper cleanup of suspense states and resources
+- **Nullish Coalescing**: Efficient null value handling reduces memory allocation
 
 ### Enhanced Loan Calculation Performance
 **Updated** The new loan calculation system optimizes performance through:
@@ -694,6 +815,7 @@ The dashboard system implements several performance optimization strategies:
 - **Client-Side Aggregation**: Reduces server load through intelligent client processing
 - **Smart Deduplication**: Prevents redundant calculations and data processing
 - **Batch Processing**: Efficient handling of large loan datasets
+- **Nullish Coalescing**: Optimized value handling in calculations
 
 ### Error Handling Performance
 **Updated** Error handling mechanisms are designed for optimal performance:
@@ -701,6 +823,7 @@ The dashboard system implements several performance optimization strategies:
 - **Selective Logging**: Only critical errors trigger expensive logging operations
 - **Cache Optimization**: Error states are cached to prevent repeated failures
 - **Graceful Degradation**: System continues operating even when individual components fail
+- **Nullish Coalescing**: Efficient error value handling reduces computational overhead
 
 ### Frontend Infrastructure Performance
 **Updated** The React Suspense integration enhances performance through:
@@ -708,6 +831,14 @@ The dashboard system implements several performance optimization strategies:
 - **Memory Efficiency**: Suspense reduces memory overhead for loading states
 - **Rendering Optimization**: Improved component rendering performance
 - **Bundle Size**: Optimized bundle loading with Suspense-aware code splitting
+- **Currency Formatting Performance**: Centralized formatting reduces redundant computations
+
+### Enhanced Currency Formatting Performance
+**Updated** The new currency formatting system optimizes performance through:
+- **Centralized Formatting**: Single formatCurrency function reduces redundant formatting
+- **Nullish Coalescing**: Efficient value handling prevents unnecessary operations
+- **Chart Integration**: Optimized tooltip formatting reduces DOM manipulation
+- **Consistent Display**: Standardized formatting reduces layout thrashing
 
 ## Troubleshooting Guide
 
@@ -740,6 +871,7 @@ Common authentication problems and solutions:
 - Implement pagination for large datasets
 - Optimize component rendering with proper keys
 - **Updated** Check React Suspense loading states for performance issues
+- **Updated** Verify currency formatting performance with nullish coalescing
 
 **Enhanced Loan Calculation Issues**
 **Updated** Common loan calculation problems and solutions:
@@ -851,6 +983,33 @@ Common authentication problems and solutions:
 - Ensure proper input sanitization
 - Verify secure storage implementation
 
+### Enhanced Currency Formatting Issues
+**Updated** Troubleshooting currency formatting problems:
+
+**Incorrect Currency Display**
+- Verify formatCurrency function is properly imported
+- Check nullish coalescing operators in chart tooltips
+- Ensure consistent currency locale settings
+- Verify minimum fraction digits configuration
+
+**Zero Values in Charts**
+- Check for proper nullish coalescing in value calculations
+- Verify Number() conversion in tooltip formatters
+- Ensure fallback values are handled correctly
+- Check for undefined value propagation
+
+**Inconsistent Currency Formatting**
+- Verify formatCurrency function consistency across components
+- Check locale settings for different dashboard roles
+- Ensure proper currency symbol display
+- Verify decimal precision handling
+
+**Chart Tooltip Issues**
+- Check Tooltip formatter implementation in chart components
+- Verify value parameter handling in formatters
+- Ensure proper currency formatting in tooltips
+- Check for tooltip positioning conflicts
+
 **Section sources**
 - [lib/auth.tsx:197-348](file://lib/auth.tsx#L197-L348)
 - [lib/firebase.ts:148-240](file://lib/firebase.ts#L148-L240)
@@ -860,6 +1019,9 @@ Common authentication problems and solutions:
 - [scripts/fix-loan-calculations.js:20-140](file://scripts/fix-loan-calculations.js#L20-L140)
 - [app/setup-password/page.tsx:209-221](file://app/setup-password/page.tsx#L209-L221)
 - [app/api/setup-password/route.ts:25-173](file://app/api/setup-password/route.ts#L25-L173)
+- [app/admin/chairman/home/page.tsx:243](file://app/admin/chairman/home/page.tsx#L243)
+- [app/admin/manager/home/page.tsx:263](file://app/admin/manager/home/page.tsx#L263)
+- [lib/settingsService.ts:40-46](file://lib/settingsService.ts#L40-L46)
 
 ## Conclusion
 The SAMPA Cooperative Dashboard System provides a robust, scalable foundation for cooperative financial services. The system successfully implements role-based access control, real-time data synchronization, and comprehensive transaction management. Its modular architecture supports easy maintenance and future enhancements while maintaining strong security practices through Firebase integration and proper validation layers.
@@ -868,11 +1030,15 @@ The SAMPA Cooperative Dashboard System provides a robust, scalable foundation fo
 
 **Updated** The integration of React Suspense for the setup-password page represents a significant improvement in user experience, providing seamless loading states and better initial page rendering performance. This modern frontend infrastructure enhancement ensures better deployment requirements and more responsive user interfaces.
 
+**Updated** The comprehensive currency formatting system with standardized formatCurrency function usage and nullish coalescing operators ensures consistent monetary value display across all admin dashboard components. The enhanced chart tooltip formatting resolves previous issues where values were incorrectly showing as zero, providing accurate and reliable financial data visualization.
+
 The addition of comprehensive loan monitoring capabilities significantly enhances the system's ability to track loan lifecycles from application to completion. The enhanced error handling mechanisms ensure data integrity and provide graceful degradation when issues occur. The loan calculation correction script addresses historical data issues, ensuring consistency across the entire loan portfolio.
 
 The new useFirestoreData hook eliminates the need for composite indexes while maintaining real-time updates, improving system performance and reducing infrastructure complexity. The refactored loan requests management system demonstrates best practices for efficient data fetching and user experience.
 
 **Updated** The comprehensive password setup system with secure hashing and validation provides robust authentication capabilities while maintaining excellent user experience through React Suspense integration.
+
+**Updated** The enhanced currency formatting system with nullish coalescing operators and standardized tooltip formatters ensures consistent monetary value display across all chart components, resolving previous formatting inconsistencies.
 
 The dashboard system demonstrates effective separation of concerns with clear boundaries between authentication, data services, and presentation layers. The implementation of real-time notifications, automated transaction processing, and executive dashboards creates a comprehensive solution for cooperative management and member engagement.
 
@@ -880,4 +1046,6 @@ The new enhanced loan calculation system and comprehensive monitoring capabiliti
 
 **Updated** The React Suspense integration and enhanced frontend infrastructure demonstrate the system's commitment to modern web development practices, ensuring better performance, user experience, and deployment flexibility.
 
-Future enhancements could include advanced analytics capabilities, mobile-responsive design improvements, expanded reporting features, integration with external financial systems to further enhance the cooperative's operational efficiency and member satisfaction, and continued expansion of React Suspense integration across other pages for improved user experience.
+**Updated** The standardized currency formatting system with nullish coalescing operators and centralized formatting functions ensures consistent monetary value display across all admin dashboard components, providing accurate and reliable financial data visualization.
+
+Future enhancements could include advanced analytics capabilities, mobile-responsive design improvements, expanded reporting features, integration with external financial systems to further enhance the cooperative's operational efficiency and member satisfaction, continued expansion of React Suspense integration across other pages for improved user experience, and enhanced currency formatting capabilities with additional locale support.
