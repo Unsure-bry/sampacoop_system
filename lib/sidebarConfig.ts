@@ -27,7 +27,8 @@ import {
   Settings,
   Activity,
   UserCog,
-  Shield
+  Shield,
+  PiggyBank
 } from 'lucide-react';
 
 // Define sidebar configuration for each role
@@ -38,6 +39,13 @@ export const roleSidebarConfig: RoleSidebarConfig = {
       title: 'Main',
       items: [
         { name: 'Dashboard', path: '/admin/dashboard', icon: Home },
+      ],
+    },
+    {
+      title: 'Capital Shares',
+      permission: 'viewMembers',
+      items: [
+        { name: 'Capital Shares', path: '/admin/capital-shares', icon: PiggyBank, permission: 'viewMembers' },
       ],
     },
     {
