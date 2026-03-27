@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { firestore, db } from '@/lib/firebase';
 import { getSavingsBalanceForMember, getMemberIdByUserId } from '@/lib/savingsService';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useCapitalShare } from '@/hooks/useCapitalShare';
 
 interface Notification {
   id?: string;
@@ -105,6 +106,9 @@ export default function OperatorDashboardPage() {
   
   // State for next payment
   const [nextPayment, setNextPayment] = useState<any>(null);
+  
+  // Capital Share data
+  const { capitalShare, loading: capitalShareLoading } = useCapitalShare(user?.uid);
   
   // Fetch savings data from member collection
   useEffect(() => {
@@ -680,9 +684,16 @@ export default function OperatorDashboardPage() {
                 <p className="text-xs text-green-600 mb-1 truncate">Total Savings</p>
                 <p className="text-lg lg:text-xl font-bold text-green-800 truncate">₱{parseFloat(savingsData.currentBalance).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3 lg:p-4 overflow-hidden">
-                <p className="text-xs text-gray-600 mb-1 truncate">Total Deposits</p>
-                <p className="text-lg lg:text-xl font-bold text-gray-800 truncate">₱{parseFloat(savingsData.totalDeposits).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <div className={`rounded-lg p-3 lg:p-4 overflow-hidden ${capitalShare.isFullyPaid ? 'bg-green-50' : 'bg-orange-50 border border-orange-200'}`}>
+                <p className={`text-xs mb-1 truncate ${capitalShare.isFullyPaid ? 'text-green-600' : 'text-orange-600'}`}>Capital Share Balance</p>
+                <p className={`text-lg lg:text-xl font-bold truncate ${capitalShare.isFullyPaid ? 'text-green-800' : 'text-orange-800'}`}>
+                  {capitalShareLoading ? 'Loading...' : formatCurrency(capitalShare.remainingBalance)}
+                </p>
+                {!capitalShareLoading && (
+                  <p className="text-xs text-gray-500 mt-1 truncate">
+                    {capitalShare.isFullyPaid ? 'Fully Paid' : `${formatCurrency(capitalShare.paidAmount)} / ${formatCurrency(capitalShare.requiredAmount)}`}
+                  </p>
+                )}
               </div>
             </div>
           </div>
