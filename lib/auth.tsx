@@ -37,6 +37,9 @@ interface CustomLoginResponse {
   error?: string;
   needsPasswordSetup?: boolean;
   email?: string;
+  isArchived?: boolean;
+  archivedAt?: string;
+  archiveReason?: string;
 }
 
 interface AuthContextType {

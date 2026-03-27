@@ -48,7 +48,21 @@ export default function LoginPage() {
       }
       
       if (!result.success) {
-        toast.error(result.error || 'Failed to log in');
+        // Check if account is archived
+        if (result.isArchived) {
+          toast.error(
+            <div className="text-left">
+              <p className="font-semibold">Account Archived</p>
+              <p className="text-sm mt-1">{result.error}</p>
+              <p className="text-xs mt-2 text-gray-300">
+                Archived: {result.archivedAt ? new Date(result.archivedAt).toLocaleDateString() : 'N/A'}
+              </p>
+            </div>,
+            { duration: 8000 }
+          );
+        } else {
+          toast.error(result.error || 'Failed to log in');
+        }
         return;
       }
       

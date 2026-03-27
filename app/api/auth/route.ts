@@ -125,6 +125,21 @@ export async function POST(req: Request) {
     const userDoc = queryResult.data[0];
     const userData: any = userDoc;
 
+    // Check if account is archived
+    if (userData.status === 'archived' || userData.archived === true) {
+      console.log("Account is archived for user:", email);
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Your account has been archived due to inactivity. Please contact SAMPA staff for account restoration assistance.",
+          isArchived: true,
+          archivedAt: userData.archivedAt || null,
+          archiveReason: userData.archiveReason || "Account archived due to inactivity"
+        }, 
+        { status: 403 }
+      );
+    }
+
     // Check if password is set
     if (!userData.isPasswordSet) {
       console.log("Account exists but password not set for user:", email);
