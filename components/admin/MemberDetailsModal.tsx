@@ -22,6 +22,42 @@ export default function MemberDetailsModal({
   const [showTestSection, setShowTestSection] = useState<boolean>(false);
   const [testLoading, setTestLoading] = useState<boolean>(false);
   const [testResult, setTestResult] = useState<any>(null);
+  const [deductionInput, setDeductionInput] = useState<string>('');
+  const [deductionAmount, setDeductionAmount] = useState<number>(0);
+
+  // Format currency input with commas and decimal
+  const formatCurrencyInput = (value: string): string => {
+    // Remove non-numeric characters except decimal point
+    let numericValue = value.replace(/[^0-9.]/g, '');
+    
+    // Ensure only one decimal point
+    const parts = numericValue.split('.');
+    if (parts.length > 2) {
+      numericValue = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    // Limit to 2 decimal places
+    if (parts[1] && parts[1].length > 2) {
+      numericValue = parts[0] + '.' + parts[1].substring(0, 2);
+    }
+    
+    return numericValue;
+  };
+
+  // Format number with commas for display
+  const formatWithCommas = (value: string): string => {
+    if (!value) return '';
+    const parts = value.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.join('.');
+  };
+
+  // Handle deduction input change
+  const handleDeductionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = formatCurrencyInput(e.target.value);
+    setDeductionInput(rawValue);
+    setDeductionAmount(parseFloat(rawValue) || 0);
+  };
 
   useEffect(() => {
     setIsClient(true);
@@ -574,23 +610,55 @@ export default function MemberDetailsModal({
                           <h5 className="font-semibold text-amber-800 mb-2">Loan Deduction Preview</h5>
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <span>Total Loan Balance:</span>
-                            <span className="font-medium">₱{testResult.loanPreview.totalLoan.toLocaleString()}</span>
+                            <span className="font-medium">₱{testResult.loanPreview.totalLoan.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             
                             <span>Total Savings:</span>
-                            <span className="font-medium">₱{testResult.loanPreview.totalSavings.toLocaleString()}</span>
-                            
-                            <span>Would be Deducted:</span>
-                            <span className="font-medium text-amber-700">₱{testResult.loanPreview.deductionAmount.toLocaleString()}</span>
+                            <span className="font-medium">₱{testResult.loanPreview.totalSavings.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             
                             <span>Active Loans:</span>
                             <span className="font-medium">{testResult.loanPreview.loanCount}</span>
+                          </div>
+                          
+                          {/* Deduction Amount Input */}
+                          <div className="mt-4 pt-3 border-t border-amber-200">
+                            <label className="block text-sm font-medium text-amber-800 mb-2">
+                              Amount to Deduct from Savings
+                            </label>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span className="text-gray-500 font-medium">₱</span>
+                              </div>
+                              <input
+                                type="text"
+                                value={formatWithCommas(deductionInput)}
+                                onChange={handleDeductionChange}
+                                placeholder="0.00"
+                                className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                              />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Maximum deductible: ₱{Math.min(testResult.loanPreview.totalLoan, testResult.loanPreview.totalSavings).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
                           </div>
                           
                           {/* Execute Archive Button */}
                           <div className="mt-4 pt-3 border-t border-amber-300">
                             <button
                               onClick={async () => {
-                                if (!confirm(`Are you sure you want to archive this member and deduct ₱${testResult.loanPreview.deductionAmount.toLocaleString()} from savings for loan repayment?`)) {
+                                if (deductionAmount <= 0) {
+                                  toast.error('Please enter a valid deduction amount');
+                                  return;
+                                }
+                                if (deductionAmount > testResult.loanPreview.totalSavings) {
+                                  toast.error('Deduction amount cannot exceed total savings');
+                                  return;
+                                }
+                                if (deductionAmount > testResult.loanPreview.totalLoan) {
+                                  toast.error('Deduction amount cannot exceed total loan balance');
+                                  return;
+                                }
+                                
+                                if (!confirm(`Are you sure you want to archive this member and deduct ₱${deductionAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} from savings for loan repayment?`)) {
                                   return;
                                 }
                                 
@@ -609,9 +677,9 @@ export default function MemberDetailsModal({
                                   });
                                   
                                   // Deduct loan from savings if applicable
-                                  if (testResult.loanPreview.deductionAmount > 0) {
+                                  if (deductionAmount > 0) {
                                     const deductionTransaction = {
-                                      amount: testResult.loanPreview.deductionAmount,
+                                      amount: deductionAmount,
                                       type: 'withdrawal',
                                       description: `Loan deduction due to account archival (inactivity) - Auto-deducted from savings`,
                                       date: new Date().toISOString(),
@@ -647,7 +715,7 @@ export default function MemberDetailsModal({
                                     }
                                   }
                                   
-                                  toast.success(`Member archived successfully! ₱${testResult.loanPreview.deductionAmount.toLocaleString()} deducted from savings for loan repayment.`);
+                                  toast.success(`Member archived successfully! ₱${deductionAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} deducted from savings for loan repayment.`);
                                   
                                   // Close modal after successful archive
                                   setTimeout(() => {
@@ -663,13 +731,13 @@ export default function MemberDetailsModal({
                                   setTestLoading(false);
                                 }
                               }}
-                              disabled={testLoading}
+                              disabled={testLoading || deductionAmount <= 0}
                               className="w-full px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              {testLoading ? 'Processing...' : `Execute Archive & Deduct ₱${testResult.loanPreview.deductionAmount.toLocaleString()}`}
+                              {testLoading ? 'Processing...' : `Execute Archive & Deduct ₱${deductionAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                             </button>
                             <p className="text-xs text-amber-600 mt-2 text-center">
-                              This will permanently archive the account and deduct the loan amount from savings.
+                              This will permanently archive the account and deduct ₱{deductionAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} from savings.
                             </p>
                           </div>
                         </div>

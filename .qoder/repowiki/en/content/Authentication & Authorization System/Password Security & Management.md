@@ -75,20 +75,20 @@ I --> J
 **Diagram sources**
 - [lib/auth.tsx:1-706](file://lib/auth.tsx#L1-L706)
 - [app/api/auth/route.ts:1-295](file://app/api/auth/route.ts#L1-L295)
-- [app/api/auth/change-password/route.ts:1-98](file://app/api/auth/change-password/route.ts#L1-L98)
-- [app/api/setup-password/route.ts:1-177](file://app/api/setup-password/route.ts#L1-L177)
+- [app/api/auth/change-password/route.ts:1-134](file://app/api/auth/change-password/route.ts#L1-L134)
+- [app/api/setup-password/route.ts:1-204](file://app/api/setup-password/route.ts#L1-L204)
 - [lib/passwordUtils.ts:1-146](file://lib/passwordUtils.ts#L1-L146)
-- [lib/firebase.ts:1-309](file://lib/firebase.ts#L1-L309)
+- [lib/firebase.ts:1-384](file://lib/firebase.ts#L1-L384)
 - [components/auth/Input.tsx:1-27](file://components/auth/Input.tsx#L1-L27)
 - [components/auth/AuthLayout.tsx:1-23](file://components/auth/AuthLayout.tsx#L1-L23)
 
 **Section sources**
 - [lib/auth.tsx:1-706](file://lib/auth.tsx#L1-L706)
 - [app/api/auth/route.ts:1-295](file://app/api/auth/route.ts#L1-L295)
-- [app/api/auth/change-password/route.ts:1-98](file://app/api/auth/change-password/route.ts#L1-L98)
-- [app/api/setup-password/route.ts:1-177](file://app/api/setup-password/route.ts#L1-L177)
+- [app/api/auth/change-password/route.ts:1-134](file://app/api/auth/change-password/route.ts#L1-L134)
+- [app/api/setup-password/route.ts:1-204](file://app/api/setup-password/route.ts#L1-L204)
 - [lib/passwordUtils.ts:1-146](file://lib/passwordUtils.ts#L1-L146)
-- [lib/firebase.ts:1-309](file://lib/firebase.ts#L1-L309)
+- [lib/firebase.ts:1-384](file://lib/firebase.ts#L1-L384)
 - [components/auth/Input.tsx:1-27](file://components/auth/Input.tsx#L1-L27)
 - [components/auth/AuthLayout.tsx:1-23](file://components/auth/AuthLayout.tsx#L1-L23)
 
@@ -107,7 +107,7 @@ I --> J
 - [lib/passwordUtils.ts:64-122](file://lib/passwordUtils.ts#L64-L122)
 - [app/api/auth/route.ts:142-163](file://app/api/auth/route.ts#L142-L163)
 - [app/api/setup-password/route.ts:25-135](file://app/api/setup-password/route.ts#L25-L135)
-- [app/api/auth/change-password/route.ts:5-98](file://app/api/auth/change-password/route.ts#L5-L98)
+- [app/api/auth/change-password/route.ts:5-134](file://app/api/auth/change-password/route.ts#L5-L134)
 - [app/setup-password/page.tsx:168-227](file://app/setup-password/page.tsx#L168-L227)
 - [app/profile/security/page.tsx:298-381](file://app/profile/security/page.tsx#L298-L381)
 
@@ -296,13 +296,13 @@ API-->>UI : JSON response
 ```
 
 **Diagram sources**
-- [app/api/auth/change-password/route.ts:5-98](file://app/api/auth/change-password/route.ts#L5-L98)
+- [app/api/auth/change-password/route.ts:5-134](file://app/api/auth/change-password/route.ts#L5-L134)
 - [lib/passwordUtils.ts:4-62](file://lib/passwordUtils.ts#L4-L62)
 - [lib/firebase.ts:184-240](file://lib/firebase.ts#L184-L240)
 - [app/profile/security/page.tsx:149-154](file://app/profile/security/page.tsx#L149-L154)
 
 **Section sources**
-- [app/api/auth/change-password/route.ts:5-98](file://app/api/auth/change-password/route.ts#L5-L98)
+- [app/api/auth/change-password/route.ts:5-134](file://app/api/auth/change-password/route.ts#L5-L134)
 - [lib/passwordUtils.ts:4-62](file://lib/passwordUtils.ts#L4-L62)
 - [lib/firebase.ts:184-240](file://lib/firebase.ts#L184-L240)
 - [app/profile/security/page.tsx:149-154](file://app/profile/security/page.tsx#L149-L154)
@@ -388,9 +388,9 @@ SecurityUI --> EyeIcons["lucide-react (Eye/EyeOff)"]
 - [lib/auth.tsx:1-706](file://lib/auth.tsx#L1-L706)
 - [lib/passwordUtils.ts:1-146](file://lib/passwordUtils.ts#L1-L146)
 - [app/api/auth/route.ts:1-295](file://app/api/auth/route.ts#L1-L295)
-- [app/api/auth/change-password/route.ts:1-98](file://app/api/auth/change-password/route.ts#L1-L98)
-- [app/api/setup-password/route.ts:1-177](file://app/api/setup-password/route.ts#L1-L177)
-- [lib/firebase.ts:1-309](file://lib/firebase.ts#L1-L309)
+- [app/api/auth/change-password/route.ts:1-134](file://app/api/auth/change-password/route.ts#L1-L134)
+- [app/api/setup-password/route.ts:1-204](file://app/api/setup-password/route.ts#L1-L204)
+- [lib/firebase.ts:1-384](file://lib/firebase.ts#L1-L384)
 - [app/setup-password/page.tsx:1-260](file://app/setup-password/page.tsx#L1-L260)
 - [app/profile/security/page.tsx:1-478](file://app/profile/security/page.tsx#L1-L478)
 - [components/auth/Input.tsx:1-27](file://components/auth/Input.tsx#L1-L27)
@@ -400,9 +400,9 @@ SecurityUI --> EyeIcons["lucide-react (Eye/EyeOff)"]
 - [lib/auth.tsx:1-706](file://lib/auth.tsx#L1-L706)
 - [lib/passwordUtils.ts:1-146](file://lib/passwordUtils.ts#L1-L146)
 - [app/api/auth/route.ts:1-295](file://app/api/auth/route.ts#L1-L295)
-- [app/api/auth/change-password/route.ts:1-98](file://app/api/auth/change-password/route.ts#L1-L98)
-- [app/api/setup-password/route.ts:1-177](file://app/api/setup-password/route.ts#L1-L177)
-- [lib/firebase.ts:1-309](file://lib/firebase.ts#L1-L309)
+- [app/api/auth/change-password/route.ts:1-134](file://app/api/auth/change-password/route.ts#L1-L134)
+- [app/api/setup-password/route.ts:1-204](file://app/api/setup-password/route.ts#L1-L204)
+- [lib/firebase.ts:1-384](file://lib/firebase.ts#L1-L384)
 - [app/setup-password/page.tsx:1-260](file://app/setup-password/page.tsx#L1-L260)
 - [app/profile/security/page.tsx:1-478](file://app/profile/security/page.tsx#L1-L478)
 - [components/auth/Input.tsx:1-27](file://components/auth/Input.tsx#L1-L27)
@@ -414,8 +414,6 @@ SecurityUI --> EyeIcons["lucide-react (Eye/EyeOff)"]
 - Client vs server hashing: Client hashing reduces server load; server hashing centralizes security logic and avoids client-side cryptography exposure
 - Storage overhead: Base64 encoding increases storage by approximately 33%; acceptable trade-off for portability and simplicity
 - **Enhanced UI Performance**: Password visibility toggles use simple state changes and conditional rendering, minimal performance impact on user experience
-
-[No sources needed since this section provides general guidance]
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -436,8 +434,6 @@ Common issues and resolutions:
 ## Conclusion
 The system implements robust password security using PBKDF2 with Web Crypto API on the client and Node.js crypto on the server, combined with timing-safe comparisons and legacy password support. The password setup requirement and change workflow ensure strong, compliant password management. **Enhanced user experience** through password visibility toggles improves usability during account setup and password management processes. Extending the system with features like password expiration and history tracking is straightforward by adding fields to user documents and updating validation logic.
 
-[No sources needed since this section summarizes without analyzing specific files]
-
 ## Appendices
 
 ### Implementing Additional Password Security Features
@@ -446,8 +442,6 @@ The system implements robust password security using PBKDF2 with Web Crypto API 
 - Multi-factor authentication: Integrate with an MFA provider and require secondary verification before password changes
 - Rate limiting: Apply rate limits to login attempts and password change requests to mitigate brute-force attacks
 - **Enhanced UI features**: Consider adding password strength indicators, auto-fill suggestions, and improved accessibility features
-
-[No sources needed since this section provides general guidance]
 
 ### Password Visibility Toggle Implementation Details
 **New** The password visibility toggle feature was implemented consistently across both setup and security pages:
