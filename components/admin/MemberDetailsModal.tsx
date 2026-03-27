@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Member } from '@/lib/types/member';
 import { firestore } from '@/lib/firebase';
+import { toast } from 'react-hot-toast';
 
 export default function MemberDetailsModal({ 
   member, 
@@ -15,6 +16,12 @@ export default function MemberDetailsModal({
 }) {
   const [isClient, setIsClient] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
+  
+  // Auto-archive test states
+  const [testDate, setTestDate] = useState<string>('');
+  const [showTestSection, setShowTestSection] = useState<boolean>(false);
+  const [testLoading, setTestLoading] = useState<boolean>(false);
+  const [testResult, setTestResult] = useState<any>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -404,6 +411,185 @@ export default function MemberDetailsModal({
                     <span className="font-medium text-black">{member.shareCertificate?.chairmanName || 'N/A'}</span>
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Auto-Archive Test Section */}
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-black">Auto-Archive Test</h3>
+              <button
+                onClick={() => setShowTestSection(!showTestSection)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+              >
+                {showTestSection ? 'Hide Test' : 'Show Test'}
+              </button>
+            </div>
+            
+            {showTestSection && (
+              <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                <div className="text-sm text-gray-600 mb-3">
+                  Test if this member would be auto-archived on a specific date due to inactivity (6+ months no transactions).
+                  If archived, any remaining loan balance would be auto-deducted from savings.
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <label className="block text-xs text-gray-500 mb-1">Test Reference Date</label>
+                    <input
+                      type="date"
+                      value={testDate}
+                      onChange={(e) => setTestDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      onClick={async () => {
+                        if (!testDate) {
+                          toast.error('Please select a test date');
+                          return;
+                        }
+                        setTestLoading(true);
+                        setTestResult(null);
+                        
+                        try {
+                          const referenceDate = new Date(testDate);
+                          const lastActivity = member.lastTransactionAt || member.lastActivityAt || member.updatedAt;
+                          
+                          // Calculate days inactive
+                          let daysInactive = 0;
+                          let wouldBeArchived = false;
+                          let reason = '';
+                          
+                          if (!lastActivity) {
+                            if (member.createdAt) {
+                              const createdDate = new Date(member.createdAt);
+                              daysInactive = Math.floor((referenceDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+                              if (daysInactive >= 180) {
+                                wouldBeArchived = true;
+                                reason = `No transactions since creation (${daysInactive} days)`;
+                              }
+                            }
+                          } else {
+                            const lastActivityDate = new Date(lastActivity);
+                            daysInactive = Math.floor((referenceDate.getTime() - lastActivityDate.getTime()) / (1000 * 60 * 60 * 24));
+                            if (daysInactive >= 180) {
+                              wouldBeArchived = true;
+                              reason = `No transactions for ${daysInactive} days`;
+                            }
+                          }
+                          
+                          // Calculate loan deduction preview if would be archived
+                          let loanPreview = null;
+                          if (wouldBeArchived) {
+                            const loansResult = await firestore.getCollection('loans');
+                            const memberLoans = loansResult.success && loansResult.data 
+                              ? loansResult.data.filter((loan: any) => 
+                                  loan.memberId === member.id && 
+                                  (loan.status === 'active' || loan.status === 'Active')
+                                )
+                              : [];
+                            
+                            let totalLoan = 0;
+                            for (const loan of memberLoans) {
+                              const loanData = loan as any;
+                              totalLoan += loanData.remainingAmount || loanData.amount || 0;
+                            }
+                            
+                            const savingsResult = await firestore.getCollection(`members/${member.id}/savings`);
+                            let totalSavings = 0;
+                            if (savingsResult.success && savingsResult.data) {
+                              for (const transaction of savingsResult.data) {
+                                const txData = transaction as any;
+                                const amount = txData.amount || 0;
+                                if (txData.type === 'deposit') {
+                                  totalSavings += amount;
+                                } else if (txData.type === 'withdrawal') {
+                                  totalSavings -= amount;
+                                }
+                              }
+                            }
+                            
+                            loanPreview = {
+                              totalLoan,
+                              totalSavings,
+                              deductionAmount: Math.min(totalLoan, totalSavings),
+                              loanCount: memberLoans.length
+                            };
+                          }
+                          
+                          setTestResult({
+                            wouldBeArchived,
+                            daysInactive,
+                            reason,
+                            loanPreview,
+                            testDate: testDate
+                          });
+                          
+                          if (wouldBeArchived) {
+                            toast.success(`Test: Member would be archived (${daysInactive} days inactive)`);
+                          } else {
+                            toast(`Test: Member would NOT be archived (${daysInactive} days inactive)`);
+                          }
+                        } catch (error) {
+                          console.error('Test error:', error);
+                          toast.error('Error running test');
+                        } finally {
+                          setTestLoading(false);
+                        }
+                      }}
+                      disabled={!testDate || testLoading}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {testLoading ? 'Testing...' : 'Run Test'}
+                    </button>
+                  </div>
+                </div>
+                
+                {testResult && (
+                  <div className={`mt-4 p-4 rounded-lg ${testResult.wouldBeArchived ? 'bg-amber-50 border border-amber-200' : 'bg-green-50 border border-green-200'}`}>
+                    <h4 className={`font-semibold mb-2 ${testResult.wouldBeArchived ? 'text-amber-800' : 'text-green-800'}`}>
+                      Test Result for {new Date(testResult.testDate).toLocaleDateString()}
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <p>
+                        <span className="font-medium">Status:</span>{' '}
+                        <span className={testResult.wouldBeArchived ? 'text-amber-700 font-semibold' : 'text-green-700'}>
+                          {testResult.wouldBeArchived ? 'Would be ARCHIVED' : 'Would NOT be archived'}
+                        </span>
+                      </p>
+                      <p>
+                        <span className="font-medium">Days Inactive:</span> {testResult.daysInactive} days
+                      </p>
+                      {testResult.reason && (
+                        <p>
+                          <span className="font-medium">Reason:</span> {testResult.reason}
+                        </p>
+                      )}
+                      
+                      {testResult.loanPreview && testResult.wouldBeArchived && (
+                        <div className="mt-3 pt-3 border-t border-amber-200">
+                          <h5 className="font-semibold text-amber-800 mb-2">Loan Deduction Preview</h5>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <span>Total Loan Balance:</span>
+                            <span className="font-medium">₱{testResult.loanPreview.totalLoan.toLocaleString()}</span>
+                            
+                            <span>Total Savings:</span>
+                            <span className="font-medium">₱{testResult.loanPreview.totalSavings.toLocaleString()}</span>
+                            
+                            <span>Would be Deducted:</span>
+                            <span className="font-medium text-amber-700">₱{testResult.loanPreview.deductionAmount.toLocaleString()}</span>
+                            
+                            <span>Active Loans:</span>
+                            <span className="font-medium">{testResult.loanPreview.loanCount}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
