@@ -1179,22 +1179,44 @@ export default function MemberRegistrationModal({
                                   {...register(`plateNumbers.${index}` as keyof FormData, {
                                     required: 'Plate number is required',
                                     pattern: {
-                                      value: /^[A-Z0-9\-\s]+$/i,
-                                      message: 'Plate number can only contain letters, numbers, hyphens, and spaces'
+                                      value: /^[A-Z]{3}-\d{4}$/,
+                                      message: 'Invalid plate number format. Use ABC-1234 (3 letters, hyphen, 4 digits)'
                                     },
                                     minLength: {
-                                      value: 3,
-                                      message: 'Plate number is too short'
+                                      value: 8,
+                                      message: 'Plate number must be exactly 8 characters (ABC-1234)'
                                     },
                                     maxLength: {
-                                      value: 10,
-                                      message: 'Plate number is too long'
+                                      value: 8,
+                                      message: 'Plate number must be exactly 8 characters (ABC-1234)'
                                     }
                                   })}
                                   className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                                     errors.plateNumbers && errors.plateNumbers[index] ? 'border-red-500' : 'border-gray-300'
                                   }`}
                                   placeholder={`Enter plate number for jeepney ${index + 1}`}
+                                  maxLength={8}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    // Allow only uppercase letters, digits, and hyphens
+                                    let processedValue = value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+                                    
+                                    // Auto-format: add hyphen after 3 letters if not present
+                                    if (processedValue.length >= 3 && processedValue.charAt(3) !== '-') {
+                                      const letters = processedValue.substring(0, 3);
+                                      const rest = processedValue.substring(3);
+                                      // Only add hyphen if first 3 chars are letters
+                                      if (/^[A-Z]{3}$/.test(letters)) {
+                                        processedValue = letters + '-' + rest;
+                                      }
+                                    }
+                                    
+                                    // Limit to 8 characters (ABC-1234)
+                                    processedValue = processedValue.substring(0, 8);
+                                    
+                                    // Update the form value
+                                    setValue(`plateNumbers.${index}` as keyof FormData, processedValue);
+                                  }}
                                 />
                                 {errors.plateNumbers && errors.plateNumbers[index] && (
                                   <p className="mt-1 text-sm text-red-600">{errors.plateNumbers[index]?.message}</p>
