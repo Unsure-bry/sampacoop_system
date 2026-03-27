@@ -20,15 +20,18 @@
 - [route.ts](file://app/api/auth/route.ts)
 - [firebaseAdmin.ts](file://lib/firebaseAdmin.ts)
 - [settingsService.ts](file://lib/settingsService.ts)
+- [member.ts](file://lib/types/member.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced capital share input functionality with sophisticated dual-state currency formatting
-- Implemented real-time thousand separators and decimal precision control
-- Added multi-state display formatting (focused/blurred/initial states)
-- Integrated sophisticated payment calculation system with system settings
-- Enhanced real-time validation and user feedback mechanisms
+- Enhanced MemberRegistrationModal with comprehensive beneficiary information management capabilities
+- Added support for up to two beneficiaries per member registration with dynamic form fields, validation, and backend integration
+- Introduced new BeneficiaryInfo interface for structured beneficiary data handling
+- Implemented beneficiary management UI with add/remove functionality and real-time validation
+- Enhanced confirmation section for displaying beneficiary details during registration
+- Updated userMemberService.ts to support beneficiary data in member documents
+- Integrated beneficiary information into certificate generation workflow
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -42,12 +45,12 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the complete Member Registration Workflow within the SAMPA Cooperative Management System. It covers the end-to-end process from initial form submission through account activation, including API endpoints, front-end validation, automatic account creation, role assignment defaults, and integration with Firebase Authentication and Firestore. The workflow now includes enhanced multi-step validation, dynamic role-specific fields, integrated certificate preview functionality, and a comprehensive capital share payment system with sophisticated dual-state currency formatting, real-time thousand separators, decimal precision control, and multi-state display formatting.
+This document explains the complete Member Registration Workflow within the SAMPA Cooperative Management System. It covers the end-to-end process from initial form submission through account activation, including API endpoints, front-end validation, automatic account creation, role assignment defaults, and integration with Firebase Authentication and Firestore. The workflow now includes enhanced multi-step validation, dynamic role-specific fields, integrated certificate preview functionality, comprehensive beneficiary management capabilities, and a sophisticated capital share payment system with enhanced user experience.
 
 ## Project Structure
 The registration workflow spans client-side pages, server-side API routes, and shared libraries for authentication, Firestore utilities, and email services. Key areas include:
 - Front-end registration page with form validation and submission
-- Enhanced Member Registration Modal with multi-step validation, dynamic fields, and sophisticated payment processing
+- Enhanced Member Registration Modal with multi-step validation, dynamic fields, beneficiary management, and sophisticated payment processing
 - Certificate Preview Modal for interactive certificate generation
 - API route for member creation with input validation and payment calculation
 - Firestore utilities for database operations
@@ -56,6 +59,7 @@ The registration workflow spans client-side pages, server-side API routes, and s
 - Authentication context for login and role-based routing
 - Certificate service for PDF generation and storage
 - System settings service for dynamic fee configuration
+- Beneficiary management system for cooperative member designation
 
 ```mermaid
 graph TB
@@ -67,6 +71,7 @@ AUTHCTX["Auth Context<br/>lib/auth.tsx"]
 INPUT["Input Component<br/>components/auth/Input.tsx"]
 BTN["Button Component<br/>components/auth/Button.tsx"]
 SETTINGS["System Settings Service<br/>lib/settingsService.ts"]
+MEMBERTYPES["Member Types<br/>lib/types/member.ts"]
 END
 subgraph "Server-Side"
 API_MEM["Members API Route<br/>app/api/members/route.ts"]
@@ -94,6 +99,7 @@ MRM --> EMAIL
 MRM --> CPM
 MRM --> CERTSERVICE
 MRM --> SETTINGS
+MRM --> MEMBERTYPES
 CPM --> CERTSERVICE
 API_MEM --> FB_ADMIN
 API_MEM --> FIRESTORE
@@ -112,10 +118,10 @@ AUTHCTX --> EMAIL
 - [page.tsx:1-323](file://app/register/page.tsx#L1-L323)
 - [route.ts:1-179](file://app/api/members/route.ts#L1-L179)
 - [firebase.ts:1-309](file://lib/firebase.ts#L1-L309)
-- [userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [userMemberService.ts:1-289](file://lib/userMemberService.ts#L1-L289)
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
-- [MemberRegistrationModal.tsx:1-1508](file://components/admin/MemberRegistrationModal.tsx#L1-L1508)
+- [MemberRegistrationModal.tsx:1-1667](file://components/admin/MemberRegistrationModal.tsx#L1-L1667)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
@@ -123,15 +129,16 @@ AUTHCTX --> EMAIL
 - [route.ts:1-177](file://app/api/setup-password/route.ts#L1-L177)
 - [firebaseAdmin.ts:1-277](file://lib/firebaseAdmin.ts#L1-L277)
 - [settingsService.ts:1-54](file://lib/settingsService.ts#L1-L54)
+- [member.ts:1-85](file://lib/types/member.ts#L1-L85)
 
 **Section sources**
 - [page.tsx:1-323](file://app/register/page.tsx#L1-L323)
 - [route.ts:1-179](file://app/api/members/route.ts#L1-L179)
 - [firebase.ts:1-309](file://lib/firebase.ts#L1-L309)
-- [userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [userMemberService.ts:1-289](file://lib/userMemberService.ts#L1-L289)
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
-- [MemberRegistrationModal.tsx:1-1508](file://components/admin/MemberRegistrationModal.tsx#L1-L1508)
+- [MemberRegistrationModal.tsx:1-1667](file://components/admin/MemberRegistrationModal.tsx#L1-L1667)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
@@ -139,45 +146,50 @@ AUTHCTX --> EMAIL
 - [route.ts:1-177](file://app/api/setup-password/route.ts#L1-L177)
 - [firebaseAdmin.ts:1-277](file://lib/firebaseAdmin.ts#L1-L277)
 - [settingsService.ts:1-54](file://lib/settingsService.ts#L1-L54)
+- [member.ts:1-85](file://lib/types/member.ts#L1-L85)
 
 ## Core Components
-- **Enhanced Member Registration Modal**: Multi-step form with dynamic fields for Driver/Operator roles, advanced validation, real-time license number formatting, integrated certificate preview functionality, and comprehensive payment processing with sophisticated capital share input system featuring dual-state currency formatting.
+- **Enhanced Member Registration Modal**: Multi-step form with dynamic fields for Driver/Operator roles, advanced validation, real-time license number formatting, integrated certificate preview functionality, comprehensive payment processing, and **NEW** comprehensive beneficiary management system supporting up to two beneficiaries per member registration.
 - **Certificate Preview Modal**: Interactive modal for reviewing and customizing share certificates before generation, featuring real-time preview with editable fields and formal certificate design.
 - **Advanced Certificate Service**: Comprehensive PDF generation service with official cooperative styling, automatic data extraction, and Firestore integration for certificate storage.
 - **Dynamic Validation System**: Enhanced form validation with step-by-step validation, role-specific field requirements, real-time license number validation, dynamic plate number field management, and strict input formatting.
 - **System Settings Integration**: Dynamic membership fee calculation based on system configuration, ensuring consistent fee amounts across the application.
 - **Sophisticated Capital Share Payment System**: Enhanced payment processing feature with dual-state currency formatting, real-time thousand separators, decimal precision control, and multi-state display formatting (focused/blurred/initial states).
 - **Strict Jeepney Plate Number Validation**: Enhanced validation system for jeepney plate numbers with automatic uppercase conversion, hyphen insertion, and format enforcement (ABC-1234 pattern).
+- **Comprehensive Beneficiary Management System**: **NEW** Multi-step beneficiary information management supporting up to two beneficiaries per member, including dynamic form fields, real-time validation, and backend integration.
 - **Register Page**: Client-side form with validation, email uniqueness check, and password hashing prior to Firestore write.
 - **Members API Route**: Server-side endpoint for creating members with robust input validation, email format checks, duplicate detection, and PBKDF2-based password hashing.
 - **Firestore Utilities**: Unified client-side Firestore helpers for set/get/query/update/delete operations with error handling.
-- **User-Member Service**: Ensures consistent user ID across users and members collections, email existence checks, and automatic linkage validation/repair.
+- **User-Member Service**: Ensures consistent user ID across users and members collections, email existence checks, automatic linkage validation/repair, and **NEW** comprehensive beneficiary data integration.
 - **Email Service**: Sends welcome and password setup emails via EmailJS with configurable templates.
 - **Authentication Context**: Manages user state, role-based routing, and login flow with timing-safe comparisons and secure password verification.
 - **Setup Password API**: Handles password setup for accounts that were created without an initial password, enforcing PBKDF2 hashing and preventing duplicate setups.
 
 **Section sources**
-- [MemberRegistrationModal.tsx:1-1508](file://components/admin/MemberRegistrationModal.tsx#L1-L1508)
+- [MemberRegistrationModal.tsx:1-1667](file://components/admin/MemberRegistrationModal.tsx#L1-L1667)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [page.tsx:1-323](file://app/register/page.tsx#L1-L323)
 - [route.ts:1-179](file://app/api/members/route.ts#L1-L179)
 - [firebase.ts:89-309](file://lib/firebase.ts#L89-L309)
-- [userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [userMemberService.ts:1-289](file://lib/userMemberService.ts#L1-L289)
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [route.ts:1-177](file://app/api/setup-password/route.ts#L1-L177)
 - [settingsService.ts:1-54](file://lib/settingsService.ts#L1-L54)
+- [member.ts:1-85](file://lib/types/member.ts#L1-L85)
 
 ## Architecture Overview
-The registration workflow integrates client-side forms, server-side APIs, and Firestore. Two complementary flows exist with enhanced certificate integration and comprehensive payment processing:
+The registration workflow integrates client-side forms, server-side APIs, and Firestore. Three complementary flows exist with enhanced certificate integration, comprehensive payment processing, and **NEW** beneficiary management capabilities:
 - Direct registration via the Register Page (client-side hashing and Firestore write)
-- Admin-driven registration via the Enhanced Member Registration Modal (server-side hashing, user-member linking, integrated certificate generation, and sophisticated payment processing)
+- Admin-driven registration via the Enhanced Member Registration Modal (server-side hashing, user-member linking, integrated certificate generation, sophisticated payment processing, and **NEW** beneficiary management)
+- Enhanced beneficiary management system supporting up to two beneficiaries per member registration
 
 ```mermaid
 sequenceDiagram
 participant Admin as "Admin User"
 participant Modal as "Enhanced Member Registration Modal<br/>components/admin/MemberRegistrationModal.tsx"
+participant Beneficiaries as "Beneficiary Management System<br/>Dynamic Form Fields"
 participant Settings as "System Settings Service<br/>lib/settingsService.ts"
 participant UMS as "User-Member Service<br/>lib/userMemberService.ts"
 participant FS as "Firestore Utils<br/>lib/firebase.ts"
@@ -185,6 +197,8 @@ participant Email as "Email Service<br/>lib/emailService.ts"
 participant CPV as "Certificate Preview Modal<br/>components/admin/CertificatePreviewModal.tsx"
 participant CertSvc as "Certificate Service<br/>lib/certificateService.ts"
 Admin->>Modal : Fill multi-step form with dynamic fields
+Modal->>Beneficiaries : Manage up to 2 beneficiaries
+Beneficiaries-->>Modal : Validate beneficiary data
 Modal->>Settings : Fetch system settings for membership fee
 Settings-->>Modal : Return membership payment amount
 Modal->>Modal : Validate current step with enhanced validation
@@ -195,17 +209,17 @@ FS-->>UMS : Exists/Not Found
 alt Email exists
 Modal-->>Admin : Show "Email already registered" error
 else Email not found
-Modal->>UMS : Create linked user + member records with payment info
+Modal->>UMS : Create linked user + member records with payment info and beneficiaries
 UMS->>FS : Create user document
 FS-->>UMS : Success/Failure
-UMS->>FS : Create member document with payment info
+UMS->>FS : Create member document with payment info and beneficiaries
 FS-->>UMS : Success/Failure
 alt Both succeed
 Modal->>Email : Send welcome email
 Email-->>Modal : Sent/Failed
 Modal->>CPV : Show certificate preview modal
 Admin->>CPV : Review and customize certificate details
-CPV->>CertSvc : Generate share certificate PDF
+CPV->>CertSvc : Generate share certificate PDF with beneficiary information
 CertSvc->>FS : Store certificate in Firestore
 FS-->>CertSvc : Success/Failure
 CertSvc-->>CPV : Return certificate data
@@ -219,6 +233,8 @@ end
 
 **Diagram sources**
 - [MemberRegistrationModal.tsx:237-415](file://components/admin/MemberRegistrationModal.tsx#L237-L415)
+- [MemberRegistrationModal.tsx:994-1117](file://components/admin/MemberRegistrationModal.tsx#L994-L1117)
+- [MemberRegistrationModal.tsx:1482-1500](file://components/admin/MemberRegistrationModal.tsx#L1482-L1500)
 - [settingsService.ts:19-35](file://lib/settingsService.ts#L19-L35)
 - [userMemberService.ts:23-92](file://lib/userMemberService.ts#L23-L92)
 - [firebase.ts:90-113](file://lib/firebase.ts#L90-L113)
@@ -229,7 +245,7 @@ end
 ## Detailed Component Analysis
 
 ### Enhanced Member Registration Modal (Admin-Driven)
-**Updated** Enhanced with improved multi-step form validation, dynamic role-specific fields, integrated certificate preview functionality, and sophisticated payment processing system featuring dual-state currency formatting.
+**Updated** Enhanced with improved multi-step form validation, dynamic role-specific fields, integrated certificate preview functionality, sophisticated payment processing, and **NEW** comprehensive beneficiary management system supporting up to two beneficiaries per member registration.
 
 - **Multi-step Validation System**: Implements `validateCurrentStep()` function for step-by-step validation with dynamic field requirements based on selected role.
 - **Dynamic Role Fields**: Role-specific fields appear based on Driver/Operator selection with conditional validation for address, license numbers, and jeepney information.
@@ -240,17 +256,18 @@ end
 - **Strict Input Formatting**: Enhanced input formatting with automatic uppercase conversion and hyphen insertion for license numbers, TIN IDs, and jeepney plate numbers.
 - **Certificate Preview Integration**: Seamless integration with Certificate Preview Modal for immediate certificate generation after registration.
 - **Progress Tracking**: Visual progress indicators showing current step completion status.
+- ****NEW** Beneficiary Management System**: Comprehensive beneficiary information management supporting up to two beneficiaries per member registration with dynamic form fields, real-time validation, and confirmation section integration.
 
 ```mermaid
 flowchart TD
-Start(["Registration Start"]) --> Step1["Step 1: Personal Info<br/>- Role Selection<br/>- Basic Info Validation<br/>- Address Fields"]
+Start(["Registration Start"]) --> Step1["Step 1: Personal Info<br/>- Role Selection<br/>- Basic Info Validation<br/>- Address Fields<br/>- Beneficiary Section<br/>- Add Beneficiary Button<br/>- Up to 2 Beneficiaries"]
 Step1 --> Step2["Step 2: Role Details<br/>- Driver: License/TIN<br/>- Operator: Jeepney Count<br/>- Real-time Validation<br/>- Plate Number Formatting"]
-Step2 --> Step3["Step 3: Payment & Confirmation<br/>- System Settings Integration<br/>- Capital Share Input<br/>- Dual-State Currency Formatting<br/>- Real-time Thousand Separators<br/>- Decimal Precision Control<br/>- Total Fee Calculation<br/>- Receipt Control Number"]
-Step3 --> Validate["Final Validation<br/>- All Fields Complete<br/>- Email Uniqueness Check<br/>- Payment Validation"]
+Step2 --> Step3["Step 3: Payment & Confirmation<br/>- System Settings Integration<br/>- Capital Share Input<br/>- Dual-State Currency Formatting<br/>- Real-time Thousand Separators<br/>- Decimal Precision Control<br/>- Total Fee Calculation<br/>- Receipt Control Number<br/>- Beneficiary Confirmation"]
+Validate["Final Validation<br/>- All Fields Complete<br/>- Email Uniqueness Check<br/>- Payment Validation<br/>- Beneficiary Validation"]
 Validate --> Success{"Registration Success?"}
 Success --> |Yes| CertificatePreview["Show Certificate Preview Modal"]
 Success --> |No| ShowErrors["Show Validation Errors"]
-CertificatePreview --> GenerateCert["Generate Share Certificate<br/>- PDF Creation<br/>- Firestore Storage<br/>- Email Notification"]
+CertificatePreview --> GenerateCert["Generate Share Certificate<br/>- PDF Creation<br/>- Firestore Storage<br/>- Email Notification<br/>- Beneficiary Information Included"]
 GenerateCert --> Complete(["Registration Complete"])
 ShowErrors --> End(["Stop"])
 ```
@@ -259,13 +276,33 @@ ShowErrors --> End(["Stop"])
 - [MemberRegistrationModal.tsx:127-168](file://components/admin/MemberRegistrationModal.tsx#L127-L168)
 - [MemberRegistrationModal.tsx:237-276](file://components/admin/MemberRegistrationModal.tsx#L237-L276)
 - [MemberRegistrationModal.tsx:424-464](file://components/admin/MemberRegistrationModal.tsx#L424-L464)
+- [MemberRegistrationModal.tsx:994-1117](file://components/admin/MemberRegistrationModal.tsx#L994-L1117)
+- [MemberRegistrationModal.tsx:1482-1500](file://components/admin/MemberRegistrationModal.tsx#L1482-L1500)
 - [MemberRegistrationModal.tsx:1356-1444](file://components/admin/MemberRegistrationModal.tsx#L1356-L1444)
 
 **Section sources**
-- [MemberRegistrationModal.tsx:1-1508](file://components/admin/MemberRegistrationModal.tsx#L1-L1508)
+- [MemberRegistrationModal.tsx:1-1667](file://components/admin/MemberRegistrationModal.tsx#L1-L1667)
 - [settingsService.ts:19-54](file://lib/settingsService.ts#L19-L54)
 - [userMemberService.ts:23-92](file://lib/userMemberService.ts#L23-L92)
 - [emailService.ts:41-67](file://lib/emailService.ts#L41-L67)
+
+### Comprehensive Beneficiary Management System
+**NEW** Multi-step beneficiary information management system supporting up to two beneficiaries per member registration with dynamic form fields, real-time validation, and backend integration.
+
+- **Dynamic Beneficiary Form Fields**: Beneficiary information section appears in Step 1 with "Add Beneficiary" button for adding up to two beneficiaries dynamically.
+- **Beneficiary Data Structure**: Uses `BeneficiaryInfo` interface with firstName, middleName, lastName, and relationship fields for structured data handling.
+- **Real-time Validation**: Individual beneficiary fields validate input with automatic filtering for letters and spaces, ensuring data integrity.
+- **Dynamic Field Management**: Beneficiary arrays are managed with add/remove functionality, with automatic field generation and cleanup.
+- **Relationship Validation**: Specialized validation for relationship fields allowing letters, spaces, and hyphens for proper relationship descriptions.
+- **Confirmation Integration**: Beneficiary information is displayed in the confirmation section with proper formatting and validation.
+- **Backend Integration**: Beneficiary data is passed to userMemberService for storage in Firestore member documents alongside other member information.
+- **Limit Management**: Automatic enforcement of maximum two beneficiaries with conditional "Add Beneficiary" button visibility.
+
+**Section sources**
+- [MemberRegistrationModal.tsx:59-64](file://components/admin/MemberRegistrationModal.tsx#L59-L64)
+- [MemberRegistrationModal.tsx:994-1117](file://components/admin/MemberRegistrationModal.tsx#L994-L1117)
+- [MemberRegistrationModal.tsx:1482-1500](file://components/admin/MemberRegistrationModal.tsx#L1482-L1500)
+- [userMemberService.ts:34-70](file://lib/userMemberService.ts#L34-L70)
 
 ### Sophisticated Capital Share Input System
 **New** Enhanced capital share input functionality with sophisticated dual-state currency formatting, real-time thousand separators, decimal precision control, and multi-state display formatting.
@@ -309,6 +346,7 @@ ShowErrors --> End(["Stop"])
 - **Firestore Integration**: Stores certificate data in Firestore with proper indexing and retrieval capabilities.
 - **Email Notification**: Integrates with email service to notify members of certificate availability.
 - **Format Flexibility**: Supports various certificate types with consistent styling and professional appearance.
+- **Beneficiary Integration**: **NEW** Includes beneficiary information in certificate generation for comprehensive member documentation.
 
 **Section sources**
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
@@ -380,7 +418,7 @@ participant Settings as "System Settings Service<br/>lib/settingsService.ts"
 participant FA as "Firebase Admin Utils<br/>lib/firebaseAdmin.ts"
 participant FS as "Firestore Utils<br/>lib/firebase.ts"
 participant PW as "Password Utils<br/>lib/passwordUtils.ts"
-Client->>API : POST /api/members {email, fullName, contactNumber, role?, password?, paymentInfo?}
+Client->>API : POST /api/members {email, fullName, contactNumber, role?, password?, paymentInfo?, beneficiaries?}
 API->>Settings : Get membership payment amount
 Settings-->>API : Return system settings
 API->>API : Validate required fields & email format
@@ -440,10 +478,10 @@ end
 - Creates linked user and member records atomically; on failure, rolls back user creation.
 - Validates and repairs user-member linkage on login, ensuring both collections remain synchronized.
 - Provides email existence checks and batched updates across both collections.
-- **Updated** Now includes payment information in member documents for comprehensive registration processing.
+- **Updated** Now includes payment information and **NEW** comprehensive beneficiary data in member documents for complete registration processing.
 
 **Section sources**
-- [userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [userMemberService.ts:1-289](file://lib/userMemberService.ts#L1-L289)
 
 ### Email Service
 - Sends templated emails via EmailJS with configurable keys and templates.
@@ -473,16 +511,31 @@ end
 - [route.ts:1-177](file://app/api/setup-password/route.ts#L1-L177)
 - [passwordUtils.ts:64-92](file://lib/passwordUtils.ts#L64-L92)
 
+### Member Types Definition
+**New** Comprehensive type definitions for member data structures including enhanced beneficiary support.
+
+- **DriverInfo Interface**: Defines driver-specific information including license number, TIN ID, and address details.
+- **OperatorInfo Interface**: Defines operator-specific information including license number, TIN ID, jeepney count, plate numbers, and address details.
+- **CertificateData Interface**: Defines certificate information structure for share certificates.
+- **Member Interface**: Main member interface with comprehensive fields including driverInfo, operatorInfo, and certificate data.
+- **ArchivedMember Interface**: Extends Member interface for archived member records.
+- **ReactivationTransaction Interface**: Defines reactivation transaction structure for member restoration.
+
+**Section sources**
+- [member.ts:1-85](file://lib/types/member.ts#L1-L85)
+
 ## Dependency Analysis
-The registration workflow exhibits clear separation of concerns with enhanced certificate integration and comprehensive payment processing:
+The registration workflow exhibits clear separation of concerns with enhanced certificate integration, comprehensive payment processing, and **NEW** beneficiary management capabilities:
 - Client-side registration depends on Firestore utilities and email service.
 - Enhanced server-side registration depends on Firebase Admin utilities, password utilities, certificate service, and system settings service.
-- Both flows rely on user-member service for consistent identity management.
+- Both flows rely on user-member service for consistent identity management and **NEW** comprehensive beneficiary data handling.
 - Authentication context coordinates login and role-based routing.
 - Certificate service provides PDF generation and storage capabilities.
 - Certificate preview modal integrates with certificate service for interactive certificate management.
 - System settings service provides dynamic configuration for membership fees.
 - **Updated** Sophisticated capital share input system integrates with dual-state currency formatting and real-time validation.
+- **NEW** Beneficiary management system integrates with dynamic form fields and backend data storage.
+- **NEW** Member types definition provides comprehensive type safety for member data structures.
 
 ```mermaid
 graph TB
@@ -494,10 +547,12 @@ MRM --> EMAIL
 MRM --> CPM["Certificate Preview Modal"]
 MRM --> CERTSERVICE["Certificate Service"]
 MRM --> SETTINGS["System Settings Service"]
+MRM --> MEMBERTYPES["Member Types"]
 CPM --> CERTSERVICE
 API_MEM["Members API"] --> FB_ADMIN["Firebase Admin Utils"]
 API_MEM --> PWUTILS["Password Utils"]
 API_MEM --> SETTINGS
+API_MEM --> MEMBERTYPES
 API_CERT["Certificate API"] --> CERTSERVICE
 API_CERT --> FIRESTORE
 AUTHCTX["Auth Context"] --> FIRESTORE
@@ -511,10 +566,10 @@ API_AUTH --> UMS
 - [page.tsx:1-323](file://app/register/page.tsx#L1-L323)
 - [route.ts:1-179](file://app/api/members/route.ts#L1-L179)
 - [firebase.ts:1-309](file://lib/firebase.ts#L1-L309)
-- [userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [userMemberService.ts:1-289](file://lib/userMemberService.ts#L1-L289)
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
-- [MemberRegistrationModal.tsx:1-1508](file://components/admin/MemberRegistrationModal.tsx#L1-L1508)
+- [MemberRegistrationModal.tsx:1-1667](file://components/admin/MemberRegistrationModal.tsx#L1-L1667)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
@@ -522,15 +577,16 @@ API_AUTH --> UMS
 - [firebaseAdmin.ts:1-277](file://lib/firebaseAdmin.ts#L1-L277)
 - [passwordUtils.ts:1-146](file://lib/passwordUtils.ts#L1-L146)
 - [settingsService.ts:1-54](file://lib/settingsService.ts#L1-L54)
+- [member.ts:1-85](file://lib/types/member.ts#L1-L85)
 
 **Section sources**
 - [page.tsx:1-323](file://app/register/page.tsx#L1-L323)
 - [route.ts:1-179](file://app/api/members/route.ts#L1-L179)
 - [firebase.ts:1-309](file://lib/firebase.ts#L1-L309)
-- [userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [userMemberService.ts:1-289](file://lib/userMemberService.ts#L1-L289)
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
-- [MemberRegistrationModal.tsx:1-1508](file://components/admin/MemberRegistrationModal.tsx#L1-L1508)
+- [MemberRegistrationModal.tsx:1-1667](file://components/admin/MemberRegistrationModal.tsx#L1-L1667)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
@@ -538,6 +594,7 @@ API_AUTH --> UMS
 - [firebaseAdmin.ts:1-277](file://lib/firebaseAdmin.ts#L1-L277)
 - [passwordUtils.ts:1-146](file://lib/passwordUtils.ts#L1-L146)
 - [settingsService.ts:1-54](file://lib/settingsService.ts#L1-L54)
+- [member.ts:1-85](file://lib/types/member.ts#L1-L85)
 
 ## Performance Considerations
 - Client-side hashing reduces server load but increases client CPU usage; acceptable for modern browsers.
@@ -551,6 +608,9 @@ API_AUTH --> UMS
 - **Updated** Dynamic field generation optimizes form rendering based on role selection.
 - **Updated** System settings caching reduces repeated Firestore queries for membership fees.
 - **Updated** Payment calculation occurs client-side for immediate feedback, with server-side validation for security.
+- **NEW** Beneficiary management system uses efficient state management with minimal re-rendering for dynamic form fields.
+- **NEW** Beneficiary validation occurs in real-time with automatic filtering to prevent invalid data entry.
+- **NEW** Backend integration for beneficiary data maintains optimal Firestore query performance with proper indexing.
 
 ## Troubleshooting Guide
 Common validation errors and resolutions:
@@ -595,6 +655,17 @@ Common validation errors and resolutions:
   - Membership payment amounts must be numeric and positive.
   - Default values are used if settings are unavailable.
   - Resolution: Check system settings configuration and Firestore connectivity.
+- **NEW** Beneficiary management errors:
+  - Beneficiary form validation filters invalid characters; ensure only letters and spaces are entered.
+  - Maximum two beneficiaries limit enforced; remove excess beneficiaries before submission.
+  - Beneficiary relationship validation requires proper relationship descriptions.
+  - Beneficiary confirmation section displays validation errors; resolve before final submission.
+  - Resolution: Use provided validation messages and ensure all beneficiary fields are properly formatted.
+- **NEW** Beneficiary data storage errors:
+  - Beneficiary data integration with userMemberService requires proper data structure.
+  - Firestore storage of beneficiary arrays requires array validation.
+  - Certificate generation includes beneficiary information; ensure data integrity.
+  - Resolution: Verify beneficiary data structure and check Firestore connectivity.
 - Firestore connectivity issues:
   - Client-side: Initialization or permission errors.
   - Server-side: Admin SDK initialization errors or missing credentials.
@@ -612,6 +683,9 @@ Security considerations:
 - **Updated** Capital share security: Sophisticated input processing prevents injection attacks while maintaining usability.
 - **Updated** Real-time validation: Client-side validation prevents invalid data entry before server processing.
 - **Updated** Payment security: Total fee calculation is performed client-side for immediate feedback but validated server-side for security.
+- **NEW** Beneficiary data security: Real-time input filtering prevents injection attacks in beneficiary forms.
+- **NEW** Beneficiary validation: Strict character filtering ensures data integrity and prevents malicious input.
+- **NEW** Beneficiary storage security: Backend integration with userMemberService ensures secure data storage and retrieval.
 
 **Section sources**
 - [page.tsx:72-133](file://app/register/page.tsx#L72-L133)
@@ -623,8 +697,15 @@ Security considerations:
 - [MemberRegistrationModal.tsx:1020-1072](file://components/admin/MemberRegistrationModal.tsx#L1020-L1072)
 - [MemberRegistrationModal.tsx:1183-1227](file://components/admin/MemberRegistrationModal.tsx#L1183-L1227)
 - [MemberRegistrationModal.tsx:1356-1444](file://components/admin/MemberRegistrationModal.tsx#L1356-L1444)
+- [MemberRegistrationModal.tsx:994-1117](file://components/admin/MemberRegistrationModal.tsx#L994-L1117)
+- [MemberRegistrationModal.tsx:1482-1500](file://components/admin/MemberRegistrationModal.tsx#L1482-L1500)
 - [CertificatePreviewModal.tsx:455-473](file://components/admin/CertificatePreviewModal.tsx#L455-L473)
 - [settingsService.ts:19-35](file://lib/settingsService.ts#L19-L35)
+- [userMemberService.ts:34-70](file://lib/userMemberService.ts#L34-L70)
 
 ## Conclusion
-The SAMPA Cooperative Management System implements a robust and secure member registration workflow supporting both self-registration and admin-driven registration. The enhanced Member Registration Modal provides a comprehensive multi-step validation system with dynamic role-specific fields, real-time license number validation, integrated certificate preview functionality, and a sophisticated capital share payment system with dual-state currency formatting, real-time thousand separators, decimal precision control, and multi-state display formatting. The workflow seamlessly integrates certificate generation with professional PDF creation, ensuring members receive official share certificates immediately after registration. Client-side and server-side flows share consistent validation, hashing, and error handling patterns, while user-member linking ensures data integrity across collections. The integration with Firestore, EmailJS, certificate service, and system settings provides a reliable foundation for user onboarding, complemented by strong security practices, comprehensive troubleshooting guidance, and dynamic payment processing capabilities. The addition of sophisticated capital share input functionality significantly enhances the system's ability to manage cooperative membership fees with improved user experience and data quality standards.
+The SAMPA Cooperative Management System implements a robust and secure member registration workflow supporting both self-registration and admin-driven registration. The enhanced Member Registration Modal provides a comprehensive multi-step validation system with dynamic role-specific fields, real-time license number validation, integrated certificate preview functionality, sophisticated capital share payment system with dual-state currency formatting, real-time thousand separators, decimal precision control, multi-state display formatting, and **NEW** comprehensive beneficiary management system supporting up to two beneficiaries per member registration.
+
+The workflow seamlessly integrates certificate generation with professional PDF creation, ensuring members receive official share certificates immediately after registration. Client-side and server-side flows share consistent validation, hashing, and error handling patterns, while user-member linking ensures data integrity across collections. The integration with Firestore, EmailJS, certificate service, and system settings provides a reliable foundation for user onboarding, complemented by strong security practices, comprehensive troubleshooting guidance, dynamic payment processing capabilities, and **NEW** beneficiary management functionality.
+
+The addition of sophisticated capital share input functionality significantly enhances the system's ability to manage cooperative membership fees with improved user experience and data quality standards. The **NEW** beneficiary management system provides comprehensive support for cooperative member designation, ensuring proper documentation and future-proofing for cooperative governance requirements. The enhanced Member Registration Modal now serves as a complete solution for cooperative member onboarding, combining security, usability, and comprehensive data management capabilities essential for modern cooperative operations.

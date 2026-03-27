@@ -11,6 +11,8 @@ interface CapitalShareData {
   memberName: string;
   role: string;
   capitalShare: number;
+  requiredCapitalShare: number;
+  remainingBalance: number;
   status: 'Paid' | 'Pending' | 'Partial';
   paymentDate?: string;
 }
@@ -26,6 +28,7 @@ export default function CapitalSharesPage() {
   const [totalCapitalShares, setTotalCapitalShares] = useState(0);
   const [paidCapitalShares, setPaidCapitalShares] = useState(0);
   const [pendingCapitalShares, setPendingCapitalShares] = useState(0);
+  const [pendingMembersCount, setPendingMembersCount] = useState(0);
 
   useEffect(() => {
     fetchCapitalSharesData();
@@ -47,6 +50,10 @@ export default function CapitalSharesPage() {
       let total = 0;
       let paid = 0;
       let pending = 0;
+      let pendingCount = 0;
+      
+      // Fixed required capital share amount
+      const REQUIRED_CAPITAL_SHARE = 10000;
 
       for (const member of membersResult.data) {
         // Cast to any to access dynamic Firestore data
@@ -61,12 +68,17 @@ export default function CapitalSharesPage() {
         
         const fullName = `${memberData.firstName || ''} ${memberData.middleName ? memberData.middleName + ' ' : ''}${memberData.lastName || ''}${memberData.suffix ? ' ' + memberData.suffix : ''}`.trim();
         
-        // Determine status based on payment
-        let status: 'Paid' | 'Pending' | 'Partial' = 'Pending';
-        if (paymentInfo.status === 'PAID' || paymentInfo.amountPaid >= paymentInfo.totalFee) {
+        // Calculate remaining balance based on fixed required amount
+        const remainingBalance = Math.max(0, REQUIRED_CAPITAL_SHARE - capitalShare);
+        
+        // Determine status based on capital share vs required amount
+        let status: 'Paid' | 'Pending' | 'Partial';
+        if (capitalShare >= REQUIRED_CAPITAL_SHARE) {
           status = 'Paid';
-        } else if (paymentInfo.amountPaid > 0 && paymentInfo.amountPaid < paymentInfo.totalFee) {
+        } else if (capitalShare > 0 && capitalShare < REQUIRED_CAPITAL_SHARE) {
           status = 'Partial';
+        } else {
+          status = 'Pending';
         }
         
         const data: CapitalShareData = {
@@ -74,6 +86,8 @@ export default function CapitalSharesPage() {
           memberName: fullName || 'Unknown',
           role: memberData.role || 'Member',
           capitalShare: capitalShare,
+          requiredCapitalShare: REQUIRED_CAPITAL_SHARE,
+          remainingBalance: remainingBalance,
           status: status,
           paymentDate: memberData.createdAt
         };
@@ -85,7 +99,9 @@ export default function CapitalSharesPage() {
         if (status === 'Paid') {
           paid += capitalShare;
         } else {
-          pending += capitalShare;
+          // For pending/partial, add the remaining balance to pending total
+          pending += remainingBalance;
+          pendingCount++;
         }
       }
 
@@ -93,6 +109,7 @@ export default function CapitalSharesPage() {
       setTotalCapitalShares(total);
       setPaidCapitalShares(paid);
       setPendingCapitalShares(pending);
+      setPendingMembersCount(pendingCount);
     } catch (error) {
       console.error('Error fetching capital shares:', error);
       toast.error('Failed to load capital shares data');
@@ -187,7 +204,7 @@ export default function CapitalSharesPage() {
             <div>
               <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Pending Capital Shares</p>
               <p className="text-3xl font-bold text-orange-600 mt-2">{formatCurrency(pendingCapitalShares)}</p>
-              <p className="text-sm text-gray-500 mt-1">{filteredData.filter(d => d.status !== 'Paid').length} pending</p>
+              <p className="text-sm text-gray-500 mt-1">{pendingMembersCount} members with remaining balance</p>
             </div>
             <div className="bg-orange-100 rounded-full p-4">
               <svg className="h-8 w-8 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -241,7 +258,13 @@ export default function CapitalSharesPage() {
                   Role
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Capital Share
+                  Paid Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Required Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Remaining Balance
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -254,7 +277,7 @@ export default function CapitalSharesPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center">
+                  <td colSpan={7} className="px-6 py-8 text-center">
                     <p className="text-gray-500">
                       {searchTerm || statusFilter ? 'No capital shares found matching your filters.' : 'No capital shares records found.'}
                     </p>
@@ -275,6 +298,18 @@ export default function CapitalSharesPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm font-semibold text-gray-900">
                         {formatCurrency(item.capitalShare)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-600">
+                        {formatCurrency(item.requiredCapitalShare)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`text-sm font-semibold ${
+                        item.remainingBalance > 0 ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                        {formatCurrency(item.remainingBalance)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
