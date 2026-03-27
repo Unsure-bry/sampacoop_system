@@ -6,6 +6,7 @@ import {
   getDoc, 
   getDocs, 
   setDoc, 
+  addDoc,
   updateDoc, 
   deleteDoc, 
   query, 
@@ -88,6 +89,44 @@ const validateFirestoreConnection = (): { isValid: boolean; error?: string } => 
 
 // Firestore utility functions
 export const firestore = {
+  // Add a new document with auto-generated ID
+  addDocument: async (collectionPath: string, data: any) => {
+    const validation = validateFirestoreConnection();
+    if (!validation.isValid) {
+      console.error('Firestore connection error:', validation.error);
+      return { success: false, error: validation.error };
+    }
+    
+    try {
+      if (!collectionPath) {
+        throw new Error('Collection path is required');
+      }
+      
+      // Handle nested paths like 'members/123/savings'
+      const pathParts = collectionPath.split('/');
+      let collectionRef: any;
+      
+      if (pathParts.length === 1) {
+        // Simple collection: 'activityLogs'
+        collectionRef = collection(db!, pathParts[0]);
+      } else if (pathParts.length === 3) {
+        // Nested collection: 'members/123/savings'
+        const parentDocRef = doc(db!, pathParts[0], pathParts[1]);
+        collectionRef = collection(parentDocRef, pathParts[2]);
+      } else {
+        throw new Error('Invalid collection path format');
+      }
+      
+      const docRef = await addDoc(collectionRef, data);
+      console.log(`Document added successfully to ${collectionPath} with ID: ${docRef.id}`);
+      return { success: true, id: docRef.id };
+    } catch (error: any) {
+      console.error('Error adding document:', error);
+      const errorMessage = error.message || 'Failed to add document';
+      return { success: false, error: errorMessage };
+    }
+  },
+
   // Create or update a document
   setDocument: async (collectionName: string, docId: string, data: any) => {
     const validation = validateFirestoreConnection();

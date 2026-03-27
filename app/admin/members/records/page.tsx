@@ -35,6 +35,10 @@ export default function MemberRecordsPage() {
   const [controlNumber, setControlNumber] = useState('');
   const [restoreLoading, setRestoreLoading] = useState(false);
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
+  
+  // Test date state for testing auto-archive functionality
+  const [testDate, setTestDate] = useState<string>('');
+  const [showTestDateInput, setShowTestDateInput] = useState<boolean>(false);
 
   useEffect(() => {
     // Check if user has permission to view members
@@ -89,7 +93,10 @@ export default function MemberRecordsPage() {
   };
 
   // Check if member should be auto-archived (no transactions for 6 months)
-  const shouldAutoArchiveMember = (member: Member): {shouldArchive: boolean; reason: string; daysInactive: number} => {
+  const shouldAutoArchiveMember = (member: Member, referenceDate?: Date): {shouldArchive: boolean; reason: string; daysInactive: number} => {
+    // Use test date if provided, otherwise use current date
+    const currentDate = referenceDate || new Date();
+    
     // Get the most recent activity date
     const lastActivity = member.lastTransactionAt || member.lastActivityAt || member.updatedAt;
     
@@ -104,7 +111,6 @@ export default function MemberRecordsPage() {
         return { shouldArchive: false, reason: 'Invalid date', daysInactive: 0 };
       }
       
-      const currentDate = new Date();
       const diffTime = currentDate.getTime() - createdDate.getTime();
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       
@@ -125,7 +131,6 @@ export default function MemberRecordsPage() {
       return { shouldArchive: false, reason: 'Invalid activity date', daysInactive: 0 };
     }
     
-    const currentDate = new Date();
     const diffTime = currentDate.getTime() - lastActivityDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
@@ -143,6 +148,14 @@ export default function MemberRecordsPage() {
   // Archive a member
   const archiveMember = async (member: Member, reason: string): Promise<boolean> => {
     try {
+      // Check if archiving is due to inactivity (auto-archive)
+      const isInactivityArchive = reason.includes('6 months') || reason.includes('inactive');
+      
+      // If archiving due to inactivity, handle loan deduction from savings
+      if (isInactivityArchive) {
+        await deductLoanFromSavingsOnArchive(member);
+      }
+      
       const result = await firestore.updateDocument('members', member.id, {
         status: 'archived',
         archived: true,
@@ -159,12 +172,224 @@ export default function MemberRecordsPage() {
     }
   };
 
+  // Deduct remaining loan balance from savings when member is archived due to inactivity
+  const deductLoanFromSavingsOnArchive = async (member: Member): Promise<void> => {
+    try {
+      console.log(`Checking for loan deduction on archive for member: ${member.firstName} ${member.lastName}`);
+      
+      // Fetch member's active loans
+      const loansResult = await firestore.getCollection('loans');
+      if (!loansResult.success || !loansResult.data) {
+        console.log('No loans data available');
+        return;
+      }
+      
+      // Filter active loans for this member
+      const memberLoans = loansResult.data.filter((loan: any) => 
+        loan.memberId === member.id && 
+        (loan.status === 'active' || loan.status === 'Active')
+      );
+      
+      if (memberLoans.length === 0) {
+        console.log(`No active loans found for member: ${member.id}`);
+        return;
+      }
+      
+      // Calculate total remaining loan balance
+      let totalRemainingLoan = 0;
+      for (const loan of memberLoans) {
+        const loanData = loan as any;
+        const remainingAmount = loanData.remainingAmount || loanData.amount || 0;
+        totalRemainingLoan += remainingAmount;
+      }
+      
+      if (totalRemainingLoan <= 0) {
+        console.log(`No remaining loan balance for member: ${member.id}`);
+        return;
+      }
+      
+      console.log(`Total remaining loan for member ${member.id}: ₱${totalRemainingLoan}`);
+      
+      // Fetch member's current savings
+      const savingsResult = await firestore.getCollection(`members/${member.id}/savings`);
+      if (!savingsResult.success || !savingsResult.data) {
+        console.log(`No savings data found for member: ${member.id}`);
+        return;
+      }
+      
+      // Calculate total savings
+      let totalSavings = 0;
+      for (const transaction of savingsResult.data) {
+        const txData = transaction as any;
+        const amount = txData.amount || 0;
+        if (txData.type === 'deposit') {
+          totalSavings += amount;
+        } else if (txData.type === 'withdrawal') {
+          totalSavings -= amount;
+        }
+      }
+      
+      console.log(`Total savings for member ${member.id}: ₱${totalSavings}`);
+      
+      // Calculate deduction amount (cannot exceed available savings)
+      const deductionAmount = Math.min(totalRemainingLoan, totalSavings);
+      
+      if (deductionAmount <= 0) {
+        console.log(`No savings available to deduct for member: ${member.id}`);
+        return;
+      }
+      
+      // Create a withdrawal transaction for the loan deduction
+      const deductionTransaction = {
+        amount: deductionAmount,
+        type: 'withdrawal',
+        description: `Loan deduction due to account archival (inactivity) - Auto-deducted from savings`,
+        date: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        status: 'completed',
+        category: 'loan_deduction',
+        referenceLoans: memberLoans.map((loan: any) => loan.id),
+        recordedBy: 'system',
+        isAutoDeduction: true,
+        deductionReason: 'Account archived due to 6 months inactivity'
+      };
+      
+      // Add the deduction transaction to savings
+      const deductionResult = await firestore.addDocument(`members/${member.id}/savings`, deductionTransaction);
+      
+      if (deductionResult.success) {
+        console.log(`✓ Deducted ₱${deductionAmount} from savings for loan repayment due to archival`);
+        
+        // Update loans to reflect partial or full payment
+        for (const loan of memberLoans) {
+          const loanData = loan as any;
+          const remainingAmount = loanData.remainingAmount || loanData.amount || 0;
+          const loanDeduction = Math.min(remainingAmount, deductionAmount);
+          
+          if (loanDeduction > 0) {
+            const newRemainingAmount = remainingAmount - loanDeduction;
+            const loanStatus = newRemainingAmount <= 0 ? 'paid' : 'active';
+            
+            await firestore.updateDocument('loans', loanData.id, {
+              remainingAmount: Math.max(0, newRemainingAmount),
+              status: loanStatus,
+              lastPaymentDate: new Date().toISOString(),
+              lastPaymentAmount: loanDeduction,
+              paidViaSavingsDeduction: true,
+              deductionReason: 'Account archived due to inactivity'
+            });
+            
+            console.log(`✓ Updated loan ${loan.id}: deducted ₱${loanDeduction}, remaining: ₱${Math.max(0, newRemainingAmount)}`);
+          }
+        }
+        
+        // Log the activity
+        await logActivity({
+          type: 'loan_deduction',
+          description: `Auto-deducted ₱${deductionAmount} from savings for loan repayment due to account archival (inactivity)`,
+          memberId: member.id,
+          memberName: `${member.firstName} ${member.lastName}`,
+          metadata: {
+            deductionAmount,
+            totalLoanBalance: totalRemainingLoan,
+            savingsBeforeDeduction: totalSavings,
+            loansAffected: memberLoans.map((loan: any) => loan.id)
+          }
+        });
+      } else {
+        console.error(`✗ Failed to create deduction transaction for member: ${member.id}`);
+      }
+    } catch (error) {
+      console.error(`Error deducting loan from savings for member ${member.id}:`, error);
+    }
+  };
+
+  // Log activity helper function
+  const logActivity = async (activityData: {
+    type: string;
+    description: string;
+    memberId?: string;
+    memberName?: string;
+    metadata?: any;
+  }): Promise<void> => {
+    try {
+      await firestore.addDocument('activityLogs', {
+        ...activityData,
+        timestamp: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error logging activity:', error);
+    }
+  };
+
+  // Calculate loan deduction preview for test mode
+  const calculateLoanDeductionPreview = async (member: Member): Promise<{totalLoan: number; totalSavings: number; deductionAmount: number; loans: any[]}> => {
+    try {
+      // Fetch member's active loans
+      const loansResult = await firestore.getCollection('loans');
+      const memberLoans = loansResult.success && loansResult.data 
+        ? loansResult.data.filter((loan: any) => 
+            loan.memberId === member.id && 
+            (loan.status === 'active' || loan.status === 'Active')
+          )
+        : [];
+      
+      // Calculate total remaining loan balance
+      let totalRemainingLoan = 0;
+      for (const loan of memberLoans) {
+        const loanData = loan as any;
+        const remainingAmount = loanData.remainingAmount || loanData.amount || 0;
+        totalRemainingLoan += remainingAmount;
+      }
+      
+      // Fetch member's current savings
+      const savingsResult = await firestore.getCollection(`members/${member.id}/savings`);
+      let totalSavings = 0;
+      
+      if (savingsResult.success && savingsResult.data) {
+        for (const transaction of savingsResult.data) {
+          const txData = transaction as any;
+          const amount = txData.amount || 0;
+          if (txData.type === 'deposit') {
+            totalSavings += amount;
+          } else if (txData.type === 'withdrawal') {
+            totalSavings -= amount;
+          }
+        }
+      }
+      
+      // Calculate deduction amount
+      const deductionAmount = Math.min(totalRemainingLoan, totalSavings);
+      
+      return {
+        totalLoan: totalRemainingLoan,
+        totalSavings,
+        deductionAmount,
+        loans: memberLoans.map((loan: any) => ({
+          id: loan.id,
+          amount: loan.amount,
+          remainingAmount: loan.remainingAmount || loan.amount
+        }))
+      };
+    } catch (error) {
+      console.error(`Error calculating loan deduction preview for ${member.id}:`, error);
+      return { totalLoan: 0, totalSavings: 0, deductionAmount: 0, loans: [] };
+    }
+  };
+
   // Auto-archive inactive members
-  const autoArchiveInactiveMembers = async (membersList: Member[]): Promise<{checked: number; archived: number}> => {
-    console.log('=== AUTO ARCHIVE CHECK (6 Months Inactivity) ===');
+  const autoArchiveInactiveMembers = async (membersList: Member[], isTestMode: boolean = false): Promise<{checked: number; archived: number; testResults?: any[]}> => {
+    // Use test date if set
+    const referenceDate = testDate ? new Date(testDate) : new Date();
+    const isUsingTestDate = !!testDate;
+    
+    console.log(`=== AUTO ARCHIVE CHECK (6 Months Inactivity) ===`);
+    console.log(`Reference Date: ${referenceDate.toISOString()} ${isUsingTestDate ? '(TEST MODE)' : ''}`);
     
     let archivedCount = 0;
     let checkedCount = 0;
+    const testResults: any[] = [];
     
     for (const member of membersList) {
       // Skip already archived members
@@ -173,9 +398,26 @@ export default function MemberRecordsPage() {
       }
       
       checkedCount++;
-      const { shouldArchive, reason, daysInactive } = shouldAutoArchiveMember(member);
+      const { shouldArchive, reason, daysInactive } = shouldAutoArchiveMember(member, referenceDate);
       
       console.log(`Member: ${member.firstName} ${member.lastName}, Days Inactive: ${daysInactive}, Should Archive: ${shouldArchive}`);
+      
+      // In test mode, collect results without actually archiving
+      if (isTestMode) {
+        if (shouldArchive) {
+          // Calculate loan deduction preview
+          const loanInfo = await calculateLoanDeductionPreview(member);
+          testResults.push({
+            memberId: member.id,
+            memberName: `${member.firstName} ${member.lastName}`,
+            daysInactive,
+            reason,
+            wouldBeArchived: true,
+            loanDeductionPreview: loanInfo
+          });
+        }
+        continue;
+      }
       
       if (shouldArchive) {
         const archiveReason = `No transaction for 6 months (${daysInactive} days inactive)`;
@@ -190,7 +432,7 @@ export default function MemberRecordsPage() {
     }
     
     console.log(`=== AUTO ARCHIVE COMPLETE: ${archivedCount} of ${checkedCount} checked members archived ===`);
-    return { checked: checkedCount, archived: archivedCount };
+    return { checked: checkedCount, archived: archivedCount, testResults: isTestMode ? testResults : undefined };
   };
 
   useEffect(() => {
@@ -609,6 +851,79 @@ export default function MemberRecordsPage() {
         </div>
       </div>
       
+      {/* Test Date Input for Auto-Archive Testing */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm font-medium text-gray-700">Auto-Archive Test Date</span>
+          </div>
+          <button
+            onClick={() => setShowTestDateInput(!showTestDateInput)}
+            className="text-sm text-red-600 hover:text-red-800 font-medium"
+          >
+            {showTestDateInput ? 'Hide' : 'Show'} Test Controls
+          </button>
+        </div>
+        
+        {showTestDateInput && (
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <label className="block text-xs text-gray-500 mb-1">Test Reference Date</label>
+                <input
+                  type="date"
+                  value={testDate}
+                  onChange={(e) => setTestDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Set a future date to simulate what would happen on that date
+                </p>
+              </div>
+              <div className="flex gap-2 items-end">
+                <button
+                  onClick={async () => {
+                    setArchivingInProgress(true);
+                    const result = await autoArchiveInactiveMembers(members, true); // Test mode
+                    setAutoArchiveInfo({ checked: result.checked, archived: result.testResults?.length || 0 });
+                    if (result.testResults && result.testResults.length > 0) {
+                      console.log('=== TEST MODE RESULTS ===', result.testResults);
+                      toast.success(`Test: ${result.testResults.length} member(s) would be archived`);
+                    } else {
+                      toast('Test: No members would be archived on this date');
+                    }
+                    setArchivingInProgress(false);
+                  }}
+                  disabled={!testDate || archivingInProgress}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Test Auto-Archive
+                </button>
+                <button
+                  onClick={() => {
+                    setTestDate('');
+                    setAutoArchiveInfo(null);
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            
+            {testDate && (
+              <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                <strong>Test Mode Active:</strong> Using {new Date(testDate).toLocaleDateString()} as reference date for inactivity calculations.
+                Members inactive for 6+ months from this date would be archived and have loans deducted from savings.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Auto-archive info */}
       {autoArchiveInfo && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
@@ -618,6 +933,7 @@ export default function MemberRecordsPage() {
             </svg>
             <span className="text-sm text-blue-800">
               Auto-checked {autoArchiveInfo.checked} members, {autoArchiveInfo.archived} archived for inactivity
+              {testDate && ' (TEST MODE - No actual changes made)'}
             </span>
           </div>
         </div>

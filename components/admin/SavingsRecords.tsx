@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { firestore } from '@/lib/firebase';
-import { ChevronLeft, ChevronRight, Search, Wallet, Eye, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Wallet, Eye, X, AlertTriangle } from 'lucide-react';
 
 interface SavingsTransaction {
   id: string;
@@ -248,8 +248,20 @@ export default function SavingsRecords() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {saving.email}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                      {formatCurrency(saving.totalSavings)}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium ${saving.totalSavings && saving.totalSavings < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {formatCurrency(saving.totalSavings)}
+                        </span>
+                        {saving.totalSavings && saving.totalSavings < 0 && (
+                          <div className="relative group">
+                            <AlertTriangle className="h-4 w-4 text-red-500 cursor-help" />
+                            <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                              Negative balance due to loan deduction
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(saving.lastTransaction)}
