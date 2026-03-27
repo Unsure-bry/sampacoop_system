@@ -26,6 +26,14 @@ interface ReportData {
     activeLoans: number;
     loanStatusDistribution: Record<string, number>;
   };
+  capitalSharesSummary: {
+    totalMembers: number;
+    paidMembers: number;
+    pendingMembers: number;
+    partialMembers: number;
+    totalPaid: number;
+    totalPending: number;
+  };
 }
 
 export default function ReportsPage() {
@@ -245,6 +253,36 @@ export default function ReportsPage() {
         loanStatusDistribution[status] = (loanStatusDistribution[status] || 0) + 1;
       });
       
+      // Process capital shares data
+      const REQUIRED_CAPITAL_SHARE = 10000;
+      let paidMembers = 0;
+      let pendingMembers = 0;
+      let partialMembers = 0;
+      let totalCapitalSharePaid = 0;
+      let totalCapitalSharePending = 0;
+      
+      members.forEach((member: any) => {
+        const paymentInfo = member.paymentInfo || {};
+        const capitalShare = paymentInfo.capitalShare || 0;
+        
+        if (capitalShare > 0) {
+          totalCapitalSharePaid += capitalShare;
+          const remainingBalance = Math.max(0, REQUIRED_CAPITAL_SHARE - capitalShare);
+          
+          if (remainingBalance === 0) {
+            paidMembers++;
+          } else {
+            partialMembers++;
+            totalCapitalSharePending += remainingBalance;
+          }
+        } else {
+          pendingMembers++;
+          totalCapitalSharePending += REQUIRED_CAPITAL_SHARE;
+        }
+      });
+      
+      const totalCapitalShareMembers = paidMembers + partialMembers;
+      
       setReportData({
         membersSummary: {
           totalMembers: members.length,
@@ -263,6 +301,14 @@ export default function ReportsPage() {
           averageLoanAmount: activeLoans.length > 0 ? Math.round((totalLoanAmount / activeLoans.length) * 100) / 100 : 0,
           activeLoans: activeLoans.length,
           loanStatusDistribution
+        },
+        capitalSharesSummary: {
+          totalMembers: totalCapitalShareMembers,
+          paidMembers,
+          pendingMembers,
+          partialMembers,
+          totalPaid: totalCapitalSharePaid,
+          totalPending: totalCapitalSharePending
         }
       });
     } catch (error) {
@@ -592,7 +638,8 @@ export default function ReportsPage() {
             { id: 'overview', name: 'Overview' },
             { id: 'members', name: 'Members' },
             { id: 'savings', name: 'Savings' },
-            { id: 'loans', name: 'Loans' }
+            { id: 'loans', name: 'Loans' },
+            { id: 'capitalshares', name: 'Capital Shares' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -825,6 +872,122 @@ export default function ReportsPage() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">₱{saver.amount.toLocaleString()}</td>
                           </tr>
                         ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {activeTab === 'capitalshares' && (
+              <div className="p-6 space-y-8">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Capital Shares Report</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{reportData.capitalSharesSummary.totalMembers}</div>
+                    <div className="text-sm text-blue-800">Total Members</div>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{reportData.capitalSharesSummary.paidMembers}</div>
+                    <div className="text-sm text-green-800">Fully Paid</div>
+                  </div>
+                  <div className="bg-yellow-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-yellow-600">{reportData.capitalSharesSummary.partialMembers}</div>
+                    <div className="text-sm text-yellow-800">Partial Payment</div>
+                  </div>
+                  <div className="bg-red-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-red-600">{reportData.capitalSharesSummary.pendingMembers}</div>
+                    <div className="text-sm text-red-800">No Payment</div>
+                  </div>
+                </div>
+                
+                {/* Capital Shares Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className="bg-green-50 p-6 rounded-lg border border-green-200">
+                    <div className="text-3xl font-bold text-green-600">₱{reportData.capitalSharesSummary.totalPaid.toLocaleString()}</div>
+                    <div className="text-sm text-green-800 mt-1">Total Capital Shares Paid</div>
+                  </div>
+                  <div className="bg-red-50 p-6 rounded-lg border border-red-200">
+                    <div className="text-3xl font-bold text-red-600">₱{reportData.capitalSharesSummary.totalPending.toLocaleString()}</div>
+                    <div className="text-sm text-red-800 mt-1">Total Remaining Balance</div>
+                  </div>
+                </div>
+                
+                {/* Capital Shares Status Distribution Chart */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-700 mb-3">Capital Shares Status Distribution</h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: 'Fully Paid', value: reportData.capitalSharesSummary.paidMembers, color: '#10B981' },
+                            { name: 'Partial', value: reportData.capitalSharesSummary.partialMembers, color: '#F59E0B' },
+                            { name: 'No Payment', value: reportData.capitalSharesSummary.pendingMembers, color: '#EF4444' }
+                          ].filter(item => item.value > 0)}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={(props: { name?: string; percent?: number }) => `${props.name || ''} ${((props.percent || 0) * 100).toFixed(0)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {[
+                            { name: 'Fully Paid', value: reportData.capitalSharesSummary.paidMembers, color: '#10B981' },
+                            { name: 'Partial', value: reportData.capitalSharesSummary.partialMembers, color: '#F59E0B' },
+                            { name: 'No Payment', value: reportData.capitalSharesSummary.pendingMembers, color: '#EF4444' }
+                          ].filter(item => item.value > 0).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                
+                {/* Capital Shares Status Table */}
+                <div>
+                  <h4 className="font-medium text-gray-700 mb-3">Capital Shares Status Breakdown</h4>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        <tr>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Fully Paid</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{reportData.capitalSharesSummary.paidMembers}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {reportData.capitalSharesSummary.totalMembers > 0 
+                              ? ((reportData.capitalSharesSummary.paidMembers / reportData.capitalSharesSummary.totalMembers) * 100).toFixed(1) 
+                              : 0}%
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Partial Payment</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{reportData.capitalSharesSummary.partialMembers}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {reportData.capitalSharesSummary.totalMembers > 0 
+                              ? ((reportData.capitalSharesSummary.partialMembers / reportData.capitalSharesSummary.totalMembers) * 100).toFixed(1) 
+                              : 0}%
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">No Payment</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{reportData.capitalSharesSummary.pendingMembers}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {reportData.membersSummary.totalMembers > 0 
+                              ? ((reportData.capitalSharesSummary.pendingMembers / reportData.membersSummary.totalMembers) * 100).toFixed(1) 
+                              : 0}%
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
