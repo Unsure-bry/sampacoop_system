@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import AuthLayout from '@/components/auth/AuthLayout';
 import Input from '@/components/auth/Input';
 import Button from '@/components/auth/Button';
+import { Eye, EyeOff } from 'lucide-react';
 
 function SetupPasswordContent() {
   const router = useRouter();
@@ -25,6 +26,8 @@ function SetupPasswordContent() {
   });
   
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // If no email in URL, redirect to login
   useEffect(() => {
@@ -159,32 +162,68 @@ function SetupPasswordContent() {
         </div>
         
         <div>
-          <Input
-            label="Password"
-            type="password"
-            name="password"
-            required
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="Enter your password"
-            error={errors.password}
-          />
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Password
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              name="password"
+              required
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="Enter your password"
+              className={`
+                w-full px-4 py-2 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-black
+                ${errors.password ? 'border-red-500' : 'border-gray-300'}
+              `}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700 focus:outline-none"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
+          </div>
+          {errors.password && (
+            <p className="mt-1 text-sm text-red-500">{errors.password}</p>
+          )}
           <p className="mt-1 text-xs text-gray-500">
             Password must be at least 8 characters and contain uppercase, lowercase, and number.
           </p>
         </div>
-        
+
         <div>
-          <Input
-            label="Confirm Password"
-            type="password"
-            name="confirmPassword"
-            required
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            placeholder="Confirm your password"
-            error={errors.confirmPassword}
-          />
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Confirm Password
+          </label>
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? 'text' : 'password'}
+              name="confirmPassword"
+              required
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              placeholder="Confirm your password"
+              className={`
+                w-full px-4 py-2 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-black
+                ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'}
+              `}
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700 focus:outline-none"
+              tabIndex={-1}
+            >
+              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
+          </div>
+          {errors.confirmPassword && (
+            <p className="mt-1 text-sm text-red-500">{errors.confirmPassword}</p>
+          )}
         </div>
         
         <Button type="submit" isLoading={isLoading}>

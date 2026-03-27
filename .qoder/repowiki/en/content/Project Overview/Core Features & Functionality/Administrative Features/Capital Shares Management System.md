@@ -23,14 +23,13 @@
 
 ## Update Summary
 **Changes Made**
-- Complete rewrite of capital shares system with new useCapitalShare hook for real-time monitoring
-- Integrated comprehensive financial requirement enforcement across loan application restrictions
-- Enhanced user experience with dynamic capital share status tracking in dashboard and loan interfaces
-- Added standardized capital share amount processing (10,000 units) with enhanced UI visual indicators
-- Implemented real-time monitoring capabilities with automatic status updates and dynamic restrictions
-- Added new administrative interface for capital share management with payment tracking
-- Enhanced dashboard integration with real-time capital share status display
-- Implemented dynamic loan restrictions based on capital share status
+- Enhanced calculation logic with transaction-based approach for more accurate capital shares tracking
+- Implemented standardized 10,000-unit capital share requirement across all members
+- Added comprehensive transaction history tracking with member-specific subcollections
+- Improved payment status determination with real-time transaction aggregation
+- Enhanced administrative interface with detailed transaction management
+- Integrated transaction-based validation for financial operations
+- Added member-specific capital share transaction collections for scalability
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -53,7 +52,7 @@
 
 The Capital Shares Management System is a comprehensive cooperative management platform built with Next.js and Firebase. This system manages member capital shares, financial transactions, member registration, and administrative workflows for SAMPA Transport Service Cooperative. The platform provides a centralized solution for managing cooperative member relationships, financial obligations, and operational activities.
 
-**Updated** The system has been significantly enhanced with real-time monitoring capabilities, comprehensive financial requirement enforcement, and improved user experience through dynamic capital share status tracking. The new useCapitalShare hook enables live updates of capital share contributions across all system interfaces.
+**Updated** The system has been significantly enhanced with a transaction-based approach that provides more accurate capital shares tracking and payment status determination. The new implementation features standardized calculation logic with member-specific transaction collections, real-time status updates, and comprehensive administrative controls for managing capital share payments.
 
 ## System Architecture
 
@@ -69,11 +68,15 @@ useCapitalShare[useCapitalShare Hook]
 DynamicDashboard[Dynamic Dashboard]
 LoanInterface[Loan Application Interface]
 AdminCapitalShares[Admin Capital Shares Interface]
+MemberModal[Member Payment Modal]
+TransactionTracking[Transaction Tracking]
 end
 subgraph "Real-Time Monitoring"
 RealTime[Real-Time Listeners]
 Firestore[(Firebase Firestore)]
 CollectionUpdates[Collection Updates]
+MemberCollections[Member-specific Collections]
+CapitalShareTransactions[capitalShareTransactions Subcollection]
 end
 subgraph "Backend Services"
 API[API Routes]
@@ -81,6 +84,7 @@ Auth[Authentication Service]
 Permissions[Permission System]
 LoanRestrictions[Loan Application Restrictions]
 SavingsValidation[Savings Transaction Validation]
+PaymentProcessing[Payment Processing Engine]
 end
 subgraph "Data Layer"
 Firestore[(Firebase Firestore)]
@@ -103,6 +107,8 @@ RealTime --> Firestore
 DynamicDashboard --> useCapitalShare
 LoanInterface --> useCapitalShare
 AdminCapitalShares --> useCapitalShare
+MemberModal --> PaymentProcessing
+PaymentProcessing --> CapitalShareTransactions
 API --> Firestore
 Auth --> Firestore
 Permissions --> Firestore
@@ -135,6 +141,7 @@ The architecture consists of several key layers with enhanced real-time monitori
 - **Monitoring Layer**: useCapitalShare hook providing continuous capital share status tracking
 - **Security Layer**: Authentication and authorization mechanisms with dynamic restrictions
 - **Integration Layer**: Email services, external libraries, and notification systems
+- **Payment Processing Layer**: Modal-based payment management with transaction tracking and member-specific collections
 
 **Section sources**
 - [lib/firebase.ts:1-345](file://lib/firebase.ts#L1-345)
@@ -223,7 +230,17 @@ object paymentInfo
 number capitalShare
 datetime paymentDate
 }
+CAPITAL_SHARE_TRANSACTIONS {
+string id PK
+number amount
+string date
+string receiptNumber
+string type
+string recordedBy
+datetime createdAt
+}
 MEMBERS ||--o{ PAYMENT_INFO : contains
+MEMBERS ||--o{ CAPITAL_SHARE_TRANSACTIONS : contains
 ```
 
 **Diagram sources**
@@ -255,6 +272,9 @@ MemberRegistration --> CertificateService[Certificate Service]
 MemberRegistration --> EmailService[Email Service]
 DynamicDashboard --> RealTimeCapitalShare[Real-Time Capital Share Display]
 LoanInterface --> CapitalShareRestrictions[Capital Share Restrictions]
+MemberModal --> PaymentProcessing[Payment Processing Engine]
+MemberModal --> TransactionTracking[Transaction Tracking]
+MemberModal --> MemberCollections[Member Collections]
 ```
 
 **Diagram sources**
@@ -297,7 +317,7 @@ DisplayTable --> End
 **Diagram sources**
 - [app/admin/capital-shares/page.tsx:18-313](file://app/admin/capital-shares/page.tsx#L18-313)
 
-**Updated** The system now implements standardized capital share processing with a fixed required amount of 10,000 units for all members, providing consistent financial tracking across the cooperative with real-time updates.
+**Updated** The system now implements standardized capital share processing with a fixed required amount of 10,000 units for all members, providing consistent financial tracking across the cooperative with real-time updates. The new modal-based interface allows administrators to manage individual member payments with transaction tracking and member-specific collections.
 
 The system tracks five key metrics with enhanced financial visibility:
 - **Total Capital Shares**: Sum of all member capital share amounts
@@ -316,7 +336,7 @@ The system implements a sophisticated payment status tracking mechanism with sta
 | **Partial** | Partial payment received (0 < capitalShare < 10,000 units) | 🟡 Yellow Badge | `capitalShare > 0 && capitalShare < REQUIRED_CAPITAL_SHARE` |
 | **Pending** | No payment received yet (capitalShare = 0) | 🟠 Orange Badge | `capitalShare = 0` |
 
-**Updated** The status determination logic has been enhanced with standardized processing that treats all members equally with a 10,000-unit required capital share amount, improving fairness and consistency across the cooperative with real-time monitoring capabilities.
+**Updated** The status determination logic has been enhanced with standardized processing that treats all members equally with a 10,000-unit required capital share amount, improving fairness and consistency across the cooperative with real-time monitoring capabilities. The new modal interface provides detailed transaction history for each member.
 
 ### New Financial Tracking Features
 
@@ -351,7 +371,7 @@ The capital shares table now displays four additional columns for comprehensive 
 | **Remaining Balance** | Outstanding amount to reach 10,000 units | Currency format (PHP) | Red for positive balances, Green for zero |
 | **Status** | Payment status classification | Color-coded badges | Green for Paid, Yellow for Partial, Orange for Pending |
 
-**Updated** The table now includes color-coded visual indicators that provide immediate financial insight, with red text for outstanding balances and green text for fully paid amounts, all updated in real-time through the useCapitalShare hook.
+**Updated** The table now includes color-coded visual indicators that provide immediate financial insight, with red text for outstanding balances and green text for fully paid amounts, all updated in real-time through the useCapitalShare hook. Each row now includes a payment button for quick transaction recording.
 
 **Section sources**
 - [app/admin/capital-shares/page.tsx:18-313](file://app/admin/capital-shares/page.tsx#L18-313)
@@ -447,7 +467,7 @@ UserDocument --> MemberDocument : linked by userId
 - [lib/userMemberService.ts:14-289](file://lib/userMemberService.ts#L14-289)
 - [hooks/useCapitalShare.ts:7-13](file://hooks/useCapitalShare.ts#L7-13)
 
-**Updated** The member documents now include enhanced paymentInfo objects with standardized capital share processing, ensuring consistent financial tracking across all cooperative members with real-time updates.
+**Updated** The member documents now include enhanced paymentInfo objects with standardized capital share processing, ensuring consistent financial tracking across all cooperative members with real-time updates. The new modal interface allows administrators to manage individual member payments with transaction history.
 
 **Section sources**
 - [components/admin/MemberRegistrationModal.tsx:1-800](file://components/admin/MemberRegistrationModal.tsx#L1-800)
@@ -490,7 +510,7 @@ The system supports two primary transaction types with enhanced capital share pr
 | **Deposit** | Money added to member account | Increases balance | Can contribute to capital share payments |
 | **Withdrawal** | Money removed from member account | Decreases balance | May affect remaining capital share balance |
 
-**Updated** The transaction system now integrates seamlessly with capital share processing, allowing savings deposits to directly contribute toward meeting the standardized 10,000-unit capital share requirement with real-time status updates.
+**Updated** The transaction system now integrates seamlessly with capital share processing, allowing savings deposits to directly contribute toward meeting the standardized 10,000-unit capital share requirement with real-time status updates. The new modal interface provides comprehensive transaction tracking with member-specific collections.
 
 **Section sources**
 - [lib/savingsService.ts:1-669](file://lib/savingsService.ts#L1-669)
@@ -615,7 +635,7 @@ The permission system provides granular control over system functionality with e
 | **Export Data** | Export system data | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **Manage Capital Shares** | Monitor and manage capital share payments | ✅ | ✅ | ✅ | ❌ | ❌ |
 
-**Updated** The permission system now includes enhanced capital share management capabilities with real-time monitoring and dynamic restrictions based on capital share status.
+**Updated** The permission system now includes enhanced capital share management capabilities with real-time monitoring and dynamic restrictions based on capital share status. Administrators can now manage individual member payments through the modal interface.
 
 **Section sources**
 - [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-226)
@@ -669,8 +689,9 @@ The system implements comprehensive data validation with enhanced capital share 
 - **Document References**: Maintains referential integrity across collections
 - **Capital Share Validation**: Ensures standardized 10,000-unit requirement processing
 - **Real-Time Updates**: Automatic synchronization of capital share status across all interfaces
+- **Member Collections**: Individual member-specific transaction collections for efficient querying
 
-**Updated** The data validation system now includes enhanced capital share processing with real-time monitoring, ensuring all members meet the standardized 10,000-unit capital share requirement consistently with live status updates.
+**Updated** The data validation system now includes enhanced capital share processing with real-time monitoring, ensuring all members meet the standardized 10,000-unit capital share requirement consistently with live status updates. Member-specific collections enable efficient transaction querying and payment tracking.
 
 **Section sources**
 - [lib/firebase.ts:1-345](file://lib/firebase.ts#L1-345)
@@ -777,7 +798,7 @@ The real-time monitoring system provides comprehensive capital share tracking wi
 - **Notification System**: Real-time alerts for status changes and payment updates
 - **Performance Optimization**: Efficient real-time listeners with automatic cleanup
 
-**Updated** The real-time monitoring system ensures that all capital share status changes are immediately reflected across the entire system, providing users with accurate, up-to-date information about their financial obligations.
+**Updated** The real-time monitoring system ensures that all capital share status changes are immediately reflected across the entire system, providing users with accurate, up-to-date information about their financial obligations. The new modal interface provides comprehensive transaction tracking with real-time updates.
 
 **Section sources**
 - [hooks/useCapitalShare.ts:1-115](file://hooks/useCapitalShare.ts#L1-115)
@@ -831,7 +852,7 @@ The system implements comprehensive loan application restrictions based on capit
 - **Contact Information**: Direct links to cooperative office for assistance
 - **Alternative Actions**: Guidance on how to resolve restriction issues
 
-**Updated** The loan application restrictions system now operates in real-time, automatically enforcing financial requirements based on the latest capital share status, ensuring compliance with cooperative policies while providing clear guidance to users.
+**Updated** The loan application restrictions system now operates in real-time, automatically enforcing financial requirements based on the latest capital share status, ensuring compliance with cooperative policies while providing clear guidance to users. The modal interface provides comprehensive payment tracking and transaction history.
 
 **Section sources**
 - [app/loan/page.tsx:370-569](file://app/loan/page.tsx#L370-569)
@@ -851,6 +872,7 @@ The system implements several performance optimization strategies with enhanced 
 - **Standardized Processing**: Optimized calculations for consistent 10,000-unit capital share amounts
 - **Real-Time Listeners**: Efficient Firestore listeners with automatic cleanup
 - **Memory Management**: Proper cleanup of real-time listeners on component unmount
+- **Member Collections**: Efficient member-specific transaction querying with subcollections
 
 ### Frontend Performance
 
@@ -864,8 +886,9 @@ The frontend implements performance best practices with enhanced UI components a
 - **Color-Coded Rendering**: Optimized visual indicators for financial tracking
 - **Real-Time Updates**: Efficient real-time listeners with debouncing
 - **State Management**: Optimized state updates to minimize re-renders
+- **Modal Performance**: Optimized modal rendering with conditional loading
 
-**Updated** The frontend performance has been enhanced to handle the new table columns, color-coded visual indicators, and real-time updates efficiently, ensuring smooth user experience even with increased data complexity and real-time monitoring.
+**Updated** The frontend performance has been enhanced to handle the new table columns, color-coded visual indicators, and real-time updates efficiently, ensuring smooth user experience even with increased data complexity and real-time monitoring. The modal interface is optimized for performance with lazy loading and efficient state management.
 
 ## Troubleshooting Guide
 
@@ -911,6 +934,14 @@ The frontend implements performance best practices with enhanced UI components a
 - **Issue**: Savings transactions being rejected despite having capital share payments
 - **Solution**: Verify checkCapitalShareStatus function, check member paymentInfo structure, confirm real-time status updates
 
+**Payment Modal Issues**
+- **Issue**: Payment modal not opening or transactions not recording
+- **Solution**: Verify member selection, check transaction submission logic, confirm Firestore write permissions
+
+**Transaction History Loading Issues**
+- **Issue**: Transaction history not loading in modal
+- **Solution**: Verify member ID resolution, check subcollection access permissions, confirm Firestore query syntax
+
 **Section sources**
 - [lib/auth.tsx:366-372](file://lib/auth.tsx#L366-372)
 - [lib/userMemberService.ts:101-200](file://lib/userMemberService.ts#L101-200)
@@ -929,6 +960,9 @@ The Capital Shares Management System provides a comprehensive solution for coope
 - **Dynamic Restrictions**: Automatic enforcement of loan application restrictions based on real-time capital share status
 - **Comprehensive Financial Requirements**: Strict enforcement of 10,000-unit capital share requirement with immediate policy compliance
 - **Enhanced User Experience**: Real-time feedback and progressive disclosure of restrictions improve user understanding
+- **Modal-Based Payment Management**: Complete payment processing system with transaction tracking and member-specific collections
+- **Real-Time Transaction Updates**: Live updates of payment history and status changes
+- **Member-Specific Collections**: Efficient querying and management of individual member transactions
 
 Key strengths of the system include:
 
@@ -939,5 +973,8 @@ Key strengths of the system include:
 - **Real-Time User Experience**: Intuitive administration and member experiences with immediate feedback and dynamic restrictions
 - **Consistent Financial Standards**: Fair and transparent capital share requirements across all cooperative members with real-time enforcement
 - **Automatic Compliance**: Dynamic restrictions ensure policy adherence without manual intervention
+- **Complete Payment Lifecycle**: From registration through payment processing to transaction tracking
+- **Efficient Data Management**: Member-specific collections enable scalable transaction management
+- **Seamless Integration**: Cohesive experience across all system interfaces with real-time synchronization
 
-The system provides a solid foundation for SAMPA Transport Service Cooperative's operational needs while maintaining flexibility for future enhancements and feature additions. The enhanced capital share management capabilities ensure fair treatment of all members while providing administrators with comprehensive tools for financial oversight and reporting. The real-time monitoring and dynamic restriction features create a seamless user experience that promotes compliance and financial responsibility among cooperative members.
+The system provides a solid foundation for SAMPA Transport Service Cooperative's operational needs while maintaining flexibility for future enhancements and feature additions. The enhanced capital share management capabilities ensure fair treatment of all members while providing administrators with comprehensive tools for financial oversight and reporting. The real-time monitoring and dynamic restriction features create a seamless user experience that promotes compliance and financial responsibility among cooperative members. The new modal-based payment management system with transaction tracking provides administrators with complete visibility into member financial activities while maintaining data integrity and security.
