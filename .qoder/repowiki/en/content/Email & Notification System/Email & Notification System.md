@@ -3,7 +3,6 @@
 <cite>
 **Referenced Files in This Document**
 - [emailService.ts](file://lib/emailService.ts)
-- [email.js](file://lib/email.js)
 - [transactionReceiptService.ts](file://lib/transactionReceiptService.ts)
 - [certificateService.ts](file://lib/certificateService.ts)
 - [firebase.ts](file://lib/firebase.ts)
@@ -23,6 +22,8 @@
 - Integrated loan approval process with automated email notifications
 - Enhanced configuration management with Firestore-backed EmailJS settings
 - Added comprehensive error handling and logging for email delivery failures
+- **Updated** Enhanced email service with new Firestore-based configuration system, dynamic template loading, and expanded notification functions including depositApplicationMessage() and withdrawalApplicationMessage()
+- **Updated** Added comprehensive email service configuration documentation covering multi-template support and improved error handling
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -43,7 +44,7 @@
 ## Introduction
 This document describes the enhanced Email & Notification System in the SAMPA Cooperative Management Platform. The system now features a comprehensive EmailJS integration with advanced template management, automated certificate generation, transaction receipt notifications, and seamless loan approval workflows. The system provides reliable email delivery through centralized configuration management, robust error handling, and comprehensive logging for monitoring and troubleshooting.
 
-**Updated** Enhanced with comprehensive EmailJS template system, certificate generation workflow, transaction receipt automation, and loan approval integration.
+**Updated** Enhanced with comprehensive EmailJS template system, certificate generation workflow, transaction receipt automation, and loan approval integration with dynamic configuration loading from Firestore. Added new financial transaction notification functions including depositApplicationMessage() and withdrawalApplicationMessage() for comprehensive savings management notifications.
 
 ## Project Structure
 The email and notification system spans multiple specialized components with clear separation of concerns:
@@ -84,27 +85,28 @@ EmailJSConfig --> Env
 ```
 
 **Diagram sources**
-- [emailService.ts:1-314](file://lib/emailService.ts#L1-L314)
+- [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
 - [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
-- [LoanRequestsManager.tsx:1-800](file://components/admin/LoanRequestsManager.tsx#L1-L800)
-- [savingsService.ts:1-551](file://lib/savingsService.ts#L1-L551)
+- [LoanRequestsManager.tsx:1-200](file://components/admin/LoanRequestsManager.tsx#L1-L200)
+- [savingsService.ts:1-200](file://lib/savingsService.ts#L1-L200)
 
 ## Core Components
 The enhanced system consists of several interconnected components:
 
-- **Enhanced EmailJS Service**: Comprehensive template system supporting member registration, loan approvals, payment reminders, and certificate notifications
-- **Advanced Certificate Generation**: PDF creation with official cooperative branding and automated email notification workflow
-- **Transaction Receipt System**: Automated financial notifications for loan payments and savings deposits with duplicate prevention
-- **Loan Approval Integration**: Seamless email notifications for loan application decisions with detailed terms
-- **Multi-tier Configuration Management**: Centralized EmailJS settings with Firestore backup and environment variable fallback
-- **Comprehensive Logging System**: Complete audit trail of all email delivery attempts with success/failure tracking
+- **Enhanced EmailJS Service**: Comprehensive template system supporting member registration, loan approvals, payment reminders, certificate notifications, and financial transaction notifications with dynamic configuration loading
+- **Advanced Certificate Generation**: PDF creation with official cooperative branding and automated email notification workflow with improved URL handling
+- **Transaction Receipt System**: Automated financial notifications for loan payments and savings deposits with duplicate prevention and enhanced error handling
+- **Loan Approval Integration**: Seamless email notifications for loan application decisions with detailed terms and improved message formatting
+- **Multi-tier Configuration Management**: Centralized EmailJS settings with Firestore backup and environment variable fallback with caching optimization
+- **Comprehensive Logging System**: Complete audit trail of all email delivery attempts with success/failure tracking and structured error reporting
 - **Robust Error Handling**: Structured error responses with detailed failure analysis and graceful degradation
+- **Expanded Financial Transaction Notifications**: New deposit and withdrawal application message functions for comprehensive savings management communication
 
-**Updated** Added comprehensive template system, certificate generation workflow, and transaction receipt automation.
+**Updated** Added comprehensive template system, certificate generation workflow, transaction receipt automation, enhanced configuration management with dynamic loading, and new financial transaction notification functions.
 
 **Section sources**
-- [emailService.ts:1-314](file://lib/emailService.ts#L1-L314)
+- [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
 - [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 
@@ -132,9 +134,9 @@ TxReceipt-->>TxSvc : "Success/Failure Result"
 ```
 
 **Diagram sources**
-- [savingsService.ts:368-410](file://lib/savingsService.ts#L368-L410)
+- [savingsService.ts:400-497](file://lib/savingsService.ts#L400-L497)
 - [transactionReceiptService.ts:408-603](file://lib/transactionReceiptService.ts#L408-L603)
-- [emailService.ts:78-98](file://lib/emailService.ts#L78-L98)
+- [emailService.ts:78-102](file://lib/emailService.ts#L78-L102)
 
 ## Detailed Component Analysis
 
@@ -146,6 +148,7 @@ The email service now provides a comprehensive template system with specialized 
 - Loan Approval Templates: Detailed approval notifications with loan terms
 - Payment Templates: Receipt notifications for loan payments and savings deposits
 - Certificate Templates: Official membership certificate notifications
+- Financial Transaction Templates: Deposit applications, withdrawal applications, and loan rejection notifications
 - General Communication Templates: Basic email functionality
 
 **Enhanced Configuration Management**:
@@ -153,6 +156,7 @@ The email service now provides a comprehensive template system with specialized 
 - Automatic fallback to environment variables for development and testing
 - Client-side caching with promise-based configuration fetching
 - Real-time configuration updates without application restart
+- Separate template IDs for different notification types
 
 **Advanced Template Processing**:
 - Dynamic template selection based on notification type
@@ -171,6 +175,8 @@ class EmailService {
 +sendPaymentMessage(email, name, receiptNumber, amountReceived, remainingBalance) Promise<boolean>
 +approvedloanMessage(email, name, loanamount, interestRate, loanTerm, monthlyPayment) Promise<boolean>
 +rejectedLoanMessage(email, name, loanamount, interestRate, loanTerm, monthlyPayment, reasonsForRejection) Promise<boolean>
++depositApplicationMessage(email, name, deposit, depositotalAmount, depositControlNumber) Promise<boolean>
++withdrawalApplicationMessage(email, name, withdrawal, withdrawalControlNumber) Promise<boolean>
 }
 class EmailJSConfigManager {
 +getEmailJSConfig() Promise<Object>
@@ -186,10 +192,10 @@ EmailService --> TemplateProcessor : "uses"
 ```
 
 **Diagram sources**
-- [emailService.ts:78-314](file://lib/emailService.ts#L78-L314)
+- [emailService.ts:105-389](file://lib/emailService.ts#L105-L389)
 
 **Section sources**
-- [emailService.ts:1-314](file://lib/emailService.ts#L1-L314)
+- [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
 
 ### Certificate Generation and Notification Workflow
 The certificate service provides comprehensive PDF generation with integrated email notification:
@@ -202,7 +208,7 @@ The certificate service provides comprehensive PDF generation with integrated em
 
 **Notification Workflow**:
 - Automated email notification upon certificate generation completion
-- Download link generation with secure access controls
+- Download link generation with certificate URL
 - Status tracking with sent timestamps and delivery confirmation
 - Member certificate record management in Firestore
 
@@ -211,6 +217,11 @@ The certificate service provides comprehensive PDF generation with integrated em
 - Graceful degradation when certificate generation fails
 - Improved success/failure status reporting
 - Certificate URL validation and processing
+
+**Improved URL Configuration**:
+- Dynamic URL generation using `window.location.origin` for production environments
+- Fallback to localhost for server-side rendering scenarios
+- Enhanced certificate download link handling
 
 ```mermaid
 flowchart TD
@@ -237,6 +248,11 @@ The loan approval system provides seamless email notifications for loan applicat
 - Dynamic calculation of monthly payments and interest rates
 - Professional communication with cooperative branding
 
+**Enhanced Message Formatting**:
+- Improved approved loan message with better formatting and structure
+- Comprehensive rejected loan message with reasons for denial
+- Professional communication with clear loan terms and calculations
+
 **Integration Points**:
 - Loan approval workflow triggers email notifications
 - Loan rejection notifications with reasons for denial
@@ -250,7 +266,7 @@ The loan approval system provides seamless email notifications for loan applicat
 - Support contact information for loan inquiries
 
 **Section sources**
-- [LoanRequestsManager.tsx:435-442](file://components/admin/LoanRequestsManager.tsx#L435-L442)
+- [LoanRequestsManager.tsx:10-12](file://components/admin/LoanRequestsManager.tsx#L10-L12)
 
 ### Transaction Receipt System
 The transaction receipt system provides automated email notifications for financial activities:
@@ -273,6 +289,11 @@ The transaction receipt system provides automated email notifications for financ
 - Graceful degradation when email configuration is missing
 - Success/failure status tracking in email logs
 
+**Improved Configuration Management**:
+- Separate receipt template ID for transaction receipts
+- Enhanced client-side caching with promise-based configuration fetching
+- Better error handling for missing configuration fields
+
 ```mermaid
 flowchart TD
 TxEvent["Transaction Event"] --> CheckEligibility{"Eligible Role?"}
@@ -294,8 +315,7 @@ UpdateStatus --> Complete["Transaction Complete"]
 - [transactionReceiptService.ts:408-603](file://lib/transactionReceiptService.ts#L408-L603)
 
 **Section sources**
-- [transactionReceiptService.ts:235-406](file://lib/transactionReceiptService.ts#L235-L406)
-- [transactionReceiptService.ts:408-603](file://lib/transactionReceiptService.ts#L408-L603)
+- [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
 
 ## Enhanced Email Template System
 The system now supports a comprehensive template system with specialized functions for different notification types:
@@ -313,7 +333,8 @@ The system now supports a comprehensive template system with specialized functio
 
 **Financial Transaction Templates**:
 - `sendPaymentMessage()`: Payment receipt notifications
-- `sendSavingsDepositReceipt()`: Savings deposit confirmation emails
+- `depositApplicationMessage()`: Savings deposit confirmation emails with control numbers
+- `withdrawalApplicationMessage()`: Savings withdrawal confirmation emails with withdrawal numbers
 
 **Certificate Templates**:
 - `sendCertificateNotificationEmail()`: Official certificate notification emails
@@ -324,8 +345,14 @@ The system now supports a comprehensive template system with specialized functio
 - Error handling with detailed failure analysis
 - Template validation and variable mapping
 
+**Enhanced Features**:
+- Multiple template IDs for different notification types
+- Improved error handling and logging
+- Better configuration management with caching
+- Enhanced URL handling for production environments
+
 **Section sources**
-- [emailService.ts:101-314](file://lib/emailService.ts#L101-L314)
+- [emailService.ts:105-389](file://lib/emailService.ts#L105-L389)
 
 ## Certificate Generation and Notification Workflow
 The certificate generation service provides professional PDF creation with integrated notification workflow:
@@ -341,6 +368,11 @@ The certificate generation service provides professional PDF creation with integ
 - Download link generation with certificate URL
 - Status tracking with sent timestamps
 - Member certificate record management
+
+**Enhanced URL Configuration**:
+- Dynamic URL generation using `window.location.origin` for production environments
+- Fallback to localhost for server-side rendering scenarios
+- Improved certificate download link handling
 
 **Firestore Integration**:
 - Direct Firestore integration for certificate storage
@@ -361,6 +393,11 @@ The loan approval system provides seamless email notifications for loan applicat
 - Professional communication with cooperative branding and messaging
 - Integration with loan approval workflow in LoanRequestsManager
 
+**Enhanced Message Formatting**:
+- Improved approved loan message with better formatting and structure
+- Comprehensive rejected loan message with reasons for denial
+- Professional communication with clear loan terms and calculations
+
 **Rejection Notification Process**:
 - Automated email notifications for rejected loan applications
 - Clear communication of rejection reasons and next steps
@@ -374,7 +411,7 @@ The loan approval system provides seamless email notifications for loan applicat
 - Support contact information for loan inquiries
 
 **Section sources**
-- [LoanRequestsManager.tsx:435-442](file://components/admin/LoanRequestsManager.tsx#L435-L442)
+- [LoanRequestsManager.tsx:10-12](file://components/admin/LoanRequestsManager.tsx#L10-L12)
 
 ## Transaction Receipt System
 The transaction receipt system provides automated email notifications for financial activities:
@@ -397,9 +434,13 @@ The transaction receipt system provides automated email notifications for financ
 - Graceful degradation when email configuration is missing
 - Success/failure status tracking in email logs
 
+**Improved Configuration Management**:
+- Separate receipt template ID for transaction receipts
+- Enhanced client-side caching with promise-based configuration fetching
+- Better error handling for missing configuration fields
+
 **Section sources**
-- [transactionReceiptService.ts:235-406](file://lib/transactionReceiptService.ts#L235-L406)
-- [transactionReceiptService.ts:408-603](file://lib/transactionReceiptService.ts#L408-L603)
+- [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
 
 ## Email Configuration and Management
 The system features comprehensive email configuration management with centralized settings:
@@ -416,14 +457,19 @@ The system features comprehensive email configuration management with centralize
 - Development and production environment separation
 - Secure credential management with environment variable protection
 
-**Configuration Optimization**:
+**Enhanced Configuration Optimization**:
 - Client-side caching reduces Firestore calls for EmailJS configuration
 - Promise-based configuration fetching prevents duplicate requests
 - Lazy loading of configuration reduces initial page load time
 - Cached configuration invalidation on configuration changes
 
+**Improved Template Management**:
+- Separate template IDs for different notification types
+- Better error handling for missing template configurations
+- Enhanced configuration validation and error reporting
+
 **Section sources**
-- [emailService.ts:13-52](file://lib/emailService.ts#L13-L52)
+- [emailService.ts:13-72](file://lib/emailService.ts#L13-L72)
 - [transactionReceiptService.ts:8-81](file://lib/transactionReceiptService.ts#L8-L81)
 - [setup-emailjs-config.js:21-26](file://scripts/setup-emailjs-config.js#L21-L26)
 
@@ -436,17 +482,23 @@ The enhanced system includes comprehensive error handling and monitoring capabil
 - Status tracking (sent, failed) with detailed error messages
 - Timestamp-based audit trail for compliance and debugging
 
-**Error Analysis and Reporting**:
+**Enhanced Error Analysis and Reporting**:
 - Comprehensive error catching with detailed failure reporting
 - Structured error responses for debugging and monitoring
 - Graceful degradation when email configuration is missing
 - Success/failure status reporting for all email operations
 
-**Monitoring and Analytics**:
+**Improved Monitoring and Analytics**:
 - Transaction-specific email tracking with unique identifiers
 - Duplicate email prevention based on transaction IDs
 - Real-time status updates for email delivery attempts
 - Comprehensive analytics for email delivery performance
+
+**Enhanced Error Handling Features**:
+- Better error message extraction and formatting
+- Structured error reporting with detailed failure analysis
+- Graceful degradation when email configuration is missing
+- Success/failure status tracking in email logs
 
 **Section sources**
 - [transactionReceiptService.ts:132-153](file://lib/transactionReceiptService.ts#L132-L153)
@@ -474,8 +526,14 @@ The enhanced system incorporates several security measures:
 - Secure email delivery with proper authentication
 - Audit logging for all email operations
 
+**Enhanced Security Features**:
+- Better error handling to prevent information leakage
+- Improved configuration validation and sanitization
+- Enhanced certificate URL handling and processing
+- Better access control for email operations
+
 **Section sources**
-- [emailService.ts:55-68](file://lib/emailService.ts#L55-L68)
+- [emailService.ts:58-72](file://lib/emailService.ts#L58-L72)
 - [certificateService.ts:236-286](file://lib/certificateService.ts#L236-L286)
 
 ## Troubleshooting Guide
@@ -497,11 +555,19 @@ Enhanced troubleshooting capabilities for the improved email system:
 - **PDF Generation Failures**: Verify jsPDF and jspdf-autotable dependencies are properly installed
 - **Firestore Certificate Storage**: Check certificate URL format and base64 encoding
 - **Certificate Retrieval Errors**: Verify member document contains proper certificate data
+- **URL Configuration Issues**: Check certificate download URL generation for production environments
 
 **System Integration Problems**:
 - **Transaction Service Integration**: Verify transaction service properly calls receipt functions
 - **Loan Management Integration**: Check loan approval workflow triggers appropriate email notifications
 - **Savings Service Integration**: Ensure savings deposit completion triggers receipt emails
+- **Template ID Issues**: Verify correct template IDs are configured for different notification types
+
+**Enhanced Troubleshooting Features**:
+- Better error message extraction and formatting
+- Structured error reporting with detailed failure analysis
+- Enhanced configuration validation and error reporting
+- Improved logging and monitoring capabilities
 
 **Section sources**
 - [test-emailjs-config.js:19-68](file://scripts/test-emailjs-config.js#L19-L68)
@@ -512,12 +578,13 @@ Enhanced troubleshooting capabilities for the improved email system:
 The SAMPA platform now implements a robust, enterprise-grade email and notification system with significant enhancements:
 
 **Key Improvements**:
-- **Comprehensive Template System**: Specialized email templates for member registration, loan approvals, payments, and certificates
-- **Professional Certificate Generation**: PDF creation with official cooperative branding and automated notification workflow
-- **Automated Transaction Receipts**: Real-time email notifications for loan payments and savings deposits
-- **Seamless Loan Integration**: Automated email notifications for loan approval and rejection decisions
-- **Centralized Configuration Management**: Firestore-based EmailJS settings with automatic fallback
-- **Enhanced Error Handling**: Structured logging and graceful degradation
+- **Comprehensive Template System**: Specialized email templates for member registration, loan approvals, payments, certificates, and financial transactions
+- **Professional Certificate Generation**: PDF creation with official cooperative branding and automated notification workflow with improved URL handling
+- **Automated Transaction Receipts**: Real-time email notifications for loan payments and savings deposits with enhanced error handling
+- **Seamless Loan Integration**: Automated email notifications for loan approval and rejection decisions with improved message formatting
+- **Centralized Configuration Management**: Firestore-based EmailJS settings with automatic fallback and caching optimization
+- **Enhanced Error Handling**: Structured logging and graceful degradation with comprehensive error reporting
+- **Expanded Financial Transaction Notifications**: New deposit and withdrawal application message functions for comprehensive savings management communication
 - **Improved User Experience**: Reliable email delivery without impacting primary business operations
 
 **Technical Achievements**:
@@ -527,6 +594,8 @@ The SAMPA platform now implements a robust, enterprise-grade email and notificat
 - Seamless integration with loan approval workflow and financial services
 - Robust error handling and user-friendly failure responses
 - Real-time email delivery tracking and analytics
+- Enhanced URL configuration for production environments
+- Comprehensive financial transaction notification coverage
 
 **Future Enhancement Opportunities**:
 - Advanced email scheduling and queuing systems
@@ -535,3 +604,6 @@ The SAMPA platform now implements a robust, enterprise-grade email and notificat
 - Integration with external email providers for production deployment
 - Advanced retry mechanisms with exponential backoff
 - Enhanced certificate customization and branding options
+- Real-time configuration updates with hot reloading capabilities
+- Expanded template system for additional notification types
+- Integration with SMS notifications for critical alerts

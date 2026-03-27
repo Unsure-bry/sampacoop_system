@@ -24,17 +24,20 @@
 - [components/admin/LoanRequestsManager.tsx](file://components/admin/LoanRequestsManager.tsx)
 - [firebase.indexes.json](file://firebase.indexes.json)
 - [scripts/fix-loan-calculations.js](file://scripts/fix-loan-calculations.js)
+- [app/setup-password/page.tsx](file://app/setup-password/page.tsx)
+- [app/api/setup-password/route.ts](file://app/api/setup-password/route.ts)
+- [components/auth/AuthLayout.tsx](file://components/auth/AuthLayout.tsx)
+- [components/auth/Input.tsx](file://components/auth/Input.tsx)
+- [components/auth/Button.tsx](file://components/auth/Button.tsx)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced loan calculation system to aggregate data from both loans and loanRequests collections
-- Implemented improved approved loan counting with fallback mechanisms
-- Added new useFirestoreData hook for efficient data fetching without composite indexes
-- Updated dashboard components to handle dual-collection loan data aggregation
-- Enhanced reporting system with comprehensive loan status tracking
-- Added comprehensive loan monitoring capabilities with improved error handling
-- Implemented loan calculation correction script for legacy data fixes
+- Integrated React Suspense for setup-password page with loading indicators, improving user experience during initial page rendering
+- Enhanced frontend infrastructure with improved deployment requirements through Suspense-based loading states
+- Added comprehensive password setup functionality with secure password hashing and validation
+- Implemented robust error handling and user feedback mechanisms for password setup operations
+- Enhanced authentication flow with proper loading states and fallback components
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -45,15 +48,17 @@
 6. [Enhanced Loan Calculation System](#enhanced-loan-calculation-system)
 7. [Loan Monitoring and Tracking](#loan-monitoring-and-tracking)
 8. [Error Handling Improvements](#error-handling-improvements)
-9. [Dependency Analysis](#dependency-analysis)
-10. [Performance Considerations](#performance-considerations)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
+9. [Frontend Infrastructure Enhancements](#frontend-infrastructure-enhancements)
+10. [Password Setup System](#password-setup-system)
+11. [Dependency Analysis](#dependency-analysis)
+12. [Performance Considerations](#performance-considerations)
+13. [Troubleshooting Guide](#troubleshooting-guide)
+14. [Conclusion](#conclusion)
 
 ## Introduction
 This document provides comprehensive documentation for the SAMPA Cooperative Dashboard System. The system consists of multiple role-based dashboards integrated with Firebase for data persistence, authentication, and real-time updates. It supports member, driver, operator, and administrative roles, each with tailored views and capabilities. The dashboard system emphasizes responsive design, real-time notifications, savings tracking, and loan management functionalities.
 
-**Updated** Enhanced with improved loan calculation system that aggregates data from both loans and loanRequests collections to ensure accurate reporting regardless of where loan records are stored. The system now features comprehensive loan monitoring capabilities with enhanced error handling and improved data accuracy.
+**Updated** Enhanced with improved loan calculation system that aggregates data from both loans and loanRequests collections to ensure accurate reporting regardless of where loan records are stored. The system now features comprehensive loan monitoring capabilities with enhanced error handling, improved data accuracy, and modern React Suspense integration for better user experience during initial page rendering.
 
 ## Project Structure
 The dashboard system follows a modular structure with role-specific pages, shared components, and utility libraries:
@@ -67,33 +72,38 @@ C --> D[Dashboard Pages]
 D --> E[User Dashboards]
 D --> F[Admin Dashboards]
 D --> G[Driver/Operator Dashboards]
-E --> H[Dynamic Dashboard]
-E --> I[Active Savings]
-E --> J[Notifications]
-F --> K[Executive Dashboard]
-F --> L[Admin Sidebar]
-F --> M[Enhanced Loan Calculations]
-G --> N[Driver Dashboard]
-G --> O[Operator Dashboard]
+D --> H[Setup Password Page]
+E --> I[Dynamic Dashboard]
+E --> J[Active Savings]
+E --> K[Notifications]
+F --> L[Executive Dashboard]
+F --> M[Admin Sidebar]
+F --> N[Enhanced Loan Calculations]
+G --> O[Driver Dashboard]
+G --> P[Operator Dashboard]
+H --> Q[React Suspense Loading]
+H --> R[Secure Password Setup]
 end
 subgraph "Backend Services"
-P[Firebase Firestore]
-Q[Auth API Route]
-R[Savings Service]
-S[User-Member Service]
-T[Loan Data Aggregation]
-U[Custom Hooks]
-V[Loan Calculation Script]
+S[Firebase Firestore]
+T[Auth API Route]
+U[Savings Service]
+V[User-Member Service]
+W[Loan Data Aggregation]
+X[Custom Hooks]
+Y[Loan Calculation Script]
+Z[Password Setup API]
 end
-D --> P
-P --> T
-P --> U
-Q --> P
-R --> P
-S --> P
-T --> P
-U --> P
-V --> P
+D --> S
+S --> W
+S --> X
+T --> S
+U --> S
+V --> S
+W --> S
+X --> S
+Y --> S
+Z --> S
 ```
 
 **Diagram sources**
@@ -101,6 +111,7 @@ V --> P
 - [middleware.ts:5-55](file://middleware.ts#L5-L55)
 - [lib/firebase.ts:90-307](file://lib/firebase.ts#L90-L307)
 - [app/admin/dashboard/page.tsx:235-349](file://app/admin/dashboard/page.tsx#L235-L349)
+- [app/setup-password/page.tsx:209-221](file://app/setup-password/page.tsx#L209-L221)
 - [scripts/fix-loan-calculations.js:1-140](file://scripts/fix-loan-calculations.js#L1-L140)
 
 **Section sources**
@@ -125,10 +136,14 @@ The savings system tracks member deposits, withdrawals, and balances with real-t
 ### Administrative Dashboards
 Multiple administrative dashboards provide executive summaries, member management, loan oversight, and system administration capabilities.
 
+### Frontend Infrastructure
+**New** The system now features modern React Suspense integration that provides seamless loading states and improved user experience during initial page rendering. This infrastructure enhancement ensures better deployment requirements and more responsive user interfaces.
+
 **Section sources**
 - [lib/auth.tsx:158-680](file://lib/auth.tsx#L158-L680)
 - [components/user/DynamicDashboard.tsx:36-146](file://components/user/DynamicDashboard.tsx#L36-L146)
 - [components/user/ActiveSavings.tsx:18-363](file://components/user/ActiveSavings.tsx#L18-L363)
+- [app/setup-password/page.tsx:209-221](file://app/setup-password/page.tsx#L209-L221)
 
 ## Architecture Overview
 The dashboard system employs a client-server architecture with Firebase as the primary backend service:
@@ -140,25 +155,21 @@ participant Auth as "Auth Provider"
 participant API as "Auth API Route"
 participant Firebase as "Firebase Firestore"
 participant Dashboard as "Dashboard Page"
-participant LoanAggregator as "Loan Data Aggregator"
+participant SetupPassword as "Setup Password Page"
+participant Suspense as "React Suspense"
 Browser->>Auth : Load Application
 Auth->>Firebase : Check Cookie Authentication
 Firebase-->>Auth : User Data
 Auth->>Dashboard : Provide User Context
-Browser->>API : Login Request
-API->>Firebase : Verify Credentials
-Firebase-->>API : User Validation
-API->>Browser : Authentication Response
-Browser->>Dashboard : Redirect to Dashboard
-Dashboard->>Firebase : Load Dynamic Data
-Firebase-->>Dashboard : Reminders & Events
-Dashboard->>LoanAggregator : Aggregate Loan Data
-LoanAggregator->>Firebase : Query Loans Collection
-Firebase-->>LoanAggregator : Loan Records
-LoanAggregator->>Firebase : Query Loan Requests Collection
-Firebase-->>LoanAggregator : Loan Request Records
-LoanAggregator->>Dashboard : Combined Loan Statistics
-Dashboard->>Browser : Render Dashboard
+Browser->>SetupPassword : Navigate to Setup Password
+SetupPassword->>Suspense : Initialize Suspense
+Suspense->>Suspense : Show Loading Indicator
+SetupPassword->>API : Submit Password Setup
+API->>Firebase : Update User Document
+Firebase-->>API : Confirmation
+API->>SetupPassword : Success Response
+SetupPassword->>Suspense : Hide Loading Indicator
+Suspense->>Browser : Render Content
 ```
 
 **Diagram sources**
@@ -166,8 +177,9 @@ Dashboard->>Browser : Render Dashboard
 - [app/api/auth/route.ts:48-248](file://app/api/auth/route.ts#L48-L248)
 - [app/dashboard/page.tsx:11-361](file://app/dashboard/page.tsx#L11-L361)
 - [app/admin/dashboard/page.tsx:337-349](file://app/admin/dashboard/page.tsx#L337-L349)
+- [app/setup-password/page.tsx:209-221](file://app/setup-password/page.tsx#L209-L221)
 
-The architecture implements role-based routing through middleware that validates user access to specific dashboard areas. The system uses a unified authentication approach where user roles determine dashboard access and navigation paths.
+The architecture implements role-based routing through middleware that validates user access to specific dashboard areas. The system uses a unified authentication approach where user roles determine dashboard access and navigation paths. **Updated** The new React Suspense integration provides seamless loading states for better user experience.
 
 **Section sources**
 - [middleware.ts:5-55](file://middleware.ts#L5-L55)
@@ -470,6 +482,115 @@ The system provides multiple layers of error recovery:
 - [hooks/useFirestoreData.ts:65-125](file://hooks/useFirestoreData.ts#L65-L125)
 - [scripts/fix-loan-calculations.js:20-140](file://scripts/fix-loan-calculations.js#L20-L140)
 
+## Frontend Infrastructure Enhancements
+
+**New Section** The dashboard system now features modern React Suspense integration that provides seamless loading states and improved user experience during initial page rendering:
+
+### React Suspense Integration
+The system implements React Suspense for better loading state management:
+
+```mermaid
+flowchart TD
+A[Setup Password Page Load] --> B[Initialize Suspense]
+B --> C[Render Fallback Component]
+C --> D[Show Loading Spinner]
+D --> E[Fetch Initial Data]
+E --> F{Data Ready?}
+F --> |Yes| G[Render Main Content]
+F --> |No| H[Continue Showing Loading]
+G --> I[User Can Interact]
+H --> E
+I --> J[Hide Loading State]
+```
+
+### Loading State Management
+The system provides comprehensive loading state management:
+
+1. **Initial Loading**: Suspense fallback displays loading spinner during initial render
+2. **Form Submission**: Loading states during password setup operations
+3. **Network Requests**: Progress indicators for API calls
+4. **Error States**: Graceful degradation when loading fails
+
+### Enhanced User Experience
+**Updated** The React Suspense integration improves user experience through:
+
+- **Seamless Transitions**: Smooth loading states without blank screens
+- **Progress Feedback**: Visual indicators for ongoing operations
+- **Responsive Design**: Loading states adapt to different screen sizes
+- **Accessibility**: Proper ARIA labels and keyboard navigation support
+
+### Deployment Infrastructure
+**Updated** The enhanced frontend infrastructure supports better deployment requirements:
+
+- **Code Splitting**: Suspense enables better code splitting strategies
+- **Bundle Optimization**: Improved bundle loading with lazy components
+- **Server Rendering**: Better SSR compatibility with Suspense
+- **Error Boundaries**: Enhanced error boundary integration
+
+**Section sources**
+- [app/setup-password/page.tsx:209-221](file://app/setup-password/page.tsx#L209-L221)
+- [components/auth/AuthLayout.tsx:1-23](file://components/auth/AuthLayout.tsx#L1-L23)
+- [components/auth/Button.tsx:31-47](file://components/auth/Button.tsx#L31-L47)
+
+## Password Setup System
+
+**New Section** The dashboard system now includes a comprehensive password setup functionality with secure password handling and validation:
+
+### Secure Password Hashing
+The system implements robust password security measures:
+
+```mermaid
+flowchart TD
+A[User Submits Password] --> B[Validate Input]
+B --> C{Input Valid?}
+C --> |No| D[Show Validation Errors]
+C --> |Yes| E[Generate Random Salt]
+E --> F[Hash Password with Salt]
+F --> G[Store Hashed Password]
+G --> H[Update User Document]
+H --> I[Mark Password as Set]
+I --> J[Success Response]
+D --> K[User Can Retry]
+```
+
+### Password Validation
+The system enforces strict password requirements:
+
+1. **Length Requirements**: Minimum 8 characters
+2. **Complexity Requirements**: Must contain uppercase, lowercase, and numbers
+3. **Format Validation**: Proper email format validation
+4. **Duplicate Prevention**: Prevents setting passwords multiple times
+
+### Security Implementation
+**Updated** The password setup system implements industry-standard security practices:
+
+- **Salted Hashing**: Uses random salt for each password hash
+- **PBKDF2 Algorithm**: Implements PBKDF2 with 100,000 iterations
+- **Secure Storage**: Stores only hashed passwords, never plaintext
+- **Access Control**: Validates user existence before allowing password setup
+
+### User Feedback and Error Handling
+**Updated** The system provides comprehensive user feedback:
+
+- **Real-time Validation**: Immediate feedback for form errors
+- **Loading States**: Visual indicators during password setup
+- **Success Notifications**: Confirmation messages upon successful setup
+- **Error Handling**: Graceful error handling with user-friendly messages
+
+### API Integration
+**Updated** The password setup API provides secure backend integration:
+
+- **Input Validation**: Comprehensive server-side validation
+- **Database Operations**: Safe user document updates
+- **Error Responses**: Standardized error responses
+- **Security Measures**: Protection against common attacks
+
+**Section sources**
+- [app/setup-password/page.tsx:94-132](file://app/setup-password/page.tsx#L94-L132)
+- [app/api/setup-password/route.ts:25-173](file://app/api/setup-password/route.ts#L25-L173)
+- [components/auth/Input.tsx:1-27](file://components/auth/Input.tsx#L1-L27)
+- [components/auth/Button.tsx:1-51](file://components/auth/Button.tsx#L1-L51)
+
 ## Dependency Analysis
 The dashboard system exhibits well-structured dependencies with clear separation of concerns:
 
@@ -491,31 +612,42 @@ subgraph "UI Layer"
 K[Dashboard Pages] --> L[Shared Components]
 L --> M[Admin Components]
 L --> N[User Components]
+L --> O[Auth Components]
 end
 subgraph "Service Layer"
-O[Savings Service] --> D
-P[User-Member Service] --> D
-Q[Loan Aggregation Service] --> D
-R[Custom Hooks] --> D
-S[Validation Service] --> C
-T[Loan Calculation Service] --> D
-U[Error Handling Service] --> D
+P[Savings Service] --> D
+Q[User-Member Service] --> D
+R[Loan Aggregation Service] --> D
+S[Custom Hooks] --> D
+T[Validation Service] --> C
+U[Loan Calculation Service] --> D
+V[Error Handling Service] --> D
+W[Password Setup Service] --> D
+X[React Suspense Manager] --> O
 end
 A --> D
 K --> O
 K --> P
 K --> Q
 K --> R
+K --> S
 M --> C
 N --> C
+O --> C
+O --> X
 Q --> I
 Q --> J
 R --> I
 R --> J
-T --> I
-T --> J
-U --> Q
-U --> T
+S --> I
+S --> J
+T --> C
+U --> I
+U --> J
+V --> Q
+V --> T
+W --> D
+X --> O
 ```
 
 **Diagram sources**
@@ -523,9 +655,10 @@ U --> T
 - [lib/firebase.ts:90-307](file://lib/firebase.ts#L90-L307)
 - [lib/savingsService.ts:1-534](file://lib/savingsService.ts#L1-L534)
 - [hooks/useFirestoreData.ts:1-182](file://hooks/useFirestoreData.ts#L1-L182)
+- [app/setup-password/page.tsx:209-221](file://app/setup-password/page.tsx#L209-L221)
 - [scripts/fix-loan-calculations.js:1-140](file://scripts/fix-loan-calculations.js#L1-L140)
 
-The dependency graph reveals a clean architecture where UI components depend on service layers, which in turn depend on the Firebase client. Authentication and validation services provide cross-cutting concerns that are reused throughout the application.
+The dependency graph reveals a clean architecture where UI components depend on service layers, which in turn depend on the Firebase client. Authentication and validation services provide cross-cutting concerns that are reused throughout the application. **Updated** The new React Suspense integration adds a dedicated layer for managing loading states and user experience improvements.
 
 **Section sources**
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
@@ -539,18 +672,21 @@ The dashboard system implements several performance optimization strategies:
 - **Conditional Rendering**: Components only fetch data when user context is available
 - **Efficient Queries**: Firebase queries are optimized with specific field filters and sorting
 - **Dual-Collection Processing**: Smart fallback mechanisms prevent unnecessary repeated queries
+- **React Suspense**: Provides better loading state management and improved perceived performance
 
 ### Caching and State Management
 - **Local State Caching**: Recent data is cached locally to reduce redundant API calls
 - **Background Updates**: Data refresh occurs when tabs become visible to maintain freshness
 - **Error Boundaries**: Graceful degradation when API calls fail
 - **Real-Time Listeners**: Custom hooks manage efficient real-time data synchronization
+- **Suspense Caching**: React Suspense provides built-in caching for suspended components
 
 ### Memory Management
 - **Cleanup Functions**: Event listeners and subscriptions are properly cleaned up
 - **Conditional Effects**: React effects only run when dependencies change
 - **Component Unmounting**: Resources are released when components unmount
 - **Client-Side Sorting**: Efficient sorting algorithms minimize memory overhead
+- **Suspense Cleanup**: Proper cleanup of suspense states and resources
 
 ### Enhanced Loan Calculation Performance
 **Updated** The new loan calculation system optimizes performance through:
@@ -565,6 +701,13 @@ The dashboard system implements several performance optimization strategies:
 - **Selective Logging**: Only critical errors trigger expensive logging operations
 - **Cache Optimization**: Error states are cached to prevent repeated failures
 - **Graceful Degradation**: System continues operating even when individual components fail
+
+### Frontend Infrastructure Performance
+**Updated** The React Suspense integration enhances performance through:
+- **Code Splitting**: Better chunk loading and lazy component initialization
+- **Memory Efficiency**: Suspense reduces memory overhead for loading states
+- **Rendering Optimization**: Improved component rendering performance
+- **Bundle Size**: Optimized bundle loading with Suspense-aware code splitting
 
 ## Troubleshooting Guide
 
@@ -596,6 +739,7 @@ Common authentication problems and solutions:
 - Monitor Firebase query performance
 - Implement pagination for large datasets
 - Optimize component rendering with proper keys
+- **Updated** Check React Suspense loading states for performance issues
 
 **Enhanced Loan Calculation Issues**
 **Updated** Common loan calculation problems and solutions:
@@ -665,6 +809,48 @@ Common authentication problems and solutions:
 - Check data processing pipeline for errors
 - Ensure analytics data is being generated and stored
 
+### Frontend Infrastructure Issues
+**Updated** Troubleshooting React Suspense and loading state problems:
+
+**Suspense Not Working**
+- Verify React version supports Suspense
+- Check component structure for proper Suspense wrapping
+- Ensure fallback component renders correctly
+- Verify loading state management
+
+**Loading States Not Displaying**
+- Check Suspense fallback component implementation
+- Verify loading state variables are properly managed
+- Ensure proper error boundaries are configured
+- Check for component unmounting issues
+
+**Performance Issues with Suspense**
+- Verify proper code splitting implementation
+- Check for memory leaks in suspense states
+- Ensure proper cleanup of suspense resources
+- Verify bundle size optimization
+
+### Password Setup Issues
+**Updated** Troubleshooting password setup problems:
+
+**Password Not Setting**
+- Verify user exists in Firestore
+- Check password validation requirements
+- Ensure proper API endpoint access
+- Verify database update permissions
+
+**Hashing Errors**
+- Check PBKDF2 algorithm implementation
+- Verify salt generation process
+- Ensure proper error handling in hashing
+- Check for database connection issues
+
+**Security Issues**
+- Verify password requirements are met
+- Check for SQL injection prevention
+- Ensure proper input sanitization
+- Verify secure storage implementation
+
 **Section sources**
 - [lib/auth.tsx:197-348](file://lib/auth.tsx#L197-L348)
 - [lib/firebase.ts:148-240](file://lib/firebase.ts#L148-L240)
@@ -672,18 +858,26 @@ Common authentication problems and solutions:
 - [app/admin/dashboard/page.tsx:337-349](file://app/admin/dashboard/page.tsx#L337-L349)
 - [components/admin/OfficerDashboard.tsx:105-106](file://components/admin/OfficerDashboard.tsx#L105-L106)
 - [scripts/fix-loan-calculations.js:20-140](file://scripts/fix-loan-calculations.js#L20-L140)
+- [app/setup-password/page.tsx:209-221](file://app/setup-password/page.tsx#L209-L221)
+- [app/api/setup-password/route.ts:25-173](file://app/api/setup-password/route.ts#L25-L173)
 
 ## Conclusion
 The SAMPA Cooperative Dashboard System provides a robust, scalable foundation for cooperative financial services. The system successfully implements role-based access control, real-time data synchronization, and comprehensive transaction management. Its modular architecture supports easy maintenance and future enhancements while maintaining strong security practices through Firebase integration and proper validation layers.
 
 **Updated** The enhanced dashboard system now features sophisticated loan calculation capabilities that aggregate data from multiple collections, ensuring accurate reporting regardless of data storage location. The implementation of dual-collection processing, smart fallback mechanisms, and efficient real-time data synchronization creates a comprehensive solution for cooperative management and member engagement.
 
+**Updated** The integration of React Suspense for the setup-password page represents a significant improvement in user experience, providing seamless loading states and better initial page rendering performance. This modern frontend infrastructure enhancement ensures better deployment requirements and more responsive user interfaces.
+
 The addition of comprehensive loan monitoring capabilities significantly enhances the system's ability to track loan lifecycles from application to completion. The enhanced error handling mechanisms ensure data integrity and provide graceful degradation when issues occur. The loan calculation correction script addresses historical data issues, ensuring consistency across the entire loan portfolio.
 
 The new useFirestoreData hook eliminates the need for composite indexes while maintaining real-time updates, improving system performance and reducing infrastructure complexity. The refactored loan requests management system demonstrates best practices for efficient data fetching and user experience.
+
+**Updated** The comprehensive password setup system with secure hashing and validation provides robust authentication capabilities while maintaining excellent user experience through React Suspense integration.
 
 The dashboard system demonstrates effective separation of concerns with clear boundaries between authentication, data services, and presentation layers. The implementation of real-time notifications, automated transaction processing, and executive dashboards creates a comprehensive solution for cooperative management and member engagement.
 
 The new enhanced loan calculation system and comprehensive monitoring capabilities represent significant improvements in data accuracy and system reliability. By aggregating information from both loans and loanRequests collections, the system ensures comprehensive reporting and prevents data silos that could lead to inaccurate statistics.
 
-Future enhancements could include advanced analytics capabilities, mobile-responsive design improvements, expanded reporting features, and integration with external financial systems to further enhance the cooperative's operational efficiency and member satisfaction.
+**Updated** The React Suspense integration and enhanced frontend infrastructure demonstrate the system's commitment to modern web development practices, ensuring better performance, user experience, and deployment flexibility.
+
+Future enhancements could include advanced analytics capabilities, mobile-responsive design improvements, expanded reporting features, integration with external financial systems to further enhance the cooperative's operational efficiency and member satisfaction, and continued expansion of React Suspense integration across other pages for improved user experience.

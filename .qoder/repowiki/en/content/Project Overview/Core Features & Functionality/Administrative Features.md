@@ -10,6 +10,7 @@
 - [app/admin/settings/officers/page.tsx](file://app/admin/settings/officers/page.tsx)
 - [app/admin/settings/permissions/page.tsx](file://app/admin/settings/permissions/page.tsx)
 - [app/admin/settings/system/page.tsx](file://app/admin/settings/system/page.tsx)
+- [app/admin/profile/activity/page.tsx](file://app/admin/profile/activity/page.tsx)
 - [lib/sidebarConfig.ts](file://lib/sidebarConfig.ts)
 - [lib/auth.tsx](file://lib/auth.tsx)
 - [lib/validators.ts](file://lib/validators.ts)
@@ -26,12 +27,12 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive administrative settings system documentation
-- Documented new officer management functionality with CRUD operations
-- Added role permissions management with granular access control
-- Documented system configuration including financial settings and loan plans
-- Updated sidebar configuration to include new settings pages
-- Enhanced role-based access control documentation
+- Updated administrative sidebar configuration to include new 'Admin Settings' section with five distinct management options
+- Documented centralized access to critical system configuration through unified Admin Settings navigation
+- Enhanced administrative interface improvements with comprehensive settings management
+- Added documentation for role permissions, officer management, audit logs, and system settings integration
+- Updated sidebar navigation to reflect the restructured administrative settings system
+- Expanded role-based access control with enhanced permission management across all administrative roles
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -46,7 +47,9 @@
 10. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the administrative features and dashboard functionality of the SAMPA Cooperative Management System. It focuses on the role-specific officer dashboards, the administrative sidebar navigation, administrative cards for metrics and activities, the administrative footer, report generation capabilities, user management features, workflows, customization options, and security measures including audit logging and compliance reporting. The system now includes a comprehensive administrative settings system for managing cooperative officers, role-based permissions, and system configuration.
+This document describes the administrative features and dashboard functionality of the SAMPA Cooperative Management System. It focuses on the role-specific officer dashboards, the administrative sidebar navigation, administrative cards for metrics and activities, the administrative footer, report generation capabilities, user management features, workflows, customization options, and security measures including audit logging and compliance reporting. The system now includes a comprehensive administrative settings system for managing cooperative officers, role-based permissions, and system configuration, with centralized access through the new 'Admin Settings' section.
+
+**Updated**: The administrative system has been significantly enhanced with expanded navigation capabilities, improved role-based access control, and comprehensive settings management that provides centralized administration across all user roles including Admin, Chairman, Vice Chairman, Secretary, Treasurer, and Manager positions.
 
 ## Project Structure
 The administrative domain is organized around:
@@ -56,7 +59,8 @@ The administrative domain is organized around:
 - Middleware enforcing route access and redirects
 - API routes for administrative tasks such as user creation and dashboard data initialization
 - Audit logging and action tracking utilities
-- **New**: Administrative settings system under app/admin/settings for managing officers, permissions, and system configuration
+- **New**: Administrative settings system under app/admin/settings for managing officers, permissions, and system configuration through centralized navigation
+- **New**: Enhanced role-based access control with comprehensive permission management across all administrative roles
 
 ```mermaid
 graph TB
@@ -68,10 +72,11 @@ F["Admin Footer<br/>components/admin/Footer.tsx"]
 OD["Officer Dashboard<br/>components/admin/OfficerDashboard.tsx"]
 AD["Admin Dashboard<br/>app/admin/dashboard/page.tsx"]
 RPT["Reports Page<br/>app/admin/reports/page.tsx"]
-DDI["Dashboard Data Init<br/>app/admin/dashboard-data/page.tsx"]
+DDI["Dashboard Data Init<br/>app/api/dashboard/initialize/route.ts"]
 OS["Officer Management<br/>app/admin/settings/officers/page.tsx"]
 RP["Role Permissions<br/>app/admin/settings/permissions/page.tsx"]
 SS["System Settings<br/>app/admin/settings/system/page.tsx"]
+AL["Audit Logs<br/>app/admin/profile/activity/page.tsx"]
 end
 subgraph "Lib Utilities"
 SC["Sidebar Config<br/>lib/sidebarConfig.ts"]
@@ -96,6 +101,7 @@ L --> DDI
 L --> OS
 L --> RP
 L --> SS
+L --> AL
 S --> SC
 AD --> AUTH
 OD --> AUTH
@@ -114,17 +120,17 @@ API_INIT --> DDI
 
 **Diagram sources**
 - [app/admin/layout.tsx:1-69](file://app/admin/layout.tsx#L1-L69)
-- [components/admin/Sidebar.tsx:1-279](file://components/admin/Sidebar.tsx#L1-L279)
+- [components/admin/Sidebar.tsx:1-310](file://components/admin/Sidebar.tsx#L1-L310)
 - [components/admin/Card.tsx:1-35](file://components/admin/Card.tsx#L1-L35)
 - [components/admin/Footer.tsx:1-23](file://components/admin/Footer.tsx#L1-L23)
 - [components/admin/OfficerDashboard.tsx:1-198](file://components/admin/OfficerDashboard.tsx#L1-L198)
 - [app/admin/dashboard/page.tsx:1-799](file://app/admin/dashboard/page.tsx#L1-L799)
 - [app/admin/reports/page.tsx:1-737](file://app/admin/reports/page.tsx#L1-L737)
-- [app/admin/dashboard-data/page.tsx:1-468](file://app/admin/dashboard-data/page.tsx#L1-L468)
 - [app/admin/settings/officers/page.tsx:1-702](file://app/admin/settings/officers/page.tsx#L1-L702)
 - [app/admin/settings/permissions/page.tsx:1-486](file://app/admin/settings/permissions/page.tsx#L1-L486)
-- [app/admin/settings/system/page.tsx:1-799](file://app/admin/settings/system/page.tsx#L1-L799)
-- [lib/sidebarConfig.ts:1-397](file://lib/sidebarConfig.ts#L1-L397)
+- [app/admin/settings/system/page.tsx:1-843](file://app/admin/settings/system/page.tsx#L1-L843)
+- [app/admin/profile/activity/page.tsx:1-352](file://app/admin/profile/activity/page.tsx#L1-L352)
+- [lib/sidebarConfig.ts:1-457](file://lib/sidebarConfig.ts#L1-L457)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
 - [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-L226)
@@ -137,14 +143,14 @@ API_INIT --> DDI
 
 **Section sources**
 - [app/admin/layout.tsx:1-69](file://app/admin/layout.tsx#L1-L69)
-- [lib/sidebarConfig.ts:1-397](file://lib/sidebarConfig.ts#L1-L397)
+- [lib/sidebarConfig.ts:1-457](file://lib/sidebarConfig.ts#L1-L457)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
 - [middleware.ts:1-62](file://middleware.ts#L1-L62)
 
 ## Core Components
 - Admin Layout: Enforces authentication and role checks for admin routes, conditionally renders the sidebar, and handles redirects for unauthenticated or unauthorized users.
-- Admin Sidebar: Role-aware navigation with collapsible sections, dropdowns, active route highlighting, and a logout handler. Now includes new settings pages.
+- Admin Sidebar: Role-aware navigation with collapsible sections, dropdowns, active route highlighting, and a logout handler. Now includes new settings pages under the centralized 'Admin Settings' section.
 - Admin Card: Reusable card container for dashboard metrics and content.
 - Admin Footer: Fixed footer with copyright and version information.
 - Officer Dashboard: Role-specific dashboard rendering with metrics, recent activities, and quick actions.
@@ -154,22 +160,24 @@ API_INIT --> DDI
 - **New**: Officer Management: Comprehensive CRUD operations for managing cooperative officers with role hierarchy and validation.
 - **New**: Role Permissions: Granular permission management system with role-based access control.
 - **New**: System Settings: Configuration management for membership fees, loan plans, and system policies.
+- **New**: Audit Logs: Centralized activity tracking and compliance monitoring through comprehensive logging infrastructure.
 - Authentication and Validation: Centralized auth provider, route validators, and middleware enforcement.
 - Audit Logging and Action Tracking: Utilities to log user actions and maintain compliance.
+- **Updated**: Enhanced role-based access control: All administrative roles now have access to the unified Admin Settings section with appropriate permission controls.
 
 **Section sources**
 - [app/admin/layout.tsx:1-69](file://app/admin/layout.tsx#L1-L69)
-- [components/admin/Sidebar.tsx:1-279](file://components/admin/Sidebar.tsx#L1-L279)
+- [components/admin/Sidebar.tsx:1-310](file://components/admin/Sidebar.tsx#L1-L310)
 - [components/admin/Card.tsx:1-35](file://components/admin/Card.tsx#L1-L35)
 - [components/admin/Footer.tsx:1-23](file://components/admin/Footer.tsx#L1-L23)
 - [components/admin/OfficerDashboard.tsx:1-198](file://components/admin/OfficerDashboard.tsx#L1-L198)
 - [app/admin/dashboard/page.tsx:1-799](file://app/admin/dashboard/page.tsx#L1-L799)
 - [app/admin/reports/page.tsx:1-737](file://app/admin/reports/page.tsx#L1-L737)
-- [app/admin/dashboard-data/page.tsx:1-468](file://app/admin/dashboard-data/page.tsx#L1-L468)
 - [app/admin/settings/officers/page.tsx:1-702](file://app/admin/settings/officers/page.tsx#L1-L702)
 - [app/admin/settings/permissions/page.tsx:1-486](file://app/admin/settings/permissions/page.tsx#L1-L486)
-- [app/admin/settings/system/page.tsx:1-799](file://app/admin/settings/system/page.tsx#L1-L799)
-- [lib/sidebarConfig.ts:1-397](file://lib/sidebarConfig.ts#L1-L397)
+- [app/admin/settings/system/page.tsx:1-843](file://app/admin/settings/system/page.tsx#L1-L843)
+- [app/admin/profile/activity/page.tsx:1-352](file://app/admin/profile/activity/page.tsx#L1-L352)
+- [lib/sidebarConfig.ts:1-457](file://lib/sidebarConfig.ts#L1-L457)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
 - [middleware.ts:1-62](file://middleware.ts#L1-L62)
@@ -177,7 +185,7 @@ API_INIT --> DDI
 - [lib/activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
 
 ## Architecture Overview
-The administrative system enforces role-based access control at both the UI and routing layers. The Admin Layout validates user roles and renders the Sidebar accordingly. Middleware intercepts requests to enforce route access and redirect unauthorized users. The Auth Provider centralizes authentication state and exposes helpers for role-based routing and dashboard selection. Reports and dashboard data pages rely on Firestore queries and provide filtering and printing capabilities. Audit logging captures user actions for compliance. **The new settings system integrates seamlessly with the existing architecture, using Firestore for persistent storage and role-based permissions for access control.**
+The administrative system enforces role-based access control at both the UI and routing layers. The Admin Layout validates user roles and renders the Sidebar accordingly. Middleware intercepts requests to enforce route access and redirect unauthorized users. The Auth Provider centralizes authentication state and exposes helpers for role-based routing and dashboard selection. Reports and dashboard data pages rely on Firestore queries and provide filtering and printing capabilities. Audit logging captures user actions for compliance. **The new settings system integrates seamlessly with the existing architecture, using Firestore for persistent storage and role-based permissions for access control. The centralized 'Admin Settings' section provides unified access to all critical system configuration options across all administrative roles.**
 
 ```mermaid
 sequenceDiagram
@@ -203,7 +211,7 @@ SB->>AUTH : getSidebarConfig(role)
 AUTH-->>SB : navigationSections
 SB->>FS : Filter by permissions
 FS-->>SB : Filtered sections
-SB-->>Browser : Render role-aware menu
+SB-->>Browser : Render role-aware menu with Admin Settings
 Browser->>FS : Fetch settings/data
 FS-->>Browser : Data for settings pages
 ```
@@ -211,7 +219,7 @@ FS-->>Browser : Data for settings pages
 **Diagram sources**
 - [middleware.ts:1-62](file://middleware.ts#L1-L62)
 - [app/admin/layout.tsx:1-69](file://app/admin/layout.tsx#L1-L69)
-- [components/admin/Sidebar.tsx:1-279](file://components/admin/Sidebar.tsx#L1-L279)
+- [components/admin/Sidebar.tsx:1-310](file://components/admin/Sidebar.tsx#L1-L310)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
 
@@ -246,7 +254,7 @@ RenderLayout --> End(["Ready"])
 - Role-aware navigation built from a centralized configuration.
 - Supports collapsible sections, dropdowns, and active route highlighting.
 - Provides a logout handler integrated with the Auth Provider.
-- **Updated**: Now includes new settings pages: Role Permissions, Officer Management, Audit Logs, and System Settings.
+- **Updated**: Now includes new settings pages under the centralized 'Admin Settings' section with five distinct management options: Role Permissions, Officer Management, Audit Logs, and System Settings.
 
 ```mermaid
 classDiagram
@@ -268,13 +276,13 @@ Sidebar --> AuthProvider : "calls logout"
 ```
 
 **Diagram sources**
-- [components/admin/Sidebar.tsx:1-279](file://components/admin/Sidebar.tsx#L1-L279)
-- [lib/sidebarConfig.ts:1-397](file://lib/sidebarConfig.ts#L1-L397)
+- [components/admin/Sidebar.tsx:1-310](file://components/admin/Sidebar.tsx#L1-L310)
+- [lib/sidebarConfig.ts:1-457](file://lib/sidebarConfig.ts#L1-L457)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 
 **Section sources**
-- [components/admin/Sidebar.tsx:1-279](file://components/admin/Sidebar.tsx#L1-L279)
-- [lib/sidebarConfig.ts:1-397](file://lib/sidebarConfig.ts#L1-L397)
+- [components/admin/Sidebar.tsx:1-310](file://components/admin/Sidebar.tsx#L1-L310)
+- [lib/sidebarConfig.ts:1-457](file://lib/sidebarConfig.ts#L1-L457)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 
 ### Administrative Cards and Dashboard Components
@@ -386,20 +394,21 @@ InitAPI-->>Admin : {success : true, message}
 ```
 
 **Diagram sources**
-- [app/admin/dashboard-data/page.tsx:1-468](file://app/admin/dashboard-data/page.tsx#L1-L468)
+- [app/admin/dashboard/page.tsx:1-799](file://app/admin/dashboard/page.tsx#L1-L799)
 - [app/api/dashboard/initialize/route.ts:1-186](file://app/api/dashboard/initialize/route.ts#L1-L186)
 
 **Section sources**
-- [app/admin/dashboard-data/page.tsx:1-468](file://app/admin/dashboard-data/page.tsx#L1-L468)
+- [app/admin/dashboard/page.tsx:1-799](file://app/admin/dashboard/page.tsx#L1-L799)
 - [app/api/dashboard/initialize/route.ts:1-186](file://app/api/dashboard/initialize/route.ts#L1-L186)
 
 ### Administrative Workflows and Customization
 - Role-specific dashboards: Admins see the comprehensive Admin Dashboard; other roles see role-specific dashboards.
 - Sidebar customization: Menu items are driven by roleSidebarConfig and rendered dynamically.
 - Filters and quick actions: Reports and Admin Dashboard support filtering and interactive navigation.
+- **Updated**: Centralized settings management: All administrative configuration is now accessible through the unified 'Admin Settings' section across all roles with appropriate permission controls.
 
 **Section sources**
-- [lib/sidebarConfig.ts:1-397](file://lib/sidebarConfig.ts#L1-L397)
+- [lib/sidebarConfig.ts:1-457](file://lib/sidebarConfig.ts#L1-L457)
 - [app/admin/dashboard/page.tsx:1-799](file://app/admin/dashboard/page.tsx#L1-L799)
 - [app/admin/reports/page.tsx:1-737](file://app/admin/reports/page.tsx#L1-L737)
 
@@ -409,6 +418,8 @@ InitAPI-->>Admin : {success : true, message}
 - Auth Provider tracks login/logout/profile updates and wraps actions with automatic logging.
 - Activity logger stores logs in Firestore with timestamps and contextual metadata.
 - Compliance-ready audit trails enable date-range queries and user-scoped logs.
+- **New**: Comprehensive audit logging infrastructure with centralized logging system.
+- **Updated**: Enhanced security with role-based access control across all administrative roles.
 
 ```mermaid
 flowchart TD
@@ -430,6 +441,43 @@ D --> E["getUserActivityLogs()<br/>getAllActivityLogs()<br/>getActivityLogsByDat
 
 ## Administrative Settings System
 
+### Centralized Admin Settings Navigation
+The new 'Admin Settings' section provides centralized access to all critical system configuration through a unified navigation interface:
+
+- **Unified Access Point**: All administrative configuration is accessible from a single, well-organized section across all administrative roles
+- **Five Distinct Management Areas**: Role Permissions, Officer Management, Audit Logs, System Settings, and Profile Management
+- **Permission-Based Visibility**: Each subsection requires the 'manageSettings' permission for access
+- **Consistent Design Patterns**: All settings pages follow the same design and interaction patterns
+- **Cross-Role Compatibility**: The Admin Settings section is available to all administrative roles with appropriate permission controls
+
+```mermaid
+flowchart TD
+AdminSettings["Admin Settings Section"] --> RolePermissions["Role Permissions<br/>Manage access control"]
+AdminSettings --> OfficerManagement["Officer Management<br/>Manage cooperative officers"]
+AdminSettings --> AuditLogs["Audit Logs<br/>Monitor system activity"]
+AdminSettings --> SystemSettings["System Settings<br/>Configure policies and fees"]
+AdminSettings --> ProfileManagement["Profile Management<br/>Account settings and security"]
+RolePermissions --> PermissionMatrix["Permission Matrix<br/>Enable/disable access flags"]
+OfficerManagement --> CRUDOperations["CRUD Operations<br/>Add, edit, delete officers"]
+AuditLogs --> ActivityTracking["Activity Tracking<br/>View and filter logs"]
+SystemSettings --> PolicyConfiguration["Policy Configuration<br/>Membership fees, loan plans"]
+ProfileManagement --> AccountSettings["Account Settings<br/>Personal and security preferences"]
+```
+
+**Diagram sources**
+- [lib/sidebarConfig.ts:73-81](file://lib/sidebarConfig.ts#L73-L81)
+- [lib/sidebarConfig.ts:130-137](file://lib/sidebarConfig.ts#L130-L137)
+- [lib/sidebarConfig.ts:186-193](file://lib/sidebarConfig.ts#L186-L193)
+- [lib/sidebarConfig.ts:242-249](file://lib/sidebarConfig.ts#L242-L249)
+- [lib/sidebarConfig.ts:291-298](file://lib/sidebarConfig.ts#L291-L298)
+
+**Section sources**
+- [lib/sidebarConfig.ts:73-81](file://lib/sidebarConfig.ts#L73-L81)
+- [lib/sidebarConfig.ts:130-137](file://lib/sidebarConfig.ts#L130-L137)
+- [lib/sidebarConfig.ts:186-193](file://lib/sidebarConfig.ts#L186-L193)
+- [lib/sidebarConfig.ts:242-249](file://lib/sidebarConfig.ts#L242-L249)
+- [lib/sidebarConfig.ts:291-298](file://lib/sidebarConfig.ts#L291-L298)
+
 ### Officer Management
 The Officer Management system provides comprehensive CRUD operations for managing cooperative officers with role hierarchy and validation:
 
@@ -438,6 +486,7 @@ The Officer Management system provides comprehensive CRUD operations for managin
 - **CRUD Operations**: Full create, read, update, and delete functionality with modal-based forms
 - **Search and Filtering**: Real-time search across names, emails, and roles with role-based sorting
 - **Status Management**: Active/inactive status tracking with visual indicators
+- **Cross-Role Access**: Available to all administrative roles with appropriate permission controls
 
 ```mermaid
 flowchart TD
@@ -471,6 +520,7 @@ The Role Permissions system provides granular access control with default config
 - **Real-time Editing**: Toggle-based interface for immediate permission changes
 - **Backup Storage**: LocalStorage backup for permission configurations
 - **Reset Functionality**: One-click reset to default permission sets
+- **Cross-Role Implementation**: Integrated with rolePermissions hook for seamless permission checking across all administrative roles
 
 ```mermaid
 classDiagram
@@ -516,6 +566,7 @@ The System Settings module manages cooperative policies and financial configurat
 - **Financial Configuration**: Real-time currency formatting and number formatting for Philippine Peso
 - **Audit Trail**: Track who made changes and when with timestamped updates
 - **Default Values**: Pre-configured default settings with easy reset functionality
+- **Cross-Role Access**: Available to all administrative roles with appropriate permission controls
 
 ```mermaid
 flowchart TD
@@ -535,22 +586,62 @@ Audit --> Timestamps["Timestamps"]
 ```
 
 **Diagram sources**
-- [app/admin/settings/system/page.tsx:1-799](file://app/admin/settings/system/page.tsx#L1-L799)
+- [app/admin/settings/system/page.tsx:1-843](file://app/admin/settings/system/page.tsx#L1-L843)
 
 **Section sources**
-- [app/admin/settings/system/page.tsx:1-799](file://app/admin/settings/system/page.tsx#L1-L799)
+- [app/admin/settings/system/page.tsx:1-843](file://app/admin/settings/system/page.tsx#L1-L843)
+
+### Audit Logs and Compliance Monitoring
+The audit logging system provides comprehensive activity tracking and compliance monitoring:
+
+- **Activity Tracking**: Automatic logging of user actions with timestamps and contextual metadata
+- **User Scoping**: Filter logs by individual users or all system activity
+- **Date Range Queries**: Search and filter logs within specific time periods
+- **Compliance Ready**: Structured logging enables regulatory compliance and internal audits
+- **Real-time Monitoring**: Immediate visibility into system activity and user actions
+- **Cross-Role Access**: Available to all administrative roles with appropriate permission controls
+
+```mermaid
+sequenceDiagram
+participant User as "System User"
+participant Action as "User Action"
+participant Tracker as "Action Tracker"
+participant Logger as "Activity Logger"
+participant Firestore as "Firestore"
+User->>Action : Perform system action
+Action->>Tracker : trackUserAction()
+Tracker->>Logger : logActivity()
+Logger->>Firestore : Store activity log
+Firestore-->>Logger : Success
+Logger-->>Tracker : Log ID
+Tracker-->>Action : Action tracked
+Action-->>User : Action completed
+```
+
+**Diagram sources**
+- [lib/userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
+- [lib/activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
+
+**Section sources**
+- [lib/userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
+- [lib/activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
 
 ### Settings Integration with Sidebar
 The new settings pages are fully integrated into the administrative navigation system:
 
-- **Admin Settings Section**: Dedicated section in the sidebar for all administrative settings
-- **Permission-based Visibility**: Only administrators can access settings pages
+- **Admin Settings Section**: Dedicated section in the sidebar for all administrative settings across all roles
+- **Permission-based Visibility**: Only administrators can access settings pages with manageSettings permission
 - **Consistent Navigation**: Settings pages follow the same design patterns as other admin pages
 - **Role-based Access**: Each settings page enforces appropriate role restrictions
+- **Centralized Management**: All administrative configuration accessible from unified navigation
+- **Cross-Role Compatibility**: Available to all administrative roles with appropriate permission controls
 
 **Section sources**
 - [lib/sidebarConfig.ts:73-81](file://lib/sidebarConfig.ts#L73-L81)
-- [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-L226)
+- [lib/sidebarConfig.ts:130-137](file://lib/sidebarConfig.ts#L130-L137)
+- [lib/sidebarConfig.ts:186-193](file://lib/sidebarConfig.ts#L186-L193)
+- [lib/sidebarConfig.ts:242-249](file://lib/sidebarConfig.ts#L242-L249)
+- [lib/sidebarConfig.ts:291-298](file://lib/sidebarConfig.ts#L291-L298)
 
 ## Dependency Analysis
 The administrative system exhibits clear separation of concerns with enhanced integration for the new settings system:
@@ -559,7 +650,9 @@ The administrative system exhibits clear separation of concerns with enhanced in
 - Auth Provider integrates with validators and middleware for access control.
 - Reports and dashboard pages depend on Firestore for data retrieval.
 - **New**: Settings pages integrate with Firestore for persistent storage and rolePermissions for access control.
+- **New**: Audit logging system provides centralized activity tracking with comprehensive querying capabilities.
 - Audit logging is decoupled and used by action tracking utilities.
+- **Updated**: Enhanced role-based access control with comprehensive permission management across all administrative roles.
 
 ```mermaid
 graph TB
@@ -573,12 +666,14 @@ AL --> SB["Admin Sidebar<br/>components/admin/Sidebar.tsx"]
 SB --> SC["Sidebar Config<br/>lib/sidebarConfig.ts"]
 AD["Admin Dashboard<br/>app/admin/dashboard/page.tsx"] --> AUTH
 RPT["Reports Page<br/>app/admin/reports/page.tsx"] --> AUTH
-DDI["Dashboard Data Init<br/>app/admin/dashboard-data/page.tsx"] --> AUTH
+DDI["Dashboard Data Init<br/>app/api/dashboard/initialize/route.ts"] --> AUTH
 OS["Officer Management<br/>app/admin/settings/officers/page.tsx"] --> FB["Firebase Service<br/>lib/firebase.ts"]
 RP["Role Permissions<br/>app/admin/settings/permissions/page.tsx"] --> RPV
 SS["System Settings<br/>app/admin/settings/system/page.tsx"] --> FB
 API_USERS["Users API<br/>app/api/users/route.ts"] --> AUTH
 API_INIT["Dashboard Init API<br/>app/api/dashboard/initialize/route.ts"] --> DDI
+UAT --> ACT
+ACT --> ACTLOGS["Activity Logs Collection"]
 ```
 
 **Diagram sources**
@@ -590,30 +685,28 @@ API_INIT["Dashboard Init API<br/>app/api/dashboard/initialize/route.ts"] --> DDI
 - [lib/firebase.ts:1-345](file://lib/firebase.ts#L1-L345)
 - [middleware.ts:1-62](file://middleware.ts#L1-L62)
 - [app/admin/layout.tsx:1-69](file://app/admin/layout.tsx#L1-L69)
-- [components/admin/Sidebar.tsx:1-279](file://components/admin/Sidebar.tsx#L1-L279)
-- [lib/sidebarConfig.ts:1-397](file://lib/sidebarConfig.ts#L1-L397)
+- [components/admin/Sidebar.tsx:1-310](file://components/admin/Sidebar.tsx#L1-L310)
+- [lib/sidebarConfig.ts:1-457](file://lib/sidebarConfig.ts#L1-L457)
 - [app/admin/dashboard/page.tsx:1-799](file://app/admin/dashboard/page.tsx#L1-L799)
 - [app/admin/reports/page.tsx:1-737](file://app/admin/reports/page.tsx#L1-L737)
-- [app/admin/dashboard-data/page.tsx:1-468](file://app/admin/dashboard-data/page.tsx#L1-L468)
 - [app/admin/settings/officers/page.tsx:1-702](file://app/admin/settings/officers/page.tsx#L1-L702)
 - [app/admin/settings/permissions/page.tsx:1-486](file://app/admin/settings/permissions/page.tsx#L1-L486)
-- [app/admin/settings/system/page.tsx:1-799](file://app/admin/settings/system/page.tsx#L1-L799)
+- [app/admin/settings/system/page.tsx:1-843](file://app/admin/settings/system/page.tsx#L1-L843)
 - [app/api/users/route.ts:1-126](file://app/api/users/route.ts#L1-L126)
 - [app/api/dashboard/initialize/route.ts:1-186](file://app/api/dashboard/initialize/route.ts#L1-L186)
 
 **Section sources**
-- [lib/sidebarConfig.ts:1-397](file://lib/sidebarConfig.ts#L1-L397)
+- [lib/sidebarConfig.ts:1-457](file://lib/sidebarConfig.ts#L1-L457)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
 - [middleware.ts:1-62](file://middleware.ts#L1-L62)
 - [app/admin/layout.tsx:1-69](file://app/admin/layout.tsx#L1-L69)
-- [components/admin/Sidebar.tsx:1-279](file://components/admin/Sidebar.tsx#L1-L279)
+- [components/admin/Sidebar.tsx:1-310](file://components/admin/Sidebar.tsx#L1-L310)
 - [app/admin/dashboard/page.tsx:1-799](file://app/admin/dashboard/page.tsx#L1-L799)
 - [app/admin/reports/page.tsx:1-737](file://app/admin/reports/page.tsx#L1-L737)
-- [app/admin/dashboard-data/page.tsx:1-468](file://app/admin/dashboard-data/page.tsx#L1-L468)
 - [app/admin/settings/officers/page.tsx:1-702](file://app/admin/settings/officers/page.tsx#L1-L702)
 - [app/admin/settings/permissions/page.tsx:1-486](file://app/admin/settings/permissions/page.tsx#L1-L486)
-- [app/admin/settings/system/page.tsx:1-799](file://app/admin/settings/system/page.tsx#L1-L799)
+- [app/admin/settings/system/page.tsx:1-843](file://app/admin/settings/system/page.tsx#L1-L843)
 - [app/api/users/route.ts:1-126](file://app/api/users/route.ts#L1-L126)
 - [app/api/dashboard/initialize/route.ts:1-186](file://app/api/dashboard/initialize/route.ts#L1-L186)
 - [lib/userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
@@ -626,6 +719,8 @@ API_INIT["Dashboard Init API<br/>app/api/dashboard/initialize/route.ts"] --> DDI
 - Memoization opportunities: Consider caching frequently accessed configuration and computed metrics.
 - **New**: Settings pages implement efficient Firestore queries with proper error handling and loading states.
 - **New**: Role permissions are cached locally to reduce Firestore calls and improve performance.
+- **New**: Audit logging system optimized for real-time performance with batch operations and efficient querying.
+- **Updated**: Enhanced performance with role-based access control optimizations across all administrative roles.
 
 ## Troubleshooting Guide
 - Authentication failures: Verify cookies and user role are set; ensure Auth Provider state is initialized and validated by middleware.
@@ -636,15 +731,20 @@ API_INIT["Dashboard Init API<br/>app/api/dashboard/initialize/route.ts"] --> DDI
 - **New**: Settings page issues: Verify Firestore collections exist (rolePermissions, systemSettings, loanPlans); check network connectivity for Firestore operations.
 - **New**: Officer management errors: Validate email uniqueness, phone number format, and password requirements; check Firestore security rules.
 - **New**: Permission system errors: Ensure rolePermissions collection exists; verify default permissions are properly loaded from Firestore.
+- **New**: Audit log access issues: Verify user has appropriate permissions to view activity logs; check Firestore security rules for activityLogs collection.
+- **New**: Admin Settings navigation problems: Ensure 'manageSettings' permission is granted to users accessing the Admin Settings section.
+- **Updated**: Role-based access control issues: Verify permission checks are working correctly across all administrative roles; ensure rolePermissions hook is functioning properly.
 
 **Section sources**
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
-- [lib/sidebarConfig.ts:1-397](file://lib/sidebarConfig.ts#L1-L397)
+- [lib/sidebarConfig.ts:1-457](file://lib/sidebarConfig.ts#L1-L457)
 - [lib/activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
 - [app/admin/reports/page.tsx:1-737](file://app/admin/reports/page.tsx#L1-L737)
 - [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-L226)
 - [lib/firebase.ts:1-345](file://lib/firebase.ts#L1-L345)
 
 ## Conclusion
-The SAMPA Cooperative Management System's administrative features provide a robust, role-aware interface with comprehensive dashboards, navigation, reporting, and auditing capabilities. The modular design, centralized configuration, and strict access control ensure maintainability and scalability. **The new administrative settings system significantly enhances the platform's functionality by providing comprehensive officer management, granular role permissions, and flexible system configuration.** Administrators benefit from powerful analytics, customizable dashboards, compliance-ready audit logs, and a complete administrative toolkit for managing cooperative operations. The middleware and validators protect against unauthorized access, while the new settings system ensures proper governance and operational control across all cooperative functions.
+The SAMPA Cooperative Management System's administrative features provide a robust, role-aware interface with comprehensive dashboards, navigation, reporting, and auditing capabilities. The modular design, centralized configuration, and strict access control ensure maintainability and scalability. **The new administrative settings system significantly enhances the platform's functionality by providing comprehensive officer management, granular role permissions, flexible system configuration, and centralized audit logging through the unified 'Admin Settings' section.** Administrators benefit from powerful analytics, customizable dashboards, compliance-ready audit logs, and a complete administrative toolkit for managing cooperative operations. The middleware and validators protect against unauthorized access, while the new settings system ensures proper governance and operational control across all cooperative functions. The centralized navigation approach improves usability and reduces cognitive load for administrators managing complex cooperative operations.
+
+**Updated**: The enhanced administrative system now provides comprehensive role-based access control across all administrative roles including Admin, Chairman, Vice Chairman, Secretary, Treasurer, and Manager positions, with centralized settings management and improved security measures ensuring proper governance and operational control across all cooperative functions.

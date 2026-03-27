@@ -25,12 +25,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced Member Registration Workflow with improved certificate generation process
-- Updated Certificate Preview Modal with redesigned traditional formal layout
-- Improved user experience for admin-driven member registration with step-by-step workflow
-- Added comprehensive certificate management system with email notifications
-- Enhanced certificate generation with formal PDF styling and editable fields
-- Integrated certificate workflow into both Admin and Secretary registration processes
+- Updated MemberDetailsModal documentation to reflect simplified member management workflow
+- Removed references to 'Mark as Inactive' functionality from MemberDetailsModal component
+- Clarified that member management interface now focuses solely on displaying member information
+- Updated status management documentation to reflect current capabilities
+- Revised member records administration section to remove administrative status change features
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -46,6 +45,8 @@
 
 ## Introduction
 This document describes the Member Management System within the SAMPA Cooperative Management Platform. It covers the complete lifecycle of member onboarding, profile management, records administration, search and filtering, pagination, bulk operations, user-account-to-member-profile integration, status management, and compliance features. The system now includes enhanced member records management with sophisticated components featuring auto-archiving, reactivation fees, detailed member information display, and role-based access control, providing both comprehensive administrative capabilities and simplified read-only views. The enhanced certificate generation workflow provides a seamless, professional experience for creating and managing member share certificates.
+
+**Updated** Member management interface now focuses solely on displaying member information without administrative status change capabilities, reflecting the simplified member management workflow.
 
 ## Project Structure
 The Member Management System spans UI components, backend APIs, and shared services with enhanced component architecture:
@@ -194,6 +195,8 @@ CERTAPI --> CS
 ## Architecture Overview
 The system integrates administrative and user-facing flows with backend APIs and shared services. The enhanced member management architecture now includes multiple specialized components with role-based access control, providing both comprehensive administrative capabilities and simplified read-only views for different user roles. The enhanced certificate generation workflow provides a seamless experience from member registration to certificate issuance with professional PDF generation and email notifications.
 
+**Updated** Member management interface now focuses solely on displaying member information without administrative status change capabilities, simplifying the workflow for both administrators and members.
+
 ```mermaid
 sequenceDiagram
 participant Admin as "Admin/Super Admin"
@@ -253,6 +256,8 @@ The Member Records Page now provides comprehensive member management capabilitie
 - CSV export functionality with comprehensive member data
 - Integration with modals for viewing, editing, and adding members
 - Certificate generation and display capabilities
+
+**Updated** Member management interface now focuses solely on displaying member information without administrative status change capabilities, simplifying the workflow for both administrators and members.
 
 ```mermaid
 flowchart TD
@@ -589,7 +594,7 @@ The system now implements role-based access control for member records:
   - System creates linked user and member records, sends welcome email, displays certificate preview modal with traditional formal design.
   - Review and edit certificate details, generate professional PDF certificate, send email notification with download link.
 - Updating a member's contact details:
-  - Navigate to Profile Edit, update phone/email/birthdate/address, submit; system syncs both collections.
+  - Navigate to Profile Edit, update phone/email/birthdate,address, submit; system syncs both collections.
 - Admin archiving a member:
   - From Member Records, click Archive; member moves to Archived tab and is excluded from active listings.
 - Generating member certificates:
@@ -696,6 +701,8 @@ Key dependencies and relationships:
 - Profile Edit Page depends on auth context and Firestore for updates
 - Backend API routes provide CRUD endpoints for members and certificate retrieval
 - Certificate API route serves generated certificates to authenticated users
+
+**Updated** Member management interface now focuses solely on displaying member information without administrative status change capabilities, simplifying the workflow for both administrators and members.
 
 ```mermaid
 graph LR
@@ -825,3 +832,5 @@ Common issues and resolutions:
 
 ## Conclusion
 The Member Management System provides a robust, integrated solution for managing cooperative members with significantly enhanced capabilities. The system now includes sophisticated member records management through the new MemberRecordsEnhanced component with auto-archiving, reactivation fees, and comprehensive administrative features, while the MemberRecordsReadOnly component provides simplified access for non-admin roles. The enhanced certificate generation workflow delivers a seamless, professional experience from member registration to certificate issuance with traditional formal design and automated email notifications. The enhanced system offers advanced filtering, detailed member information display, improved administrative capabilities, and role-based access control. The modular architecture supports scalability and maintainability with enhanced certificate management, status tracking, responsive design features, and comprehensive audit trails. The new components provide excellent foundations for future enhancements and specialized member management scenarios, ensuring strong user-account-to-member-profile linkage, comprehensive validation, and smooth onboarding experiences for all user roles. The integrated certificate workflow represents a significant improvement in user experience and professional standards for cooperative member management.
+
+**Updated** Member management interface now focuses solely on displaying member information without administrative status change capabilities, reflecting the simplified member management workflow and streamlining the overall user experience.

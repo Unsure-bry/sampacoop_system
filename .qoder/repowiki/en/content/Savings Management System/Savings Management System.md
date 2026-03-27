@@ -4,6 +4,7 @@
 **Referenced Files in This Document**
 - [savingsService.ts](file://lib/savingsService.ts)
 - [transactionReceiptService.ts](file://lib/transactionReceiptService.ts)
+- [emailService.ts](file://lib/emailService.ts)
 - [activityLogger.ts](file://lib/activityLogger.ts)
 - [userActionTracker.ts](file://lib/userActionTracker.ts)
 - [auth.tsx](file://lib/auth.tsx)
@@ -23,11 +24,13 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced savings service with improved activity logging capabilities and detailed audit trails for all savings transactions
-- Added proper user identification and role tracking for comprehensive transaction monitoring
-- Integrated comprehensive activity logging system with user action tracking for administrative oversight
-- Implemented detailed audit trail functionality for all savings-related operations
-- Enhanced user identification system with proper role-based tracking for transaction monitoring
+- Enhanced savings service with automatic email notifications for both deposit and withdrawal transactions
+- Integrated comprehensive email service with deposit application and withdrawal application messages
+- Added dual email notification system: EmailJS receipts and internal application messages
+- Enhanced transaction processing with improved error handling and logging
+- Integrated comprehensive activity logging system with detailed audit trails for all savings transactions
+- Added automatic notification system for savings transactions
+- Enhanced user identification and role tracking for comprehensive transaction monitoring
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -36,24 +39,27 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Transaction Processing](#enhanced-transaction-processing)
-7. [Activity Logging and Audit Trails](#activity-logging-and-audit-trails)
-8. [Transaction Receipt System](#transaction-receipt-system)
-9. [Savings Records Management](#savings-records-management)
-10. [Dependency Analysis](#dependency-analysis)
-11. [Performance Considerations](#performance-considerations)
-12. [Troubleshooting Guide](#troubleshooting-guide)
-13. [Conclusion](#conclusion)
+7. [Automatic Email Notifications](#automatic-email-notifications)
+8. [Activity Logging and Audit Trails](#activity-logging-and-audit-trails)
+9. [Transaction Receipt System](#transaction-receipt-system)
+10. [Savings Records Management](#savings-records-management)
+11. [Dependency Analysis](#dependency-analysis)
+12. [Performance Considerations](#performance-considerations)
+13. [Troubleshooting Guide](#troubleshooting-guide)
+14. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the Savings Management System within the SAMPA Cooperative Management Platform. It covers savings account creation and management, transaction processing (deposits, withdrawals), balance calculations, reporting capabilities, the savings leaderboard, integration with loan eligibility, payment history tracking, and administrative dashboards. The system now includes enhanced savings records management with comprehensive transaction tracking, automated savings credit calculations, sophisticated deposit control number generation for enhanced auditability, integrated transaction receipt system with automatic email notifications for member communication, and comprehensive activity logging with detailed audit trails for all savings transactions.
+This document describes the Savings Management System within the SAMPA Cooperative Management Platform. It covers savings account creation and management, transaction processing (deposits, withdrawals), balance calculations, reporting capabilities, the savings leaderboard, integration with loan eligibility, payment history tracking, and administrative dashboards. The system now includes enhanced savings records management with comprehensive transaction tracking, automated savings credit calculations, sophisticated deposit control number generation for enhanced auditability, integrated transaction receipt system with automatic email notifications for member communication, comprehensive activity logging with detailed audit trails for all savings transactions, and dual email notification system supporting both EmailJS receipts and internal application messages.
 
 ## Project Structure
 The savings system spans client-side pages, reusable UI components, and backend-like services that encapsulate Firestore interactions. Key areas:
 - Types define the data contracts for savings transactions and member savings summaries.
-- Services provide centralized logic for member resolution, transaction persistence, balance computation, email receipt generation, and comprehensive activity logging.
+- Services provide centralized logic for member resolution, transaction persistence, balance computation, email receipt generation, comprehensive activity logging, and dual email notification system.
 - Pages orchestrate UI flows for users and administrators.
 - Components encapsulate reusable UI for transactions, balances, and leaderboards.
-- **New**: Activity logging system provides comprehensive audit trails with user identification and role tracking.
+- **New**: Enhanced email service with deposit application and withdrawal application messages for comprehensive member communication.
+- **New**: Dual email notification system providing both EmailJS receipts and internal application messages.
+- **New**: Comprehensive activity logging system provides detailed audit trails with user identification and role tracking.
 - **New**: Enhanced savings service integrates automatic activity logging for all transaction operations.
 - **New**: User action tracker enables detailed monitoring of administrative activities and user interactions.
 - **New**: Enhanced transaction receipt service with integrated activity logging for comprehensive transaction monitoring.
@@ -67,8 +73,9 @@ end
 subgraph "Services"
 S1["lib/savingsService.ts"]
 S2["lib/transactionReceiptService.ts"]
-S3["lib/activityLogger.ts"]
-S4["lib/userActionTracker.ts"]
+S3["lib/emailService.ts"]
+S4["lib/activityLogger.ts"]
+S5["lib/userActionTracker.ts"]
 end
 subgraph "User Components"
 C1["components/user/actions/SavingsActions.tsx"]
@@ -91,6 +98,7 @@ T2 --> S1
 S1 --> S2
 S1 --> S3
 S1 --> S4
+S1 --> S5
 S1 --> P1
 S1 --> P2
 S1 --> P3
@@ -105,14 +113,15 @@ C7 --> P2
 ```
 
 **Diagram sources**
-- [savingsService.ts:1-551](file://lib/savingsService.ts#L1-L551)
+- [savingsService.ts:1-615](file://lib/savingsService.ts#L1-L615)
 - [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
+- [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
 - [activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
 - [userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
 - [SavingsActions.tsx:1-249](file://components/user/actions/SavingsActions.tsx#L1-L249)
 - [AddSavingsModal.tsx:1-293](file://components/admin/AddSavingsModal.tsx#L1-L293)
-- [AddSavingsTransactionModal.tsx:1-371](file://components/user/AddSavingsTransactionModal.tsx#L1-L371)
-- [ActiveSavings.tsx:1-270](file://components/user/ActiveSavings.tsx#L1-L270)
+- [AddSavingsTransactionModal.tsx:1-382](file://components/user/AddSavingsTransactionModal.tsx#L1-L382)
+- [ActiveSavings.tsx:1-249](file://components/user/ActiveSavings.tsx#L1-L249)
 - [SavingsLeaderboard.tsx:1-213](file://components/admin/SavingsLeaderboard.tsx#L1-L213)
 - [SavingsRecords.tsx:1-350](file://components/admin/SavingsRecords.tsx#L1-L350)
 - [ReportsAndAnalytics.tsx:1-334](file://components/admin/ReportsAndAnalytics.tsx#L1-L334)
@@ -123,8 +132,9 @@ C7 --> P2
 - [page.tsx:1-649](file://app/admin/savings/member/[id]/page.tsx#L1-L649)
 
 **Section sources**
-- [savingsService.ts:1-551](file://lib/savingsService.ts#L1-L551)
+- [savingsService.ts:1-615](file://lib/savingsService.ts#L1-L615)
 - [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
+- [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
 - [activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
 - [userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
 - [savings.ts:1-22](file://lib/types/savings.ts#L1-L22)
@@ -136,22 +146,26 @@ C7 --> P2
 ## Core Components
 - Savings transaction model: Defines fields for transaction identification, member linkage, type, amount, running balance, remarks, and timestamps.
 - Member savings summary: Aggregates member totals and metadata for reporting and leaderboards.
-- Savings service: Centralizes member resolution, transaction persistence, balance calculation, automatic email receipt generation, and comprehensive activity logging.
+- Savings service: Centralizes member resolution, transaction persistence, balance calculation, automatic email receipt generation, dual email notification system, and comprehensive activity logging.
 - Transaction receipt service: Provides comprehensive email notification system with EmailJS integration, receipt number generation, and email logging capabilities.
+- Email service: Provides specialized email templates for deposit applications, withdrawal applications, and other cooperative communications.
 - Activity logging system: Provides detailed audit trails with user identification, role tracking, and comprehensive transaction monitoring.
 - User action tracker: Enables detailed monitoring of administrative activities and user interactions with proper user identification and role tracking.
 - User transaction actions: Handles deposit and withdrawal submissions from the member portal.
 - Admin transaction modal: Enables administrators to add deposits/withdrawals with validation against current balance.
 - Active savings display: Renders recent transactions and current balance for members.
 - Savings leaderboard: Computes and displays top savers across the cooperative.
-- **New**: Enhanced AddSavingsTransactionModal: Advanced transaction processing with deposit control number generation, confirmation modals, comprehensive form validation, and integrated activity logging.
+- **New**: Enhanced email service with comprehensive email templates for deposit and withdrawal applications.
+- **New**: Dual email notification system providing both EmailJS receipts and internal application messages.
+- **New**: Enhanced AddSavingsTransactionModal: Advanced transaction processing with deposit control number generation, confirmation modals, comprehensive form validation, integrated activity logging, and dual email notification system.
 - **New**: SavingsRecords component: Comprehensive savings account management with detailed transaction tracking, automated calculations, and audit trail integration.
 - **New**: ReportsAndAnalytics component: Financial analytics and reporting capabilities with comprehensive activity monitoring for administrative oversight.
 
 **Section sources**
 - [savings.ts:1-22](file://lib/types/savings.ts#L1-L22)
-- [savingsService.ts:237-433](file://lib/savingsService.ts#L237-L433)
+- [savingsService.ts:237-497](file://lib/savingsService.ts#L237-L497)
 - [transactionReceiptService.ts:100-130](file://lib/transactionReceiptService.ts#L100-L130)
+- [emailService.ts:320-388](file://lib/emailService.ts#L320-L388)
 - [activityLogger.ts:4-14](file://lib/activityLogger.ts#L4-L14)
 - [userActionTracker.ts:10-47](file://lib/userActionTracker.ts#L10-L47)
 - [SavingsActions.tsx:20-120](file://components/user/actions/SavingsActions.tsx#L20-L120)
@@ -165,8 +179,8 @@ C7 --> P2
 ## Architecture Overview
 The system follows a layered architecture with enhanced transaction receipt capabilities and comprehensive activity logging:
 - Presentation layer: Next.js pages and React components for user and admin experiences.
-- Service layer: TypeScript modules encapsulating Firestore interactions, business logic, email notification services, and comprehensive activity logging.
-- Data layer: Firestore collections for members, member savings subcollections, aggregated member totals, email logs, and activity logs.
+- Service layer: TypeScript modules encapsulating Firestore interactions, business logic, email notification services, dual email systems, and comprehensive activity logging.
+- Data layer: Firestore collections for members, member savings subcollections, aggregated member totals, email logs, activity logs, and notification system.
 
 ```mermaid
 sequenceDiagram
@@ -174,8 +188,9 @@ participant U as "User/Admin"
 participant UI as "User/Admin Savings Page"
 participant SA as "SavingsActions/UserActionTracker"
 participant SS as "SavingsService"
-participant AL as "ActivityLogger"
 participant TRS as "TransactionReceiptService"
+participant ES as "EmailService"
+participant AL as "ActivityLogger"
 participant FS as "Firestore"
 U->>UI : Open savings page
 UI->>SS : getUserSavingsTransactions(userId)
@@ -192,8 +207,7 @@ SS->>FS : setDocument("members/{memberId}/savings", transaction)
 SS->>FS : updateDocument("members/{memberId}", {savings.total})
 SS->>SS : Check if member is eligible for email receipt
 SS->>TRS : sendSavingsDepositReceipt(actualUserId, amount, runningBalance, depositControlNumber)
-TRS->>FS : Query emailLogs collection for duplicate attempts
-TRS->>FS : Send email via EmailJS
+SS->>ES : depositApplicationMessage(memberEmail, memberName, amount, runningBalance, depositControlNumber)
 SS-->>SA : {success, transactionId}
 SA-->>U : Toast success/failure
 ```
@@ -201,9 +215,10 @@ SA-->>U : Toast success/failure
 **Diagram sources**
 - [page.tsx:30-110](file://app/savings/page.tsx#L30-L110)
 - [SavingsActions.tsx:20-120](file://components/user/actions/SavingsActions.tsx#L20-L120)
-- [savingsService.ts:237-433](file://lib/savingsService.ts#L237-L433)
+- [savingsService.ts:237-497](file://lib/savingsService.ts#L237-L497)
 - [activityLogger.ts:20-43](file://lib/activityLogger.ts#L20-L43)
 - [transactionReceiptService.ts:408-476](file://lib/transactionReceiptService.ts#L408-L476)
+- [emailService.ts:320-353](file://lib/emailService.ts#L320-L353)
 
 ## Detailed Component Analysis
 
@@ -241,12 +256,13 @@ class MemberSavings {
 **Section sources**
 - [savings.ts:1-22](file://lib/types/savings.ts#L1-L22)
 
-### Savings Service: Member Resolution, Transactions, Balances, Email Receipts, and Activity Logging
+### Savings Service: Member Resolution, Transactions, Balances, Email Receipts, Dual Email Notifications, and Activity Logging
 Key responsibilities:
 - Member resolution: Resolves user IDs to member IDs using multiple fallback strategies (direct lookup, email match, name match).
 - Atomic transaction processing: Calculates running balance, validates withdrawals, persists transaction, and updates aggregate member savings.
 - Balance retrieval: Returns cached aggregate savings when available; otherwise computes from transactions.
 - **Updated**: Automatic email receipt generation: Sends email notifications for eligible savings deposits with comprehensive error handling and logging.
+- **Updated**: Dual email notification system: Integrates both EmailJS receipts and internal application messages for comprehensive member communication.
 - **Updated**: Comprehensive activity logging: Logs all savings transactions with detailed audit trails including user identification, role tracking, and transaction metadata.
 
 ```mermaid
@@ -265,7 +281,8 @@ Save --> UpdateMember["Update member.savings.total"]
 UpdateMember --> CheckRole{"Is member eligible for email receipt?"}
 CheckRole --> |Yes| SendEmail["Send savings deposit receipt via EmailJS"]
 CheckRole --> |No| SkipEmail["Skip email receipt"]
-SendEmail --> LogEmail["Log email attempt in emailLogs collection"]
+SendEmail --> SendAppMsg["Send deposit application message via emailService"]
+SendAppMsg --> LogEmail["Log email attempt in emailLogs collection"]
 SkipEmail --> LogActivity["Log activity via logActivity()"]
 LogActivity --> LogUser["Track user action with user info"]
 LogUser --> Done(["Return success with transactionId"])
@@ -273,14 +290,15 @@ LogEmail --> Done
 ```
 
 **Diagram sources**
-- [savingsService.ts:237-433](file://lib/savingsService.ts#L237-L433)
+- [savingsService.ts:237-497](file://lib/savingsService.ts#L237-L497)
 - [activityLogger.ts:20-43](file://lib/activityLogger.ts#L20-L43)
 - [transactionReceiptService.ts:408-476](file://lib/transactionReceiptService.ts#L408-L476)
+- [emailService.ts:320-353](file://lib/emailService.ts#L320-L353)
 
 **Section sources**
 - [savingsService.ts:21-135](file://lib/savingsService.ts#L21-L135)
-- [savingsService.ts:237-433](file://lib/savingsService.ts#L237-L433)
-- [savingsService.ts:435-551](file://lib/savingsService.ts#L435-L551)
+- [savingsService.ts:237-497](file://lib/savingsService.ts#L237-L497)
+- [savingsService.ts:499-615](file://lib/savingsService.ts#L499-L615)
 
 ### Activity Logging System: Comprehensive Audit Trails
 **New** - The activity logging system provides comprehensive audit trails with detailed user identification and role tracking for all system activities.
@@ -380,6 +398,32 @@ LogSuccess --> ReturnSuccess["Return success with receipt number"]
 
 **Section sources**
 - [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
+
+### Email Service: Comprehensive Email Templates
+**New** - The email service provides comprehensive email template system with specialized templates for deposit applications, withdrawal applications, and other cooperative communications.
+
+Key features:
+- **Deposit Application Messages**: Sends confirmation emails for deposit applications with control numbers and running balances.
+- **Withdrawal Application Messages**: Sends confirmation emails for withdrawal applications with withdrawal numbers.
+- **Template System**: Provides standardized email templates with proper variable substitution.
+- **Error Handling**: Robust error handling with detailed logging and graceful degradation when email services are unavailable.
+- **Configuration Management**: Integrates with EmailJS configuration system for seamless email delivery.
+
+```mermaid
+flowchart TD
+Start(["depositApplicationMessage(email, name, amount, total, controlNumber)"]) --> ValidateInputs["Validate email, name, amount, total, controlNumber"]
+ValidateInputs --> PrepareTemplate["Prepare email template with variables"]
+PrepareTemplate --> CheckConfig["Check EmailJS configuration"]
+CheckConfig --> SendEmail["Send email via EmailJS"]
+SendEmail --> LogSuccess["Log successful email attempt"]
+LogSuccess --> ReturnSuccess["Return success"]
+```
+
+**Diagram sources**
+- [emailService.ts:320-353](file://lib/emailService.ts#L320-L353)
+
+**Section sources**
+- [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
 
 ### User Transaction Actions: Deposits and Withdrawals
 - Deposit flow: Validates amount, constructs transaction payload, writes to Firestore under the member's subcollection, triggers automatic email receipt for eligible members, and logs activity.
@@ -493,7 +537,7 @@ Top10 --> Render(["Render leaderboard"])
 ## Enhanced Transaction Processing
 
 ### AddSavingsTransactionModal: Advanced Transaction Processing
-**Updated** - The AddSavingsTransactionModal now provides enhanced transaction processing with comprehensive validation, deposit control number generation, confirmation modals, automatic email receipt functionality, and integrated activity logging.
+**Updated** - The AddSavingsTransactionModal now provides enhanced transaction processing with comprehensive validation, deposit control number generation, confirmation modals, automatic email receipt functionality, dual email notification system, and integrated activity logging.
 
 Key enhancements:
 - **Deposit Control Number Generation**: Automatically generates unique deposit control numbers in the format `DC-{timestamp}-{random_chars}` for all deposit transactions.
@@ -504,6 +548,7 @@ Key enhancements:
 - **Error Handling**: Displays specific error messages for validation failures and provides user guidance.
 - **Email Receipt Status**: Shows email receipt status for eligible members after successful transactions.
 - **Activity Logging Integration**: Automatically logs all transaction activities with user identification and role tracking.
+- **Dual Email Notification**: Integrates with both EmailJS receipts and internal application messages for comprehensive member communication.
 
 ```mermaid
 flowchart TD
@@ -525,19 +570,73 @@ ProcessWithdrawal --> SaveTransaction
 SaveTransaction --> CheckEligibility["Check Member Eligibility for Email Receipt"]
 CheckEligibility --> |Eligible| SendEmail["Send Email Receipt"]
 CheckEligibility --> |Not Eligible| SkipEmail["Skip Email Receipt"]
-SendEmail --> LogActivity["Log Activity via UserActionTracker"]
+SendEmail --> SendAppMsg["Send Application Message"]
+SendAppMsg --> LogActivity["Log Activity via UserActionTracker"]
 LogActivity --> Success["Show Success Toast with Email Status"]
 SkipEmail --> LogActivity
 Success --> ResetForm["Reset Form & Close"]
 ```
 
 **Diagram sources**
-- [AddSavingsTransactionModal.tsx:29-150](file://components/user/AddSavingsTransactionModal.tsx#L29-L150)
+- [AddSavingsTransactionModal.ts:29-150](file://components/user/AddSavingsTransactionModal.tsx#L29-L150)
 - [savingsService.ts:370-433](file://lib/savingsService.ts#L370-L433)
 - [userActionTracker.ts:10-47](file://lib/userActionTracker.ts#L10-L47)
+- [emailService.ts:320-353](file://lib/emailService.ts#L320-L353)
 
 **Section sources**
-- [AddSavingsTransactionModal.tsx:15-371](file://components/user/AddSavingsTransactionModal.tsx#L15-L371)
+- [AddSavingsTransactionModal.tsx:15-382](file://components/user/AddSavingsTransactionModal.tsx#L15-L382)
+
+## Automatic Email Notifications
+
+### Dual Email Notification System
+**New** - The system now provides a comprehensive dual email notification system supporting both EmailJS receipts and internal application messages for enhanced member communication.
+
+Key features:
+- **EmailJS Receipts**: Automated email receipts for savings transactions using EmailJS service with proper configuration management.
+- **Internal Application Messages**: Internal application messages for deposit and withdrawal applications with control numbers and running balances.
+- **Member Eligibility**: Automatic eligibility checking for driver and operator roles before sending notifications.
+- **Duplicate Prevention**: Email logging system prevents duplicate email attempts for the same transaction.
+- **Error Handling**: Graceful error handling with detailed logging and fallback mechanisms when email services are unavailable.
+- **Configuration Management**: Flexible EmailJS configuration management with Firestore and environment variable fallback.
+
+```mermaid
+flowchart TD
+Start(["Savings Transaction Complete"]) --> CheckType{"Transaction Type?"}
+CheckType --> |Deposit| CheckEligibility["Check Member Eligibility (Driver/Operator)"]
+CheckType --> |Withdrawal| CheckEligibility
+CheckEligibility --> Eligible{"Eligible for Email?"}
+Eligible --> |No| SkipEmail["Skip Email Notification"]
+Eligible --> |Yes| SendReceipt["Send EmailJS Receipt"]
+SendReceipt --> SendAppMsg["Send Application Message"]
+SendAppMsg --> LogEmail["Log Email Attempt"]
+LogEmail --> SkipEmail
+SkipEmail --> LogActivity["Log Activity via ActivityLogger"]
+LogActivity --> End(["Transaction Complete"])
+```
+
+**Diagram sources**
+- [savingsService.ts:369-474](file://lib/savingsService.ts#L369-L474)
+- [transactionReceiptService.ts:408-476](file://lib/transactionReceiptService.ts#L408-L476)
+- [emailService.ts:320-388](file://lib/emailService.ts#L320-L388)
+
+**Section sources**
+- [savingsService.ts:369-474](file://lib/savingsService.ts#L369-L474)
+- [transactionReceiptService.ts:408-476](file://lib/transactionReceiptService.ts#L408-L476)
+- [emailService.ts:320-388](file://lib/emailService.ts#L320-L388)
+
+### Email Configuration Management
+**New** - The system supports flexible email configuration management through Firestore and environment variables.
+
+Key features:
+- **Firestore Configuration**: Stores EmailJS credentials in `systemConfig/emailjs` document with automatic caching and fallback mechanisms.
+- **Environment Variable Fallback**: Automatically falls back to environment variables when Firestore configuration is unavailable.
+- **Development/Production Flexibility**: Allows different configurations for development and production environments.
+- **Configuration Validation**: Provides clear error messages when EmailJS configuration is missing or incomplete.
+- **Setup Script**: Includes automated setup script to configure EmailJS credentials in Firestore.
+
+**Section sources**
+- [transactionReceiptService.ts:8-56](file://lib/transactionReceiptService.ts#L8-L56)
+- [transactionReceiptService.ts:58-81](file://lib/transactionReceiptService.ts#L58-L81)
 
 ## Activity Logging and Audit Trails
 
@@ -781,19 +880,22 @@ MP-->>A : Render history and print/report
 
 ## Dependency Analysis
 - Types drive service and component contracts ensuring consistent data shapes.
-- SavingsService depends on Firestore utilities, transaction receipt service, activity logger, and user action tracker, and is consumed by pages and components.
+- SavingsService depends on Firestore utilities, transaction receipt service, email service, activity logger, and user action tracker, and is consumed by pages and components.
 - **Updated**: ActivityLogger provides comprehensive audit trail functionality with user identification and role tracking.
 - **Updated**: UserActionTracker enables detailed monitoring of administrative activities and user interactions.
 - Admin and user components share common modal and service logic for transaction handling.
 - **New**: SavingsRecords component integrates with Firestore to provide comprehensive savings tracking with audit trail integration.
 - **New**: ReportsAndAnalytics component provides financial insights through chart visualization with activity monitoring.
-- **New**: Enhanced AddSavingsTransactionModal provides advanced transaction processing capabilities with email receipt integration and activity logging.
+- **New**: Enhanced AddSavingsTransactionModal provides advanced transaction processing capabilities with email receipt integration, dual email notification system, and activity logging.
+- **New**: EmailService provides comprehensive email template system for deposit and withdrawal applications.
+- **New**: Dual email notification system integrates EmailJS receipts and internal application messages for comprehensive member communication.
 
 ```mermaid
 graph LR
 TS["lib/types/savings.ts"] --> SS["lib/savingsService.ts"]
 TM["lib/types/member.ts"] --> SS
 SS --> TRS["lib/transactionReceiptService.ts"]
+SS --> ES["lib/emailService.ts"]
 SS --> AL["lib/activityLogger.ts"]
 SS --> UAT["lib/userActionTracker.ts"]
 SS --> UP["app/savings/page.tsx"]
@@ -811,8 +913,9 @@ SS --> RA["components/admin/ReportsAndAnalytics.tsx"]
 **Diagram sources**
 - [savings.ts:1-22](file://lib/types/savings.ts#L1-L22)
 - [member.ts:1-56](file://lib/types/member.ts#L1-L56)
-- [savingsService.ts:1-551](file://lib/savingsService.ts#L1-L551)
+- [savingsService.ts:1-615](file://lib/savingsService.ts#L1-L615)
 - [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
+- [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
 - [activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
 - [userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
 - [page.tsx:1-382](file://app/savings/page.tsx#L1-L382)
@@ -820,15 +923,16 @@ SS --> RA["components/admin/ReportsAndAnalytics.tsx"]
 - [page.tsx:1-649](file://app/admin/savings/member/[id]/page.tsx#L1-L649)
 - [SavingsActions.tsx:1-249](file://components/user/actions/SavingsActions.tsx#L1-L249)
 - [AddSavingsModal.tsx:1-293](file://components/admin/AddSavingsModal.tsx#L1-L293)
-- [AddSavingsTransactionModal.tsx:1-371](file://components/user/AddSavingsTransactionModal.tsx#L1-L371)
-- [ActiveSavings.tsx:1-270](file://components/user/ActiveSavings.tsx#L1-L270)
+- [AddSavingsTransactionModal.tsx:1-382](file://components/user/AddSavingsTransactionModal.tsx#L1-L382)
+- [ActiveSavings.tsx:1-249](file://components/user/ActiveSavings.tsx#L1-L249)
 - [SavingsLeaderboard.tsx:1-213](file://components/admin/SavingsLeaderboard.tsx#L1-L213)
 - [SavingsRecords.tsx:1-350](file://components/admin/SavingsRecords.tsx#L1-L350)
 - [ReportsAndAnalytics.tsx:1-334](file://components/admin/ReportsAndAnalytics.tsx#L1-L334)
 
 **Section sources**
-- [savingsService.ts:1-551](file://lib/savingsService.ts#L1-L551)
+- [savingsService.ts:1-615](file://lib/savingsService.ts#L1-L615)
 - [transactionReceiptService.ts:1-636](file://lib/transactionReceiptService.ts#L1-L636)
+- [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
 - [activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
 - [userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
 - [page.tsx:1-382](file://app/savings/page.tsx#L1-L382)
@@ -848,6 +952,8 @@ SS --> RA["components/admin/ReportsAndAnalytics.tsx"]
 - **New**: SavingsRecords component uses efficient filtering and pagination to handle large member datasets.
 - **New**: ReportsAndAnalytics component optimizes data fetching and chart rendering for better performance.
 - **New**: Enhanced AddSavingsTransactionModal implements efficient form validation and state management.
+- **New**: Dual email notification system provides comprehensive member communication with efficient error handling.
+- **New**: EmailService provides optimized template processing with proper caching mechanisms.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -860,15 +966,19 @@ Common issues and resolutions:
 - **Updated**: EmailJS configuration errors: Verify all required fields (publicKey, serviceId, receiptTemplateId) are present in Firestore configuration.
 - **Updated**: Activity logging failures: Check Firestore permissions for `activityLogs` collection and ensure proper indexing for user ID queries.
 - **Updated**: User action tracking errors: Verify user authentication and ensure proper user data retrieval for activity logging.
+- **Updated**: Dual email notification failures: Check both EmailJS configuration and internal email service configuration for deposit and withdrawal applications.
+- **Updated**: EmailService template errors: Verify template IDs and variable substitutions for deposit and withdrawal application messages.
 - **New**: Transaction receipt service errors: Check Firestore permissions for `emailLogs` collection and ensure proper indexing for transactionId queries.
 - **New**: SavingsRecords loading errors**: Check Firestore permissions and ensure proper data structure for members and savings collections.
 - **New**: ReportsAndAnalytics chart rendering issues: Verify data formatting and ensure required dependencies (recharts) are properly installed.
 - **New**: Deposit control number generation failures: Check timestamp and random generation logic; ensure unique constraints are maintained.
 - **New**: AddSavingsTransactionModal confirmation issues: Verify modal state management and ensure proper cleanup after transaction completion.
+- **New**: Email notification system failures: Check both EmailJS and internal email service configurations for comprehensive member communication.
 
 **Section sources**
 - [savingsService.ts:21-135](file://lib/savingsService.ts#L21-L135)
 - [transactionReceiptService.ts:132-153](file://lib/transactionReceiptService.ts#L132-L153)
+- [emailService.ts:320-388](file://lib/emailService.ts#L320-L388)
 - [activityLogger.ts:50-86](file://lib/activityLogger.ts#L50-L86)
 - [userActionTracker.ts:10-47](file://lib/userActionTracker.ts#L10-L47)
 - [SavingsActions.tsx:68-85](file://components/user/actions/SavingsActions.tsx#L68-L85)
@@ -882,6 +992,8 @@ The Savings Management System provides a robust, user-friendly framework for man
 
 **Updated**: The most significant enhancement is the integrated comprehensive activity logging system with detailed audit trails for all savings transactions. The system now provides proper user identification and role tracking for comprehensive transaction monitoring, enabling administrators to maintain detailed records of all savings-related activities. The activity logging system captures user IDs, emails, display names, roles, timestamps, client information, and transaction metadata, providing a complete audit trail for compliance and security purposes. The user action tracker enables detailed monitoring of administrative activities and user interactions, with robust error handling and graceful degradation when activity logging fails.
 
-The savings service now integrates seamlessly with the activity logging system, ensuring that every transaction, whether initiated by members or administrators, is properly logged with comprehensive user identification and role tracking. This enhancement significantly improves the system's ability to monitor and audit savings transactions, providing administrators with detailed insights into system usage patterns and transaction activities.
+**Updated**: The dual email notification system represents a major advancement in member communication capabilities. The system now provides comprehensive dual email notification system supporting both EmailJS receipts and internal application messages for enhanced member communication. This system automatically sends email receipts for eligible savings deposits and withdrawals, while also sending internal application messages with control numbers and running balances. The email notification system includes automatic eligibility checking for driver and operator roles, duplicate prevention mechanisms, and robust error handling with detailed logging.
 
-By leveraging typed models, centralized services, modular components, comprehensive email notification capabilities, and robust activity logging, the system supports scalability and maintainability while delivering essential financial insights, operational controls, enhanced member communication, and comprehensive audit trails for regulatory compliance and security monitoring.
+**Updated**: The enhanced savings service now integrates seamlessly with the dual email notification system, ensuring that every transaction, whether initiated by members or administrators, triggers appropriate email notifications. The system automatically handles both EmailJS receipts and internal application messages, providing comprehensive member communication while maintaining transaction security and auditability. This enhancement significantly improves the system's ability to monitor and audit savings transactions, providing administrators with detailed insights into system usage patterns and transaction activities.
+
+By leveraging typed models, centralized services, modular components, comprehensive email notification capabilities, dual email systems, and robust activity logging, the system supports scalability and maintainability while delivering essential financial insights, operational controls, enhanced member communication, and comprehensive audit trails for regulatory compliance and security monitoring.

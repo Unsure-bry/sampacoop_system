@@ -48,6 +48,7 @@ interface OperatorInfo extends AddressInfo {
 
 interface PaymentInfo {
   membershipFee: number;
+  capitalShare: number;
   paymentMethod: string;
   status: string;
   totalFee: number;
@@ -106,6 +107,7 @@ export default function MemberRegistrationModal({
   const [isSubmitting, setIsSubmitting] = useState(false); // New state for loading
   const [isPaid, setIsPaid] = useState(false); // Payment confirmation checkbox
   const [controlNumber, setControlNumber] = useState(''); // Receipt control number
+  const [capitalShare, setCapitalShare] = useState<number>(0); // Capital share amount
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
   const [showCertificatePreview, setShowCertificatePreview] = useState(false);
   const [isGeneratingCertificate, setIsGeneratingCertificate] = useState(false);
@@ -286,12 +288,14 @@ export default function MemberRegistrationModal({
       
       // Add payment information using system settings
       const membershipFee = systemSettings?.membershipPayment || 1500;
+      const totalFee = membershipFee + (capitalShare || 0);
       const paymentData: PaymentInfo = {
         membershipFee: membershipFee,
+        capitalShare: capitalShare || 0,
         paymentMethod: 'Cash',
         status: 'PAID',
-        totalFee: membershipFee,
-        amountPaid: membershipFee,
+        totalFee: totalFee,
+        amountPaid: totalFee,
         remainingBalance: 0
       };
       
@@ -1349,6 +1353,20 @@ export default function MemberRegistrationModal({
                         {systemSettings ? formatCurrency(systemSettings.membershipPayment) : '₱1,500.00'}
                       </span>
                     </div>
+                    <div className="pt-2">
+                      <label className="block text-sm font-medium text-black mb-1">
+                        Capital Share <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={capitalShare || ''}
+                        onChange={(e) => setCapitalShare(Number(e.target.value))}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
+                        placeholder="Enter capital share amount"
+                        min="0"
+                        step="100"
+                      />
+                    </div>
                     <div className="flex justify-between">
                       <span className="text-black">Payment Method:</span>
                       <span className="font-medium text-black">Cash only</span>
@@ -1357,7 +1375,7 @@ export default function MemberRegistrationModal({
                       <div className="flex justify-between">
                         <span className="text-black">Total Fee:</span>
                         <span className="font-medium text-black">
-                          {systemSettings ? formatCurrency(systemSettings.membershipPayment) : '₱1,500.00'}
+                          {formatCurrency((systemSettings?.membershipPayment || 1500) + (capitalShare || 0))}
                         </span>
                       </div>
                     </div>
