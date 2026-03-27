@@ -637,7 +637,7 @@ Status: ${n.status || 'N/A'}
               </div>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
               <div className="bg-blue-50 rounded-lg p-3 sm:p-4">
                 <p className="text-xs sm:text-sm text-blue-600 mb-1">Total Loan Balance</p>
                 <p className="text-xl sm:text-2xl font-bold text-blue-800">{formatCurrency(totalLoanBalance)}</p>
@@ -645,6 +645,19 @@ Status: ${n.status || 'N/A'}
               <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
                 <p className="text-xs sm:text-sm text-gray-600 mb-1">Active Loans</p>
                 <p className="text-xl sm:text-2xl font-bold text-gray-800">{loans.filter(l => l.status === 'active' || l.status === 'approved').length}</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3 sm:p-4">
+                <p className="text-xs sm:text-sm text-green-600 mb-1">Total Savings</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-800">₱{savingsData.currentBalance}</p>
+              </div>
+              <div className={`rounded-lg p-3 sm:p-4 ${capitalShare.isFullyPaid ? 'bg-green-100' : 'bg-orange-50 border border-orange-200'}`}>
+                <p className="text-xs sm:text-sm text-gray-600 mb-1">Capital Share Balance</p>
+                <p className={`text-xl sm:text-2xl font-bold ${capitalShare.isFullyPaid ? 'text-green-600' : 'text-orange-600'}`}>
+                  {formatCurrency(capitalShare.remainingBalance)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {capitalShare.isFullyPaid ? 'Fully Paid' : `${formatCurrency(capitalShare.paidAmount)} / ${formatCurrency(capitalShare.requiredAmount)}`}
+                </p>
               </div>
             </div>
 
