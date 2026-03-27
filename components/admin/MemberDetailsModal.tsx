@@ -152,6 +152,32 @@ export default function MemberDetailsModal({
               </div>
             </div>
 
+            {/* Beneficiary Information */}
+            {member.beneficiaries && member.beneficiaries.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-black mb-3">Beneficiary Information</h3>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                  {member.beneficiaries.map((beneficiary: any, index: number) => (
+                    <div key={index} className="border-b border-gray-200 last:border-0 pb-3 last:pb-0">
+                      <p className="text-sm text-black font-medium mb-2">Beneficiary {index + 1}</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-sm text-black">Full Name</p>
+                          <p className="font-medium text-black">
+                            {beneficiary.firstName} {beneficiary.middleName ? beneficiary.middleName + ' ' : ''}{beneficiary.lastName}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-black">Relationship</p>
+                          <p className="font-medium text-black">{beneficiary.relationship}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Role-specific Information */}
             {member.role === 'Driver' && member.driverInfo && (
               <div>
