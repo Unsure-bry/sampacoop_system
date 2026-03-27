@@ -3,11 +3,12 @@
 import { useAuth } from '@/lib/auth';
 import { useEffect, useState } from 'react';
 import DynamicDashboard from '@/components/user/DynamicDashboard';
-import { Bell, X, Calendar, DollarSign, CreditCard, PiggyBank, AlertCircle, CheckCircle, Clock, User, Wallet, TrendingUp, FileText } from 'lucide-react';
+import { Bell, X, Calendar, DollarSign, CreditCard, PiggyBank, AlertCircle, CheckCircle, Clock, User, Wallet, TrendingUp, FileText, ShieldAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { firestore, db } from '@/lib/firebase';
 import { getSavingsBalanceForMember, getMemberIdByUserId } from '@/lib/savingsService';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useCapitalShare } from '@/hooks/useCapitalShare';
 
 interface Notification {
   id?: string;
@@ -65,6 +66,9 @@ export default function DashboardPage() {
   
   // State for next payment
   const [nextPayment, setNextPayment] = useState<any>(null);
+    
+  // Capital Share data
+  const { capitalShare, loading: capitalShareLoading } = useCapitalShare(user?.uid);
   
   // Fetch savings data from member collection
   useEffect(() => {
@@ -521,6 +525,61 @@ Status: ${n.status || 'N/A'}
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Capital Share Balance Card - Financial Overview */}
+        <div className="mb-6 sm:mb-8">
+          <div className={`rounded-lg shadow p-4 sm:p-6 border-2 ${capitalShare.isFullyPaid ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
+            <div className="flex items-center gap-3 sm:gap-4 mb-4">
+              <div className={`p-2 sm:p-3 rounded-full ${capitalShare.isFullyPaid ? 'bg-green-100' : 'bg-orange-100'}`}>
+                {capitalShare.isFullyPaid ? (
+                  <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
+                ) : (
+                  <ShieldAlert className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600" />
+                )}
+              </div>
+              <div>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-800">Capital Share Balance</h2>
+                <p className="text-xs sm:text-sm text-gray-500">
+                  {capitalShare.isFullyPaid 
+                    ? 'Your capital share is fully paid' 
+                    : 'Complete your capital share contribution'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className={`rounded-lg p-3 sm:p-4 ${capitalShare.isFullyPaid ? 'bg-green-100' : 'bg-white'}`}>
+                <p className="text-xs sm:text-sm text-gray-600 mb-1">Required Amount</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-800">{formatCurrency(capitalShare.requiredAmount)}</p>
+              </div>
+              <div className={`rounded-lg p-3 sm:p-4 ${capitalShare.isFullyPaid ? 'bg-green-100' : 'bg-white'}`}>
+                <p className="text-xs sm:text-sm text-gray-600 mb-1">Amount Paid</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{formatCurrency(capitalShare.paidAmount)}</p>
+              </div>
+              <div className={`rounded-lg p-3 sm:p-4 ${capitalShare.isFullyPaid ? 'bg-green-100' : 'bg-red-50'}`}>
+                <p className="text-xs sm:text-sm text-gray-600 mb-1">Remaining Balance</p>
+                <p className={`text-xl sm:text-2xl font-bold ${capitalShare.isFullyPaid ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(capitalShare.remainingBalance)}
+                </p>
+              </div>
+            </div>
+            
+            {!capitalShare.isFullyPaid && (
+              <div className="mt-4 bg-orange-100 rounded-lg p-3 sm:p-4 border border-orange-200">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-orange-800">Capital Share Incomplete</p>
+                    <p className="text-xs sm:text-sm text-orange-700 mt-1">
+                      You must complete your capital share contribution of {formatCurrency(capitalShare.requiredAmount)} before you can apply for loans or add savings. 
+                      Please contact the cooperative office to settle your remaining balance of {formatCurrency(capitalShare.remainingBalance)}.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

@@ -5,6 +5,7 @@
 - [README.md](file://README.md)
 - [package.json](file://package.json)
 - [app/admin/capital-shares/page.tsx](file://app/admin/capital-shares/page.tsx)
+- [hooks/useCapitalShare.ts](file://hooks/useCapitalShare.ts)
 - [lib/savingsService.ts](file://lib/savingsService.ts)
 - [lib/userMemberService.ts](file://lib/userMemberService.ts)
 - [lib/firebase.ts](file://lib/firebase.ts)
@@ -19,6 +20,15 @@
 - [app/admin/dashboard/page.tsx](file://app/admin/dashboard/page.tsx)
 - [middleware.ts](file://middleware.ts)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced Pending Capital Share Card functionality with standardized required capital share amount of 10,000 units
+- Added new state variables (requiredCapitalShare, remainingBalance, pendingMembersCount) for improved financial tracking
+- Improved status determination logic with clear Paid/Pending/Partial categorization
+- Enhanced UI with new table columns (Paid Amount, Required Amount, Remaining Balance)
+- Implemented color-coded visual indicators for financial tracking and status visualization
+- Added standardized capital share amount processing across all components
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -41,6 +51,8 @@ The Capital Shares Management System is a comprehensive cooperative management p
 
 The system is designed around a cooperative model where members are required to purchase capital shares as part of their membership requirements. The platform automates the tracking, monitoring, and reporting of capital share payments while providing administrative tools for cooperative board members to manage member activities.
 
+**Updated** Enhanced with standardized capital share processing, improved financial tracking, and comprehensive status management system.
+
 ## System Architecture
 
 The Capital Shares Management System follows a modern web architecture with clear separation of concerns:
@@ -51,6 +63,7 @@ subgraph "Frontend Layer"
 UI[Next.js App Router]
 Components[React Components]
 Hooks[Custom Hooks]
+useCapitalShare[useCapitalShare Hook]
 end
 subgraph "Backend Services"
 API[API Routes]
@@ -69,7 +82,8 @@ Validation[Form Validation]
 end
 UI --> API
 Components --> API
-Hooks --> Auth
+Hooks --> useCapitalShare
+useCapitalShare --> Auth
 API --> Firestore
 Auth --> Firestore
 Permissions --> Firestore
@@ -84,6 +98,7 @@ Collections --> Subcollections
 - [lib/firebase.ts:1-345](file://lib/firebase.ts#L1-345)
 - [lib/auth.tsx:1-706](file://lib/auth.tsx#L1-706)
 - [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-226)
+- [hooks/useCapitalShare.ts:1-115](file://hooks/useCapitalShare.ts#L1-115)
 
 The architecture consists of several key layers:
 
@@ -116,10 +131,7 @@ string phoneNumber
 string role
 string status
 string userId
-object driverInfo
-object operatorInfo
 object paymentInfo
-object beneficiaries
 datetime createdAt
 datetime updatedAt
 }
@@ -170,11 +182,19 @@ string chairmanName
 string certificateUrl
 datetime createdAt
 }
+CAPITAL_SHARE_INFO {
+number requiredAmount
+number paidAmount
+number remainingBalance
+string status
+boolean isFullyPaid
+}
 ```
 
 **Diagram sources**
 - [lib/types/savings.ts:1-22](file://lib/types/savings.ts#L1-22)
 - [lib/userMemberService.ts:23-94](file://lib/userMemberService.ts#L23-94)
+- [hooks/useCapitalShare.ts:7-13](file://hooks/useCapitalShare.ts#L7-13)
 
 ### Component Hierarchy
 
@@ -189,9 +209,11 @@ MemberManagement --> MemberActivities[Member Activities]
 FinancialReports --> SavingsReport[Savings Reports]
 FinancialReports --> LoanReports[Loan Reports]
 FinancialReports --> CertificateReports[Certificate Reports]
+CapitalShares --> useCapitalShare[useCapitalShare Hook]
 CapitalShares --> SavingsService[Savings Service]
 CapitalShares --> SettingsService[Settings Service]
 CapitalShares --> Permissions[Permission System]
+useCapitalShare --> MemberRegistration[Member Registration Modal]
 MemberRegistration --> UserMemberService[User-Member Service]
 MemberRegistration --> CertificateService[Certificate Service]
 MemberRegistration --> EmailService[Email Service]
@@ -200,6 +222,7 @@ MemberRegistration --> EmailService[Email Service]
 **Diagram sources**
 - [app/admin/dashboard/page.tsx:88-796](file://app/admin/dashboard/page.tsx#L88-796)
 - [components/admin/MemberRegistrationModal.tsx:1-800](file://components/admin/MemberRegistrationModal.tsx#L1-800)
+- [hooks/useCapitalShare.ts:22-22](file://hooks/useCapitalShare.ts#L22-22)
 
 **Section sources**
 - [lib/types/savings.ts:1-22](file://lib/types/savings.ts#L1-22)
@@ -207,9 +230,9 @@ MemberRegistration --> EmailService[Email Service]
 
 ## Capital Shares Management
 
-### Capital Shares Overview Page
+### Enhanced Capital Shares Overview Page
 
-The Capital Shares Management system provides comprehensive oversight of member capital share payments:
+The Capital Shares Management system now provides comprehensive oversight of member capital share payments with standardized processing:
 
 ```mermaid
 flowchart TD
@@ -217,10 +240,10 @@ Start([Load Capital Shares Page]) --> CheckPermissions{Check User Permissions}
 CheckPermissions --> |Has Permission| LoadData[Load Member Data]
 CheckPermissions --> |No Permission| ShowAccessDenied[Show Access Denied]
 LoadData --> FetchMembers[Fetch All Members]
-FetchMembers --> ProcessMembers[Process Member Data]
-ProcessMembers --> CalculateTotals[Calculate Statistics]
+FetchMembers --> ProcessMembers[Process Member Data with Standardized Logic]
+ProcessMembers --> CalculateTotals[Calculate Statistics with New Metrics]
 CalculateTotals --> FilterData[Apply Filters]
-FilterData --> DisplayTable[Display Capital Shares Table]
+FilterData --> DisplayTable[Display Enhanced Capital Shares Table]
 DisplayTable --> Search[Apply Search Filter]
 DisplayTable --> StatusFilter[Apply Status Filter]
 Search --> UpdateResults[Update Results]
@@ -233,30 +256,71 @@ DisplayTable --> End
 **Diagram sources**
 - [app/admin/capital-shares/page.tsx:18-313](file://app/admin/capital-shares/page.tsx#L18-313)
 
-The system tracks four key metrics:
+**Updated** The system now implements standardized capital share processing with a fixed required amount of 10,000 units for all members, providing consistent financial tracking across the cooperative.
+
+The system tracks five key metrics with enhanced financial visibility:
 - **Total Capital Shares**: Sum of all member capital share amounts
 - **Paid Capital Shares**: Sum of capital shares with full payment status
 - **Pending Capital Shares**: Sum of capital shares with partial or unpaid status
-- **Member Distribution**: Count of members across different payment statuses
+- **Required Capital Share Amount**: Standardized 10,000 unit requirement for all members
+- **Member Distribution**: Count of members across different payment statuses with new pendingMembersCount metric
 
-### Payment Status Tracking
+### Enhanced Payment Status Tracking
 
-The system implements a sophisticated payment status tracking mechanism:
+The system implements a sophisticated payment status tracking mechanism with standardized logic:
 
-| Status | Description | Visual Indicator |
-|--------|-------------|------------------|
-| **Paid** | Full capital share payment received | 🟢 Green Badge |
-| **Partial** | Partial payment received | 🟡 Yellow Badge |
-| **Pending** | No payment received yet | 🟠 Orange Badge |
+| Status | Description | Visual Indicator | Calculation Logic |
+|--------|-------------|------------------|-------------------|
+| **Paid** | Full capital share payment (≥ 10,000 units) received | 🟢 Green Badge | `capitalShare >= REQUIRED_CAPITAL_SHARE` |
+| **Partial** | Partial payment received (0 < capitalShare < 10,000 units) | 🟡 Yellow Badge | `capitalShare > 0 && capitalShare < REQUIRED_CAPITAL_SHARE` |
+| **Pending** | No payment received yet (capitalShare = 0) | 🟠 Orange Badge | `capitalShare = 0` |
+
+**Updated** The status determination logic has been enhanced with standardized processing that treats all members equally with a 10,000-unit required capital share amount, improving fairness and consistency across the cooperative.
+
+### New Financial Tracking Features
+
+The system now provides comprehensive financial tracking through enhanced UI components:
+
+#### Summary Cards with Color-Coded Indicators
+
+```mermaid
+graph TD
+TotalCard[Total Capital Shares Card] --> BlueIcon[🔵 Blue Icon]
+PaidCard[Paid Capital Shares Card] --> GreenIcon[🟢 Green Icon]
+PendingCard[Pending Capital Shares Card] --> OrangeIcon[🟠 Orange Icon]
+TotalCard --> TotalAmount[Total Amount Display]
+PaidCard --> PaidAmount[Paid Amount Display]
+PendingCard --> PendingAmount[Pending Amount Display]
+TotalCard --> MemberCount[Member Count Display]
+PaidCard --> PaidCount[Paid Member Count Display]
+PendingCard --> PendingCount[Pending Member Count Display]
+```
+
+**Diagram sources**
+- [app/admin/capital-shares/page.tsx:168-216](file://app/admin/capital-shares/page.tsx#L168-216)
+
+#### Enhanced Table with New Columns
+
+The capital shares table now displays four additional columns for comprehensive financial tracking:
+
+| Column | Purpose | Display Format | Color Coding |
+|--------|---------|----------------|--------------|
+| **Paid Amount** | Current capital share payment | Currency format (PHP) | Default text |
+| **Required Amount** | Standardized 10,000 unit requirement | Currency format (PHP) | Gray text |
+| **Remaining Balance** | Outstanding amount to reach 10,000 units | Currency format (PHP) | Red for positive balances, Green for zero |
+| **Status** | Payment status classification | Color-coded badges | Green for Paid, Yellow for Partial, Orange for Pending |
+
+**Updated** The table now includes color-coded visual indicators that provide immediate financial insight, with red text for outstanding balances and green text for fully paid amounts.
 
 **Section sources**
 - [app/admin/capital-shares/page.tsx:18-313](file://app/admin/capital-shares/page.tsx#L18-313)
+- [hooks/useCapitalShare.ts:22-92](file://hooks/useCapitalShare.ts#L22-92)
 
 ## User Registration and Membership
 
 ### Member Registration Workflow
 
-The member registration process is streamlined through a multi-step wizard:
+The member registration process is streamlined through a multi-step wizard with enhanced capital share processing:
 
 ```mermaid
 sequenceDiagram
@@ -271,11 +335,14 @@ Modal->>Admin : Step 1 - Personal Information
 Admin->>Modal : Enter Personal Details
 Modal->>Admin : Step 2 - Role Selection
 Admin->>Modal : Select Driver/Operator
-Modal->>Admin : Step 3 - Confirmation
+Modal->>Admin : Step 3 - Capital Share Entry
+Admin->>Modal : Enter Capital Share Amount
+Note over Modal : Amount automatically processed with 10,000 unit standard
+Modal->>Admin : Step 4 - Confirmation
 Admin->>Modal : Review and Submit
 Modal->>Service : createLinkedUserMember()
 Service->>Firestore : Create User Document
-Service->>Firestore : Create Member Document
+Service->>Firestore : Create Member Document with paymentInfo
 Service->>Email : Send Welcome Email
 Service->>Certificate : Generate Certificate (Optional)
 Certificate->>Firestore : Store Certificate Data
@@ -289,7 +356,7 @@ Modal-->>Admin : Success Message
 
 ### User-Member Linkage System
 
-The system maintains consistency between user accounts and member profiles through a dual-document approach:
+The system maintains consistency between user accounts and member profiles through a dual-document approach with enhanced capital share tracking:
 
 ```mermaid
 classDiagram
@@ -322,13 +389,24 @@ class MemberDocument {
 +object paymentInfo
 +datetime createdAt
 }
+class CapitalShareInfo {
++number requiredAmount
++number paidAmount
++number remainingBalance
++string status
++boolean isFullyPaid
+}
 UserMemberService --> UserDocument : creates
 UserMemberService --> MemberDocument : creates
+MemberDocument --> CapitalShareInfo : contains
 UserDocument --> MemberDocument : linked by userId
 ```
 
 **Diagram sources**
 - [lib/userMemberService.ts:14-289](file://lib/userMemberService.ts#L14-289)
+- [hooks/useCapitalShare.ts:7-13](file://hooks/useCapitalShare.ts#L7-13)
+
+**Updated** The member documents now include enhanced paymentInfo objects with standardized capital share processing, ensuring consistent financial tracking across all cooperative members.
 
 **Section sources**
 - [components/admin/MemberRegistrationModal.tsx:1-800](file://components/admin/MemberRegistrationModal.tsx#L1-800)
@@ -338,7 +416,7 @@ UserDocument --> MemberDocument : linked by userId
 
 ### Savings Transaction Management
 
-The savings transaction system provides comprehensive financial tracking:
+The savings transaction system provides comprehensive financial tracking with enhanced capital share integration:
 
 ```mermaid
 flowchart TD
@@ -362,12 +440,14 @@ LogActivity --> End
 
 ### Transaction Types and Processing
 
-The system supports two primary transaction types:
+The system supports two primary transaction types with enhanced capital share processing:
 
-| Transaction Type | Description | Balance Impact |
-|------------------|-------------|----------------|
-| **Deposit** | Money added to member account | Increases balance |
-| **Withdrawal** | Money removed from member account | Decreases balance |
+| Transaction Type | Description | Balance Impact | Capital Share Integration |
+|------------------|-------------|----------------|---------------------------|
+| **Deposit** | Money added to member account | Increases balance | Can contribute to capital share payments |
+| **Withdrawal** | Money removed from member account | Decreases balance | May affect remaining capital share balance |
+
+**Updated** The transaction system now integrates seamlessly with capital share processing, allowing savings deposits to directly contribute toward meeting the standardized 10,000-unit capital share requirement.
 
 **Section sources**
 - [lib/savingsService.ts:1-615](file://lib/savingsService.ts#L1-615)
@@ -377,7 +457,7 @@ The system supports two primary transaction types:
 
 ### Share Certificate System
 
-The certificate generation system provides professional documentation for member capital shares:
+The certificate generation system provides professional documentation for member capital shares with enhanced financial tracking:
 
 ```mermaid
 sequenceDiagram
@@ -390,9 +470,9 @@ Admin->>Modal : Open Certificate Preview
 Modal->>Admin : Display Certificate Template
 Admin->>Modal : Customize Certificate Details
 Modal->>Service : generateShareCertificate()
-Service->>PDF : Create PDF Document
+Service->>PDF : Create PDF Document with Capital Share Info
 PDF-->>Service : Generated PDF Data
-Service->>Firestore : Store Certificate Data
+Service->>Firestore : Store Certificate Data with Financial Details
 Service->>Admin : Certificate Ready
 Admin->>Modal : Download/Print Certificate
 Modal->>Admin : Certificate Saved
@@ -404,13 +484,15 @@ Modal->>Admin : Certificate Saved
 
 ### Certificate Features
 
-The certificate system includes advanced features for professional documentation:
+The certificate system includes advanced features for professional documentation with enhanced financial transparency:
 
-- **Customizable Templates**: Professional share certificate designs
-- **Automated Generation**: Real-time PDF creation with member data
-- **Officer Integration**: Automatic inclusion of cooperative officers
-- **Multi-format Export**: Download as PDF or print directly
-- **Storage Integration**: Automatic saving to member records
+- **Customizable Templates**: Professional share certificate designs with capital share details
+- **Automated Generation**: Real-time PDF creation with member capital share information
+- **Officer Integration**: Automatic inclusion of cooperative officers with financial tracking
+- **Multi-format Export**: Download as PDF or print directly with financial summaries
+- **Storage Integration**: Automatic saving to member records with complete capital share history
+
+**Updated** The certificate system now includes comprehensive capital share information, providing official documentation of member financial obligations and payment status.
 
 **Section sources**
 - [components/admin/CertificatePreviewModal.tsx:1-672](file://components/admin/CertificatePreviewModal.tsx#L1-672)
@@ -420,7 +502,7 @@ The certificate system includes advanced features for professional documentation
 
 ### Role-Based Access Control
 
-The system implements a comprehensive permission system based on user roles:
+The system implements a comprehensive permission system based on user roles with enhanced capital share management capabilities:
 
 ```mermaid
 graph TD
@@ -441,28 +523,34 @@ LoanOps[Loan Operations]
 SavingsOps[Savings Operations]
 Reports[Reporting]
 SystemOps[System Operations]
+CapitalShareOps[Capital Share Operations]
 end
 Admin --> MemberOps
 Admin --> LoanOps
 Admin --> SavingsOps
 Admin --> Reports
 Admin --> SystemOps
+Admin --> CapitalShareOps
 Chairman --> MemberOps
 Chairman --> LoanOps
 Chairman --> Reports
+Chairman --> CapitalShareOps
 Secretary --> MemberOps
 Secretary --> LoanOps
 Secretary --> SavingsOps
 Secretary --> Reports
 Secretary --> SystemOps
+Secretary --> CapitalShareOps
 Manager --> MemberOps
 Manager --> LoanOps
 Manager --> Reports
 Manager --> SystemOps
+Manager --> CapitalShareOps
 Treasurer --> MemberOps
 Treasurer --> LoanOps
 Treasurer --> Reports
 Treasurer --> SystemOps
+Treasurer --> CapitalShareOps
 ```
 
 **Diagram sources**
@@ -470,7 +558,7 @@ Treasurer --> SystemOps
 
 ### Permission Implementation
 
-The permission system provides granular control over system functionality:
+The permission system provides granular control over system functionality with enhanced capital share management:
 
 | Permission Category | Description | Admin | Chairman | Secretary | Manager | Treasurer |
 |-------------------|-------------|-------|----------|-----------|---------|-----------|
@@ -481,6 +569,9 @@ The permission system provides granular control over system functionality:
 | **Manage Savings** | Process savings transactions | ✅ | ❌ | ✅ | ✅ | ✅ |
 | **View Reports** | Access system reports | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Export Data** | Export system data | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Manage Capital Shares** | Monitor and manage capital share payments | ✅ | ✅ | ✅ | ❌ | ❌ |
+
+**Updated** The permission system now includes enhanced capital share management capabilities, allowing authorized users to monitor and manage member capital share payments effectively.
 
 **Section sources**
 - [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-226)
@@ -489,7 +580,7 @@ The permission system provides granular control over system functionality:
 
 ### Database Schema Design
 
-The system uses a normalized document-based schema optimized for cooperative operations:
+The system uses a normalized document-based schema optimized for cooperative operations with enhanced capital share tracking:
 
 ```mermaid
 erDiagram
@@ -512,6 +603,12 @@ string members.userId = users.id
 string members/{memberId}/savings.memberId = members.id
 string member_certificates.memberId = members.id
 }
+PAYMENT_INFO {
+object paymentInfo
+number capitalShare
+datetime paymentDate
+}
+MEMBERS ||--o{ PAYMENT_INFO : contains
 ```
 
 **Diagram sources**
@@ -519,13 +616,16 @@ string member_certificates.memberId = members.id
 
 ### Data Validation and Integrity
 
-The system implements comprehensive data validation:
+The system implements comprehensive data validation with enhanced capital share processing:
 
 - **Email Uniqueness**: Ensures no duplicate member registrations
 - **Role Validation**: Restricts access based on user roles
 - **Permission Validation**: Controls access to sensitive operations
 - **Transaction Validation**: Prevents invalid financial operations
 - **Document References**: Maintains referential integrity across collections
+- **Capital Share Validation**: Ensures standardized 10,000-unit requirement processing
+
+**Updated** The data validation system now includes enhanced capital share processing, ensuring all members meet the standardized 10,000-unit capital share requirement consistently.
 
 **Section sources**
 - [lib/firebase.ts:1-345](file://lib/firebase.ts#L1-345)
@@ -576,23 +676,27 @@ The authentication system includes multiple security layers:
 
 ### Database Optimization
 
-The system implements several performance optimization strategies:
+The system implements several performance optimization strategies with enhanced capital share processing:
 
 - **Batch Operations**: Parallel processing of multiple database queries
 - **Efficient Queries**: Optimized Firestore queries with appropriate indexing
 - **Caching Strategies**: Client-side caching for frequently accessed data
 - **Lazy Loading**: Progressive loading of large datasets
 - **Pagination**: Efficient handling of large collections
+- **Standardized Processing**: Optimized calculations for consistent 10,000-unit capital share amounts
 
 ### Frontend Performance
 
-The frontend implements performance best practices:
+The frontend implements performance best practices with enhanced UI components:
 
 - **Code Splitting**: Dynamic imports for route-based code splitting
 - **Component Memoization**: React.memo for expensive components
-- **Optimized Rendering**: Efficient table rendering for large datasets
+- **Optimized Rendering**: Efficient table rendering for large datasets with new columns
 - **Loading States**: Proper loading indicators for async operations
 - **Error Boundaries**: Graceful error handling and recovery
+- **Color-Coded Rendering**: Optimized visual indicators for financial tracking
+
+**Updated** The frontend performance has been enhanced to handle the new table columns and color-coded visual indicators efficiently, ensuring smooth user experience even with increased data complexity.
 
 ## Troubleshooting Guide
 
@@ -618,6 +722,14 @@ The frontend implements performance best practices:
 - **Issue**: Share certificates not generating properly
 - **Solution**: Check certificate template data, verify PDF generation library, confirm email service configuration
 
+**Capital Share Processing Issues**
+- **Issue**: Capital share amounts not displaying correctly
+- **Solution**: Verify REQUIRED_CAPITAL_SHARE constant (10,000), check paymentInfo structure, confirm status calculation logic
+
+**Enhanced Status Display Problems**
+- **Issue**: Status badges not showing correct colors
+- **Solution**: Verify status determination logic, check color-coding classes, confirm remainingBalance calculations
+
 **Section sources**
 - [lib/auth.tsx:366-372](file://lib/auth.tsx#L366-372)
 - [lib/userMemberService.ts:101-200](file://lib/userMemberService.ts#L101-200)
@@ -626,12 +738,21 @@ The frontend implements performance best practices:
 
 The Capital Shares Management System provides a comprehensive solution for cooperative member management with robust features for capital share tracking, financial transactions, member registration, and administrative oversight. The system's modular architecture, comprehensive permission system, and professional certificate generation capabilities make it well-suited for managing cooperative operations efficiently.
 
+**Updated** The system has been significantly enhanced with standardized capital share processing, improved financial tracking, and comprehensive status management. Key improvements include:
+
+- **Standardized Capital Share Processing**: Consistent 10,000-unit requirement across all members
+- **Enhanced Financial Tracking**: New state variables and metrics for better visibility
+- **Improved Status Determination**: Clear Paid/Pending/Partial categorization logic
+- **Advanced UI Features**: Color-coded visual indicators and comprehensive table columns
+- **Integrated Payment System**: Seamless connection between savings transactions and capital share payments
+
 Key strengths of the system include:
 
-- **Comprehensive Feature Set**: Covers all aspects of cooperative member management
-- **Professional Documentation**: High-quality certificate generation and reporting
-- **Robust Security**: Multi-layered authentication and authorization
-- **Scalable Architecture**: Optimized for growth and performance
-- **User-Friendly Interface**: Intuitive administration and member experiences
+- **Comprehensive Feature Set**: Covers all aspects of cooperative member management with enhanced financial tracking
+- **Professional Documentation**: High-quality certificate generation with financial transparency
+- **Robust Security**: Multi-layered authentication and authorization with enhanced capital share management
+- **Scalable Architecture**: Optimized for growth and performance with standardized processing
+- **User-Friendly Interface**: Intuitive administration and member experiences with enhanced visual indicators
+- **Consistent Financial Standards**: Fair and transparent capital share requirements across all cooperative members
 
-The system provides a solid foundation for SAMPA Transport Service Cooperative's operational needs while maintaining flexibility for future enhancements and feature additions.
+The system provides a solid foundation for SAMPA Transport Service Cooperative's operational needs while maintaining flexibility for future enhancements and feature additions. The enhanced capital share management capabilities ensure fair treatment of all members while providing administrators with comprehensive tools for financial oversight and reporting.

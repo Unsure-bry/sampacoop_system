@@ -8,6 +8,8 @@ import { toast } from 'react-hot-toast';
 import { LoanPlan } from '@/lib/types/loan';
 import { LoanActions } from '@/components';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useCapitalShare } from '@/hooks/useCapitalShare';
+import { ShieldAlert, AlertCircle } from 'lucide-react';
 
 // Type definition for loan tabs
 type LoanTab = 'applications' | 'active' | 'completed';
@@ -15,6 +17,10 @@ type LoanTab = 'applications' | 'active' | 'completed';
 export default function LoanPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  
+  // Capital Share check
+  const { capitalShare, loading: capitalShareLoading } = useCapitalShare(user?.uid);
+  
   const [loanPlans, setLoanPlans] = useState<LoanPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [hasActiveLoan, setHasActiveLoan] = useState(false);
@@ -351,7 +357,7 @@ export default function LoanPage() {
     setSelectedLoan(null);
   };
 
-  if (loading || activeLoanCheckLoading) {
+  if (loading || activeLoanCheckLoading || capitalShareLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-600"></div>
@@ -363,6 +369,44 @@ export default function LoanPage() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-gray-800">Loan Services</h1>
       
+      {/* Capital Share Restriction Warning */}
+      {!capitalShare.isFullyPaid && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-lg">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <ShieldAlert className="h-6 w-6 text-red-500" />
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-lg font-semibold text-red-800">Capital Share Required</h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p className="mb-2">
+                  You cannot apply for a loan at this time because your capital share contribution is incomplete.
+                </p>
+                <div className="bg-white rounded-lg p-3 mt-3 border border-red-200">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-xs text-gray-500">Required</p>
+                      <p className="text-lg font-bold text-gray-800">{formatCurrency(capitalShare.requiredAmount)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Paid</p>
+                      <p className="text-lg font-bold text-green-600">{formatCurrency(capitalShare.paidAmount)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Remaining</p>
+                      <p className="text-lg font-bold text-red-600">{formatCurrency(capitalShare.remainingBalance)}</p>
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-3 text-sm">
+                  Please contact the cooperative office to settle your remaining balance of <strong>{formatCurrency(capitalShare.remainingBalance)}</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Warning Message for Active/Pending Loans */}
       {(hasActiveLoan || hasPendingLoan) && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 sm:p-4 mb-4 sm:mb-6">
@@ -401,14 +445,16 @@ export default function LoanPage() {
             value={selectedLoanPlanId}
             onChange={(e) => handleLoanPlanSelect(e.target.value)}
             className="w-full p-3 sm:p-4 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 disabled:bg-gray-100 disabled:text-gray-500 text-gray-900 text-sm sm:text-base font-medium bg-white appearance-none cursor-pointer"
-            disabled={hasActiveLoan || hasPendingLoan || plansLoading}
+            disabled={hasActiveLoan || hasPendingLoan || plansLoading || !capitalShare.isFullyPaid}
           >
             <option value="" className="text-gray-500">
               {plansLoading 
                 ? 'Loading loan plans...' 
                 : hasActiveLoan || hasPendingLoan
                   ? 'Loan application unavailable' 
-                  : '-- Select a loan plan --'
+                  : !capitalShare.isFullyPaid
+                    ? 'Complete capital share to apply for loans'
+                    : '-- Select a loan plan --'
               }
             </option>
             {loanPlans.map((plan) => (
@@ -427,13 +473,15 @@ export default function LoanPage() {
         <p className="text-xs sm:text-sm text-gray-600 mt-3 font-medium">
           {hasActiveLoan || hasPendingLoan
             ? 'You cannot apply for a new loan while you have an active loan or pending application.'
-            : 'Choose a loan plan above to view details and apply'
+            : !capitalShare.isFullyPaid
+              ? 'You must complete your capital share contribution before applying for a loan.'
+              : 'Choose a loan plan above to view details and apply'
           }
         </p>
       </div>
 
       {/* Loan Plan Details Card */}
-      {showPlanDetails && selectedPlan && !hasActiveLoan && !hasPendingLoan && (
+      {showPlanDetails && selectedPlan && !hasActiveLoan && !hasPendingLoan && capitalShare.isFullyPaid && (
         <div className="bg-white rounded-lg shadow-lg p-5 sm:p-6 mb-6 sm:mb-8 border-2 border-red-200">
           <div className="flex justify-between items-start mb-5">
             <div className="flex-1 min-w-0 pr-4">
@@ -946,7 +994,7 @@ export default function LoanPage() {
       <LoanActions 
         loanPlans={loanPlans} 
         onLoanApplied={handleLoanApplied}
-        hasActiveLoan={hasActiveLoan || hasPendingLoan}
+        hasActiveLoan={hasActiveLoan || hasPendingLoan || !capitalShare.isFullyPaid}
       />
     </div>
   );
