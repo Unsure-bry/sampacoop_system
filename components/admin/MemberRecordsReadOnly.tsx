@@ -4,6 +4,13 @@ import { useEffect, useState } from 'react';
 import { firestore } from '@/lib/firebase';
 import { ChevronLeft, ChevronRight, Search, User } from 'lucide-react';
 
+interface BeneficiaryInfo {
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  relationship: string;
+}
+
 interface Member {
   id: string;
   firstName?: string;
@@ -15,6 +22,7 @@ interface Member {
   status?: string;
   createdAt?: any;
   archivedAt?: string | null;
+  beneficiaries?: BeneficiaryInfo[];
 }
 
 export default function MemberRecordsReadOnly() {
@@ -73,6 +81,7 @@ export default function MemberRecordsReadOnly() {
         status: doc.status || 'active',
         createdAt: doc.createdAt,
         archivedAt: doc.archivedAt || null,
+        beneficiaries: doc.beneficiaries || [],
       }));
 
       setMembers(processedMembers);
@@ -200,12 +209,13 @@ export default function MemberRecordsReadOnly() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Beneficiaries</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {currentMembers.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                   {searchTerm ? 'No members found matching your search.' : `No ${activeTab} members found.`}
                 </td>
               </tr>
@@ -237,6 +247,20 @@ export default function MemberRecordsReadOnly() {
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(member.status)}`}>
                       {member.status || 'Active'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {member.beneficiaries && member.beneficiaries.length > 0 ? (
+                      <div className="text-sm text-gray-900">
+                        {member.beneficiaries.map((beneficiary, index) => (
+                          <div key={index} className="mb-1 last:mb-0">
+                            <span className="font-medium">{beneficiary.firstName} {beneficiary.lastName}</span>
+                            <span className="text-gray-500 text-xs ml-1">({beneficiary.relationship})</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
                   </td>
                 </tr>
               ))
