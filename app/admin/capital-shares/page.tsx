@@ -714,7 +714,6 @@ export default function CapitalSharesPage() {
                   </div>
                 ) : transactions.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <DollarSign className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500">No payment records found</p>
                   </div>
                 ) : (
