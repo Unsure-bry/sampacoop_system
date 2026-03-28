@@ -368,29 +368,32 @@ export default function ReportsAndAnalytics() {
           </div>
         </div>
 
-        {/* Loan Status Distribution */}
+        {/* Financial Overview - Key Metrics */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Loan Status Distribution</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Financial Overview</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={loanStatusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {loanStatusData.map((entry, index) => (
+              <BarChart data={metricsData} layout="vertical" margin={{ left: 100 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  type="number" 
+                  tickFormatter={(value) => value >= 1000 ? `₱${(value / 1000).toFixed(0)}k` : value.toString()}
+                />
+                <YAxis type="category" dataKey="name" width={100} />
+                <Tooltip 
+                  formatter={(value: any, name: any, props: any) => {
+                    if (props?.payload?.type === 'currency') {
+                      return [formatCurrency(Number(value) || 0), name];
+                    }
+                    return [(Number(value) || 0).toLocaleString(), name];
+                  }}
+                />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  {metricsData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
