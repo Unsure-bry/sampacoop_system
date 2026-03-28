@@ -56,9 +56,6 @@ interface DashboardStats {
   activeLoans: number;
   pendingRequests: number;
   totalApprovedLoans: number;
-  totalSavings: number;
-  totalCapitalShares: number;
-  totalLoans: number;
 }
 
 interface SavingsLeaderboardEntry {
@@ -96,11 +93,7 @@ export default function DynamicAdminDashboard() {
     activeLoans: 0,
     pendingRequests: 0,
     totalApprovedLoans: 0,
-    totalSavings: 0,
-    totalCapitalShares: 0,
-    totalLoans: 0,
   });
-  const [metricsData, setMetricsData] = useState<any[]>([]);
   const [savingsLeaderboard, setSavingsLeaderboard] = useState<SavingsLeaderboardEntry[]>([]);
   const [filteredSavings, setFilteredSavings] = useState<SavingsLeaderboardEntry[]>([]);
   const [savingsFilter, setSavingsFilter] = useState<'all' | 'daily' | 'monthly' | 'yearly'>('all');
@@ -358,8 +351,6 @@ export default function DynamicAdminDashboard() {
         // Process savings leaderboard with enhanced error handling
         let savingsLeaderboardData: SavingsLeaderboardEntry[] = [];
         let totalSavings = 0;
-        let totalCapitalShares = 0;
-        let totalLoans = 0;
         
         if (savingsResult.success && savingsResult.data) {
           const savingsTransactions = savingsResult.data as SavingsTransaction[];
@@ -514,34 +505,13 @@ export default function DynamicAdminDashboard() {
         // Calculate total savings across all members
         totalSavings = savingsLeaderboardData.reduce((sum, entry) => sum + entry.totalSavings, 0);
         
-        // Calculate total capital shares from members
-        if (membersResult.success && membersResult.data) {
-          totalCapitalShares = membersResult.data.reduce((sum: number, m: any) => sum + (m.capitalShare || m.capitalShares || 0), 0);
-        }
-        
-        // Calculate total loans amount
-        if (loansResult.success && loansResult.data) {
-          totalLoans = loansResult.data.reduce((sum: number, loan: any) => sum + (loan.amount || 0), 0);
-        }
-
         // Update state with fetched data
         setStats({
           totalMembers: totalMembers || 0,
           activeLoans: activeLoans || 0,
           pendingRequests: pendingRequests || 0,
-          totalApprovedLoans: totalApprovedLoans || 0,
-          totalSavings: totalSavings || 0,
-          totalCapitalShares: totalCapitalShares || 0,
-          totalLoans: totalLoans || 0
+          totalApprovedLoans: totalApprovedLoans || 0
         });
-        
-        // Set unified metrics data for visualization
-        setMetricsData([
-          { name: 'Total Members', value: totalMembers || 0, color: '#3B82F6', type: 'count' },
-          { name: 'Total Savings', value: totalSavings || 0, color: '#10B981', type: 'currency' },
-          { name: 'Total Loans', value: totalLoans || 0, color: '#8B5CF6', type: 'currency' },
-          { name: 'Capital Shares', value: totalCapitalShares || 0, color: '#F59E0B', type: 'currency' }
-        ]);
 
         setSavingsLeaderboard(savingsLeaderboardData || []);
         setFilteredSavings(savingsLeaderboardData || []);
@@ -699,54 +669,6 @@ export default function DynamicAdminDashboard() {
               <h2 className="text-xs sm:text-sm font-medium text-gray-600">Approved Loans</h2>
               <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.totalApprovedLoans}</p>
             </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Unified Metrics Overview */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">System Overview - Key Metrics</h2>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={metricsData} layout="vertical" margin={{ left: 100 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                type="number" 
-                tickFormatter={(value) => value >= 1000 ? `₱${(value / 1000).toFixed(0)}k` : value.toString()}
-              />
-              <YAxis type="category" dataKey="name" width={100} />
-              <Tooltip 
-                formatter={(value: any, name: any, props: any) => {
-                  if (props?.payload?.type === 'currency') {
-                    return [formatCurrency(Number(value) || 0), name];
-                  }
-                  return [(Number(value) || 0).toLocaleString(), name];
-                }}
-              />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                {metricsData.map((entry: any, index: number) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-          <div className="text-center p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-600">Total Members</p>
-            <p className="text-lg font-bold text-blue-800">{stats.totalMembers.toLocaleString()}</p>
-          </div>
-          <div className="text-center p-3 bg-green-50 rounded-lg">
-            <p className="text-sm text-green-600">Total Savings</p>
-            <p className="text-lg font-bold text-green-800">{formatCurrency(stats.totalSavings)}</p>
-          </div>
-          <div className="text-center p-3 bg-purple-50 rounded-lg">
-            <p className="text-sm text-purple-600">Total Loans</p>
-            <p className="text-lg font-bold text-purple-800">{formatCurrency(stats.totalLoans)}</p>
-          </div>
-          <div className="text-center p-3 bg-orange-50 rounded-lg">
-            <p className="text-sm text-orange-600">Capital Shares</p>
-            <p className="text-lg font-bold text-orange-800">{formatCurrency(stats.totalCapitalShares)}</p>
           </div>
         </div>
       </div>
