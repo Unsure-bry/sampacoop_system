@@ -5,7 +5,7 @@ import { useForm, FieldErrors } from 'react-hook-form';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { Member } from '@/lib/types/member';
-import { sendMemberRegistrationEmail } from '@/lib/emailService';
+import { sendMemberRegistrationEmail, sendCertificateNotificationEmail } from '@/lib/emailService';
 import { createLinkedUserMember, checkEmailExists } from '@/lib/userMemberService';
 import { logActivity } from '@/lib/activityLogger';
 import { useAuth } from '@/lib/auth';
@@ -458,6 +458,24 @@ export default function MemberRegistrationModal({
       
       if (result.success) {
         toast.success('Certificate generated and sent successfully!');
+        
+        // Send certificate notification email
+        try {
+          const emailSent = await sendCertificateNotificationEmail(
+            registeredMemberData.email,
+            `${registeredMemberData.firstName} ${registeredMemberData.lastName}`,
+            registeredMemberData.id,
+            result.certificateUrl || ''
+          );
+          if (emailSent) {
+            toast.success('Certificate notification email sent!');
+          } else {
+            console.warn('Failed to send certificate notification email');
+          }
+        } catch (emailError) {
+          console.error('Error sending certificate email:', emailError);
+        }
+        
         setShowCertificatePreview(false);
         
         // Reset form and close modal
