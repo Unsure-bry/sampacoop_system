@@ -738,8 +738,25 @@ export default function MemberRegistrationModal({
                           required: 'Birthdate is required',
                           validate: (value) => {
                             if (!value) return 'Birthdate is required';
+                            
+                            // Check year format - must be exactly 4 digits
+                            const yearMatch = value.match(/^\d{4}-/);
+                            if (!yearMatch) {
+                              return 'Invalid year format. Year must be 4 digits (e.g., 1990)';
+                            }
+                            const year = parseInt(yearMatch[0].replace('-', ''));
+                            if (year < 1900 || year > 9999) {
+                              return 'Please enter a valid year between 1900 and 9999';
+                            }
+                            
                             const birthDate = new Date(value);
                             const today = new Date();
+                            
+                            // Check if valid date
+                            if (isNaN(birthDate.getTime())) {
+                              return 'Please enter a valid date';
+                            }
+                            
                             const age = today.getFullYear() - birthDate.getFullYear();
                                                                 
                             if (age < 18) {
@@ -757,6 +774,22 @@ export default function MemberRegistrationModal({
                             return true;
                           }
                         })}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Limit year to 4 digits
+                          if (value) {
+                            const parts = value.split('-');
+                            if (parts[0] && parts[0].length > 4) {
+                              // Truncate year to 4 digits
+                              parts[0] = parts[0].substring(0, 4);
+                              const newValue = parts.join('-');
+                              setValue('birthdate', newValue);
+                              return;
+                            }
+                          }
+                          setValue('birthdate', value);
+                        }}
+                        max="9999-12-31"
                         className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${
                           errors.birthdate ? 'border-red-500' : 'border-gray-300'
                         }`}
@@ -1011,7 +1044,7 @@ export default function MemberRegistrationModal({
                       </button>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 mb-3">You can add up to a Maximum of two (2) beneficiaries.</p>
+                  <p className="text-sm text-gray-500 mb-3">You can add up to a maximum of two (2) beneficiaries.</p>
                   
                   {beneficiaries.length === 0 ? (
                     <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500 border border-dashed border-gray-300">
@@ -1521,6 +1554,9 @@ export default function MemberRegistrationModal({
                       <label className="block text-sm font-medium text-black mb-1">
                         Capital Share <span className="text-red-500">*</span>
                       </label>
+                      <p className="text-xs text-gray-500 mb-1">
+                        Maximum allowed: {systemSettings ? formatCurrency(systemSettings.capitalShare || 10000) : '₱10,000.00'}
+                      </p>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-black font-medium">₱</span>
                         <input
@@ -1546,6 +1582,14 @@ export default function MemberRegistrationModal({
                             
                             // Parse to number for storage
                             const numValue = parseFloat(formatted) || 0;
+                            
+                            // Check if exceeds maximum capital share from system settings
+                            const maxCapitalShare = systemSettings?.capitalShare || 10000;
+                            if (numValue > maxCapitalShare) {
+                              toast.error(`Capital share cannot exceed ${formatCurrency(maxCapitalShare)}`);
+                              return;
+                            }
+                            
                             setCapitalShare(numValue);
                             
                             // Format with commas for display
@@ -1589,6 +1633,11 @@ export default function MemberRegistrationModal({
                           placeholder="0.00"
                         />
                       </div>
+                      {capitalShare > (systemSettings?.capitalShare || 10000) && (
+                        <p className="mt-1 text-sm text-red-600">
+                          Amount exceeds maximum allowed capital share of {formatCurrency(systemSettings?.capitalShare || 10000)}
+                        </p>
+                      )}
                     </div>
                     <div className="flex justify-between">
                       <span className="text-black">Payment Method:</span>
@@ -1631,11 +1680,11 @@ export default function MemberRegistrationModal({
                   <button
                     type="submit"
                     className={`w-full sm:w-auto px-6 py-3 rounded-lg transition-colors flex items-center justify-center order-1 sm:order-2 ${
-                      Object.keys(errors).length === 0 && !isSubmitting && controlNumber.trim() !== ''
+                      Object.keys(errors).length === 0 && !isSubmitting && controlNumber.trim() !== '' && capitalShare <= (systemSettings?.capitalShare || 10000)
                         ? 'bg-red-600 text-white hover:bg-red-700' 
                         : 'bg-gray-400 text-white cursor-not-allowed'
                     }`}
-                    disabled={Object.keys(errors).length > 0 || isSubmitting || controlNumber.trim() === ''}
+                    disabled={Object.keys(errors).length > 0 || isSubmitting || controlNumber.trim() === '' || capitalShare > (systemSettings?.capitalShare || 10000)}
                   >
                     {isSubmitting ? (
                       <>

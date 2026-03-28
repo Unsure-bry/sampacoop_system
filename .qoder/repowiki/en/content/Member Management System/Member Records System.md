@@ -19,16 +19,17 @@
 - [lib/savingsService.ts](file://lib/savingsService.ts)
 - [lib/activityLogger.ts](file://lib/activityLogger.ts)
 - [lib/settingsService.ts](file://lib/settingsService.ts)
+- [lib/types/loan.ts](file://lib/types/loan.ts)
+- [scripts/fix-loan-calculations.js](file://scripts/fix-loan-calculations.js)
 - [firestore.rules](file://firestore.rules)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- **Major Overhaul**: Removed comprehensive test date functionality and test mode from auto-archive system
-- **Streamlined Operations**: Auto-archive system now uses real-time calculations instead of simulated dates
-- **Enhanced Currency Handling**: Added sophisticated currency input formatting with comma separators and decimal precision
-- **Improved UI Feedback**: Integrated react-hot-toast for enhanced toast notifications and user feedback
-- **Real-time Processing**: Auto-archive functionality now operates with current system time for immediate member lifecycle management
+- **Enhanced Loan Deduction System**: Implemented improved multi-loan processing algorithm with precise allocation using remainingDeduction variable
+- **Better Loan Status Recognition**: Enhanced loan status validation and recognition for active, approved, and pending loan states
+- **Enhanced Debugging Capabilities**: Added comprehensive logging and debugging features for loan deduction processes
+- **Multi-loan Processing Algorithm**: Introduced systematic approach to allocate deductions across multiple active loans with proper remaining balance tracking
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -38,13 +39,14 @@
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Member Records Management](#enhanced-member-records-management)
 7. [Auto-Archive System](#auto-archive-system)
-8. [Enhanced Currency Input Handling](#enhanced-currency-input-handling)
-9. [Toast Notification System](#toast-notification-system)
-10. [Activity Logging and Audit Trail](#activity-logging-and-audit-trail)
-11. [Dependency Analysis](#dependency-analysis)
-12. [Performance Considerations](#performance-considerations)
-13. [Troubleshooting Guide](#troubleshooting-guide)
-14. [Conclusion](#conclusion)
+8. [Enhanced Loan Deduction System](#enhanced-loan-deduction-system)
+9. [Enhanced Currency Input Handling](#enhanced-currency-input-handling)
+10. [Toast Notification System](#toast-notification-system)
+11. [Activity Logging and Audit Trail](#activity-logging-and-audit-trail)
+12. [Dependency Analysis](#dependency-analysis)
+13. [Performance Considerations](#performance-considerations)
+14. [Troubleshooting Guide](#troubleshooting-guide)
+15. [Conclusion](#conclusion)
 
 ## Introduction
 The Member Records System is a comprehensive solution for managing cooperative members within the SAMPA Co-op platform. It provides complete member lifecycle management including registration, profile maintenance, activity tracking, and integration with financial systems for loans and savings. The system supports two primary member roles—Drivers and Operators—each with distinct operational requirements and regulatory compliance needs.
@@ -64,54 +66,61 @@ subgraph "Enhanced Member Records Interface"
 A[MemberRecordsEnhanced.tsx]
 B[Advanced Search & Filtering]
 C[Auto-Archive Functionality]
-D[Loan Deduction System]
+D[Enhanced Loan Deduction System]
 E[Member Details Modal]
 F[Restore/Archive Modals]
 G[System Settings Integration]
 H[Activity Timestamp Tracking]
 I[Real-time Calculations]
 J[Loan Deduction Preview]
+K[Multi-loan Processing Algorithm]
+L[RemainingDeduction Variable]
+M[Enhanced Debugging Capabilities]
 end
 subgraph "Read-Only Interface"
-K[MemberRecordsReadOnly.tsx]
-L[Basic Search & Display]
-M[Simple Pagination]
-N[Status Filtering]
+N[MemberRecordsReadOnly.tsx]
+O[Basic Search & Display]
+P[Simple Pagination]
+Q[Status Filtering]
 end
 subgraph "Business Logic Layer"
-O[User-Member Service]
-P[Savings Service]
-Q[Activity Logger]
-R[Validation Utilities]
-S[Certificate Service]
-T[Settings Service]
+R[User-Member Service]
+S[Savings Service]
+T[Activity Logger]
+U[Validation Utilities]
+V[Certificate Service]
+W[Settings Service]
+X[Loan Management Integration]
 end
 subgraph "Data Access Layer"
-U[Firebase Service]
-V[Firestore Collections]
-W[Transactions Subcollections]
-X[Member Documents]
-Y[Activity Logs]
+Y[Firebase Service]
+Z[Firestore Collections]
+AA[Transactions Subcollections]
+BB[Member Documents]
+CC[Activity Logs]
+DD[Loan Collections]
 end
 subgraph "External Systems"
-Z[Loan Management]
-AA[Reports & Analytics]
-BB[Email Service]
-CC[Certificate Generation]
-DD[Enhanced Toast Notifications]
+EE[Loan Management]
+FF[Reports & Analytics]
+GG[Email Service]
+HH[Certificate Generation]
+II[Enhanced Toast Notifications]
 end
-A --> O
-K --> O
-O --> U
-P --> U
-Q --> U
-U --> V
-O --> Z
-P --> Z
-O --> AA
-O --> BB
-O --> CC
-O --> DD
+A --> R
+N --> R
+R --> Y
+S --> Y
+T --> Y
+Y --> Z
+R --> EE
+S --> EE
+R --> FF
+R --> GG
+R --> HH
+R --> II
+EE --> DD
+DD --> X
 ```
 
 **Diagram sources**
@@ -254,18 +263,36 @@ string timestamp
 string ipAddress
 string userAgent
 }
+LOANS {
+string id PK
+string memberId FK
+string amount
+string remainingAmount
+string status
+string startDate
+string dueDate
+string planId
+string planName
+string interestRate
+string term
+string createdAt
+string updatedAt
+}
 USERS ||--|| MEMBERS : "linked by userId"
 USERS ||--o{ ACTIVITY_LOGS : "generates"
 MEMBERS ||--o{ TRANSACTIONS : "has many"
+MEMBERS ||--o{ LOANS : "has many"
 ```
 
 **Diagram sources**
 - [lib/userMemberService.ts:35-92](file://lib/userMemberService.ts#L35-L92)
 - [lib/savingsService.ts:237-342](file://lib/savingsService.ts#L237-L342)
+- [lib/types/loan.ts:1-20](file://lib/types/loan.ts#L1-L20)
 
 **Section sources**
 - [lib/types/member.ts:1-85](file://lib/types/member.ts#L1-L85)
 - [lib/userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
+- [lib/types/loan.ts:1-20](file://lib/types/loan.ts#L1-L20)
 
 ## Architecture Overview
 
@@ -280,6 +307,7 @@ participant API as "API Routes"
 participant Service as "User-Member Service"
 participant Firestore as "Firestore"
 participant Validation as "Validation Layer"
+participant LoanSystem as "Loan Management"
 Client->>Enhanced : Advanced Member Management
 Enhanced->>Service : Auto-archive inactive members (real-time)
 Service->>Firestore : Query members with activity tracking
@@ -289,6 +317,8 @@ Enhanced->>Service : Archive selected members
 Service->>Firestore : Update member status
 Service->>Firestore : Create reactivation transaction
 Service->>Firestore : Deduct loans from savings
+Service->>LoanSystem : Process multi-loan deductions
+LoanSystem->>Firestore : Update loan statuses
 Service->>Firestore : Log activity
 Firestore-->>Service : Archive confirmation
 Service-->>Enhanced : Success response
@@ -440,13 +470,16 @@ J[Savings Transactions]
 K[Loan Applications]
 L[Payment History]
 M[Reactivation Fees]
-N[Loan Deduction System]
+N[Enhanced Loan Deduction System]
+O[Multi-loan Processing]
+P[RemainingDeduction Algorithm]
+Q[Enhanced Debugging]
 end
 subgraph "Audit Trail"
-O[Activity Logs]
-P[System Events]
-Q[Transaction Records]
-R[Enhanced User Feedback]
+R[Activity Logs]
+S[System Events]
+T[Transaction Records]
+U[Enhanced User Feedback]
 end
 A --> D
 A --> E
@@ -454,13 +487,15 @@ D --> F
 E --> F
 F --> H
 G --> F
-B --> O
-J --> P
-K --> P
-L --> P
-M --> P
-N --> P
-N --> R
+B --> R
+J --> S
+K --> S
+L --> S
+M --> S
+N --> S
+O --> P
+P --> Q
+N --> U
 ```
 
 **Diagram sources**
@@ -557,6 +592,8 @@ Complete --> SendNotification[Send Archive Notification]
 ### Loan Deduction from Savings Integration
 The system now includes sophisticated loan deduction capabilities that automatically deduct remaining loan balances from member savings when accounts are archived due to real-time inactivity, ensuring financial obligations are met while maintaining member data integrity.
 
+**Updated** The enhanced loan deduction system implements a comprehensive multi-loan processing algorithm with precise allocation across multiple active loans using the remainingDeduction variable for accurate distribution of deduction amounts.
+
 ```mermaid
 sequenceDiagram
 participant System as "Auto-Archive System"
@@ -585,6 +622,53 @@ The enhanced system includes comprehensive real-time calculation capabilities th
 - [components/admin/MemberRecordsEnhanced.tsx:175-305](file://components/admin/MemberRecordsEnhanced.tsx#L175-L305)
 - [components/admin/MemberRecordsEnhanced.tsx:326-379](file://components/admin/MemberRecordsEnhanced.tsx#L326-L379)
 - [components/admin/MemberRecordsEnhanced.tsx:381-436](file://components/admin/MemberRecordsEnhanced.tsx#L381-L436)
+
+## Enhanced Loan Deduction System
+
+### Improved Multi-loan Processing Algorithm
+The enhanced loan deduction system implements a sophisticated multi-loan processing algorithm that systematically allocates deduction amounts across multiple active loans using the remainingDeduction variable for precise distribution.
+
+```mermaid
+flowchart TD
+Start([Loan Deduction Process]) --> CalculateDeduction[Calculate Total Deduction Amount]
+CalculateDeduction --> GetActiveLoans[Get All Active Loans for Member]
+GetActiveLoans --> InitializeRemaining[Initialize remainingDeduction = deductionAmount]
+InitializeRemaining --> LoopThroughLoans[Loop Through Each Active Loan]
+LoopThroughLoans --> CheckLoanStatus{Loan Status Active?}
+CheckLoanStatus --> |Yes| CalculateLoanDeduction[Calculate loanDeduction = min(remainingAmount, remainingDeduction)]
+CheckLoanStatus --> |No| NextLoan[Skip to Next Loan]
+CalculateLoanDeduction --> ApplyDeduction[Apply Deduction to Loan]
+ApplyDeduction --> UpdateRemaining[remainingDeduction -= loanDeduction]
+UpdateRemaining --> CheckRemaining{remainingDeduction > 0?}
+CheckRemaining --> |Yes| LoopThroughLoans
+CheckRemaining --> |No| StopProcessing[Stop Processing]
+ApplyDeduction --> UpdateLoanStatus[Update Loan Status Based on Remaining Amount]
+UpdateLoanStatus --> NextLoan
+NextLoan --> LoopThroughLoans
+StopProcessing --> LogActivity[Log Activity with Deduction Details]
+LogActivity --> Complete[Complete Process]
+```
+
+### Enhanced Loan Status Recognition
+The system now features improved loan status recognition that accurately identifies and processes loans in active, approved, and pending states, ensuring comprehensive coverage of all loan types during the deduction process.
+
+**Section sources**
+- [app/admin/members/records/page.tsx:259-311](file://app/admin/members/records/page.tsx#L259-L311)
+- [components/admin/MemberDetailsModal.tsx:732-758](file://components/admin/MemberDetailsModal.tsx#L732-L758)
+
+### Enhanced Debugging Capabilities
+The enhanced loan deduction system includes comprehensive debugging capabilities with detailed logging, error handling, and progress tracking for all deduction operations, providing administrators with complete visibility into the deduction process.
+
+**Section sources**
+- [app/admin/members/records/page.tsx:228-310](file://app/admin/members/records/page.tsx#L228-L310)
+- [components/admin/MemberDetailsModal.tsx:771-777](file://components/admin/MemberDetailsModal.tsx#L771-L777)
+
+### Precise Allocation Using RemainingDeduction Variable
+The system implements a precise allocation mechanism using the remainingDeduction variable to ensure accurate distribution of deduction amounts across multiple loans, preventing over-deduction and maintaining proper loan balance tracking.
+
+**Section sources**
+- [app/admin/members/records/page.tsx:259-283](file://app/admin/members/records/page.tsx#L259-L283)
+- [components/admin/MemberDetailsModal.tsx:732-752](file://components/admin/MemberDetailsModal.tsx#L732-L752)
 
 ## Enhanced Currency Input Handling
 
@@ -667,33 +751,39 @@ E[Manual Administrative Actions]
 end
 subgraph "Logging Categories"
 F[Member Archive Operations]
-G[Loan Deduction Events]
+G[Enhanced Loan Deduction Events]
 H[System Maintenance Tasks]
 I[Manual Member Edits]
 J[Data Import/Export]
+K[Multi-loan Processing Logs]
+L[RemainingDeduction Tracking]
+M[Debug Information]
 end
 subgraph "Audit Features"
-K[Real-time Logging]
-L[Searchable Activity Logs]
-M[Date Range Filtering]
-N[User-specific Activity Views]
-O[Comprehensive Metadata]
-P[Enhanced Toast Notifications]
+N[Real-time Logging]
+O[Searchable Activity Logs]
+P[Date Range Filtering]
+Q[User-specific Activity Views]
+R[Comprehensive Metadata]
+S[Enhanced Toast Notifications]
 end
 A --> B
 C --> A
 D --> A
 E --> A
-F --> K
-G --> K
-H --> K
-I --> K
-J --> K
-B --> L
-B --> M
-B --> N
+F --> N
+G --> N
+H --> N
+I --> N
+J --> N
+K --> N
+L --> N
+M --> N
 B --> O
-P --> K
+B --> P
+B --> Q
+B --> R
+S --> N
 ```
 
 ### Automated Activity Logging for Maintenance Operations
@@ -718,66 +808,83 @@ E[Lucide Icons]
 F[PDF Generation]
 G[Enhanced Toast Notifications]
 H[JSON Validation Utilities]
+I[Loan Management Integration]
+J[Multi-loan Processing Library]
+K[Enhanced Debugging Tools]
 end
 subgraph "Internal Modules"
-I[firebase.ts]
-J[userMemberService.ts]
-K[savingsService.ts]
-L[types/member.ts]
-M[activityLogger.ts]
-N[certificateService.ts]
-O[settingsService.ts]
-P[apiUtils.ts]
-Q[test/route.ts]
-R[test-json/route.ts]
+L[firebase.ts]
+M[userMemberService.ts]
+N[savingsService.ts]
+O[types/member.ts]
+P[activityLogger.ts]
+Q[certificateService.ts]
+R[settingsService.ts]
+S[apiUtils.ts]
+T[test/route.ts]
+U[test-json/route.ts]
+V[types/loan.ts]
+W[fix-loan-calculations.js]
 end
 subgraph "Enhanced UI Components"
-S[MemberRecordsEnhanced.tsx]
-T[MemberRecordsReadOnly.tsx]
-U[MemberRegistrationModal.tsx]
-V[MemberEditModal.tsx]
-W[MemberDetailsModal.tsx]
-X[Pagination.tsx]
-Y[LoanRequestsManagerRefactored.tsx]
-Z[Enhanced Toast Notifications]
-AA[Enhanced Currency Input Handling]
+X[MemberRecordsEnhanced.tsx]
+Y[MemberRecordsReadOnly.tsx]
+Z[MemberRegistrationModal.tsx]
+AA[MemberEditModal.tsx]
+BB[MemberDetailsModal.tsx]
+CC[Pagination.tsx]
+DD[LoanRequestsManagerRefactored.tsx]
+EE[Enhanced Toast Notifications]
+FF[Enhanced Currency Input Handling]
+GG[Enhanced Loan Deduction System]
+HH[Multi-loan Processing Algorithm]
+II[RemainingDeduction Variable]
+JJ[Enhanced Debugging Capabilities]
 end
 subgraph "Legacy Components"
-BB[MemberRecords.tsx]
-CC[MemberDetailsModal.tsx]
-DD[LoanRequestsManager.tsx]
+KK[MemberRecords.tsx]
+LL[MemberDetailsModal.tsx]
+MM[LoanRequestsManager.tsx]
 end
-A --> I
-B --> U
-C --> S
-D --> J
-E --> S
-F --> N
-G --> Z
-H --> P
-I --> J
-I --> K
-I --> L
-I --> M
-I --> N
-I --> O
-I --> P
-J --> S
-J --> T
-K --> S
+A --> L
+B --> Z
+C --> X
+D --> M
+E --> X
+F --> Q
+G --> EE
+H --> S
+I --> GG
+J --> HH
+K --> II
+L --> M
+L --> N
+L --> O
+L --> P
+L --> Q
+L --> R
 L --> S
-L --> T
-M --> S
-N --> S
-O --> S
-P --> R
+M --> X
+M --> Y
+N --> X
+O --> X
+O --> Y
+P --> X
+Q --> X
+R --> X
 S --> U
-S --> V
-S --> W
-S --> Z
-T --> X
-U --> BB
-Y --> DD
+T --> V
+U --> W
+X --> Z
+X --> AA
+X --> BB
+X --> EE
+Y --> CC
+Z --> KK
+DD --> MM
+GG --> HH
+HH --> II
+II --> JJ
 ```
 
 **Diagram sources**
@@ -787,12 +894,16 @@ Y --> DD
 - [components/admin/MemberRecordsReadOnly.tsx:1-278](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
 - [app/api/test/route.ts:1-59](file://app/api/test/route.ts#L1-L59)
 - [app/api/test-json/route.ts:1-137](file://app/api/test-json/route.ts#L1-L137)
+- [lib/types/loan.ts:1-20](file://lib/types/loan.ts#L1-L20)
+- [scripts/fix-loan-calculations.js:1-140](file://scripts/fix-loan-calculations.js#L1-L140)
 
 **Section sources**
 - [lib/firebase.ts:1-309](file://lib/firebase.ts#L1-L309)
 - [lib/userMemberService.ts:1-287](file://lib/userMemberService.ts#L1-L287)
 - [components/admin/MemberRecordsEnhanced.tsx:1-1042](file://components/admin/MemberRecordsEnhanced.tsx#L1-L1042)
 - [components/admin/MemberRecordsReadOnly.tsx:1-278](file://components/admin/MemberRecordsReadOnly.tsx#L1-L278)
+- [lib/types/loan.ts:1-20](file://lib/types/loan.ts#L1-L20)
+- [scripts/fix-loan-calculations.js:1-140](file://scripts/fix-loan-calculations.js#L1-L140)
 
 ## Performance Considerations
 
@@ -805,6 +916,8 @@ The system implements several performance optimization strategies for handling l
 - `(email, status)` for email-based lookups
 - `(lastTransactionAt, status)` for activity-based queries
 - `(timestamp, userId)` for activity log queries
+- `(memberId, status)` for loan queries
+- `(status, memberId)` for loan status filtering
 
 **Enhanced Query Optimization**: Member search operations utilize efficient filtering patterns:
 - Multi-field search with OR conditions for flexible member discovery
@@ -830,6 +943,14 @@ The auto-archive functionality includes performance optimizations:
 - Asynchronous processing to prevent UI blocking
 - Enhanced toast notifications for immediate user feedback
 
+### Enhanced Loan Deduction Performance
+The enhanced loan deduction system includes performance optimizations:
+- Multi-loan processing with early termination when remainingDeduction reaches zero
+- Efficient loan status validation and filtering
+- Optimized Firestore queries for loan collections
+- Reduced memory usage through iterative processing
+- Enhanced debugging with minimal performance impact
+
 ## Troubleshooting Guide
 
 ### Common Issues and Solutions
@@ -838,9 +959,17 @@ The auto-archive functionality includes performance optimizations:
 - **Issue**: Auto-archive not working properly for inactive members
 - **Solution**: Verify activity timestamps are being updated correctly and check Firestore security rules for write permissions
 
-**Loan Deduction System Issues**
-- **Issue**: Loan deductions not processing correctly during auto-archive
-- **Solution**: Check loan status validation, savings calculation accuracy, and transaction logging for errors
+**Enhanced Loan Deduction System Issues**
+- **Issue**: Multi-loan processing not allocating deductions correctly
+- **Solution**: Check remainingDeduction variable initialization and loan status validation logic
+
+**Loan Status Recognition Issues**
+- **Issue**: Loans not recognized as active during deduction process
+- **Solution**: Verify loan status filtering logic includes all active states (active, approved, pending)
+
+**Enhanced Debugging Capabilities Issues**
+- **Issue**: Missing debug information in loan deduction logs
+- **Solution**: Check console logging statements and ensure proper error handling
 
 **Real-time Calculation Problems**
 - **Issue**: Auto-archive not responding to current activity timestamps
@@ -891,10 +1020,12 @@ The Member Records System provides a robust, scalable foundation for cooperative
 
 **Updated** The most significant enhancement is the streamlined auto-archive system that automatically processes member accounts based on real-time inactivity thresholds using current system timestamps, with integrated loan deduction capabilities that ensure financial obligations are met while maintaining member data integrity. The system has removed the comprehensive testing framework that previously allowed administrators to simulate future dates for testing auto-archive functionality, focusing instead on real-time, production-ready operations with enhanced user feedback through react-hot-toast notifications.
 
+**Updated** The enhanced loan deduction system represents a major advancement in member management capabilities, implementing sophisticated multi-loan processing algorithms with precise allocation using the remainingDeduction variable. The system now features improved loan status recognition, comprehensive debugging capabilities, and systematic approaches to distributing deduction amounts across multiple active loans. This enhancement ensures that financial obligations are met accurately and efficiently, even when members have multiple outstanding loans.
+
 Key strengths include the consistent user-member linking strategy, comprehensive validation mechanisms, extensive audit trail capabilities, and sophisticated member lifecycle management through automated inactivity detection. The system successfully balances functionality with security through proper access controls and data protection measures, with enhanced user experience through improved interface design and real-time feedback mechanisms.
 
-The streamlined auto-archive functionality represents a significant advancement in member management capabilities, providing administrators with powerful tools for maintaining an organized and compliant cooperative membership database. The integration of loan deduction capabilities ensures financial obligations are met automatically, while the comprehensive toast notification system provides immediate user feedback for all operations.
+The streamlined auto-archive functionality and enhanced loan deduction system represent significant advances in member management technology, providing administrators with powerful tools for maintaining an organized and compliant cooperative membership database. The integration of multi-loan processing algorithms with precise allocation mechanisms ensures that financial obligations are handled accurately and transparently, while the comprehensive debugging capabilities provide complete visibility into all deduction operations.
 
 Future enhancements could include advanced reporting capabilities, enhanced export formats, additional compliance features for regulatory requirements, and integration with external identity verification systems. The modular design facilitates these improvements while maintaining backward compatibility and system stability.
 
-The introduction of specialized components and streamlined maintenance automation demonstrates the system's evolution toward supporting diverse operational needs while maintaining its core principles of data integrity, user experience, and system reliability. The enhanced MemberRecordsEnhanced.tsx component with its streamlined auto-archive and loan deduction capabilities represents a significant advancement in member management technology, providing administrators with powerful tools for maintaining an organized and compliant cooperative membership database.
+The introduction of specialized components and streamlined maintenance automation demonstrates the system's evolution toward supporting diverse operational needs while maintaining its core principles of data integrity, user experience, and system reliability. The enhanced MemberRecordsEnhanced.tsx component with its streamlined auto-archive, loan deduction capabilities, and multi-loan processing algorithms represents a significant advancement in member management technology, providing administrators with powerful tools for maintaining an organized and compliant cooperative membership database.

@@ -19,6 +19,7 @@ interface LoanPlan {
 interface SystemSettings {
   membershipPayment: number;
   reactivationFee: number;
+  capitalShare: number;
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -26,6 +27,7 @@ interface SystemSettings {
 const defaultSettings: SystemSettings = {
   membershipPayment: 1500,
   reactivationFee: 1500,
+  capitalShare: 10000,
 };
 
 export default function SystemSettingsPage() {
@@ -258,6 +260,30 @@ export default function SystemSettingsPage() {
                 Current: {formatCurrency(settings.reactivationFee)}
               </p>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                Capital Share Amount
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-900 font-medium">₱</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 font-medium"
+                  value={settings.capitalShare === 0 ? '' : formatNumberWithCommas(settings.capitalShare)}
+                  onChange={(e) => {
+                    const rawValue = e.target.value.replace(/,/g, '');
+                    const numValue = rawValue === '' ? 0 : parseFloat(rawValue);
+                    updateSetting('capitalShare', isNaN(numValue) ? 0 : numValue);
+                  }}
+                  placeholder="0"
+                />
+              </div>
+              <p className="mt-1 text-sm text-gray-900">
+                Current: {formatCurrency(settings.capitalShare)}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -268,7 +294,7 @@ export default function SystemSettingsPage() {
       {/* Current Values Summary */}
       <div className="bg-blue-50 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-blue-800 mb-4">Current Settings Summary</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-lg p-4">
             <p className="text-sm text-gray-500">Membership Payment</p>
             <p className="text-xl font-bold text-gray-800">{formatCurrency(settings.membershipPayment)}</p>
@@ -276,6 +302,10 @@ export default function SystemSettingsPage() {
           <div className="bg-white rounded-lg p-4">
             <p className="text-sm text-gray-500">Reactivation Fee</p>
             <p className="text-xl font-bold text-gray-800">{formatCurrency(settings.reactivationFee)}</p>
+          </div>
+          <div className="bg-white rounded-lg p-4">
+            <p className="text-sm text-gray-500">Capital Share</p>
+            <p className="text-xl font-bold text-gray-800">{formatCurrency(settings.capitalShare)}</p>
           </div>
         </div>
       </div>
