@@ -28,7 +28,8 @@ import {
   Activity,
   UserCog,
   Shield,
-  PiggyBank
+  PiggyBank,
+  Database
 } from 'lucide-react';
 
 // Define sidebar configuration for each role
@@ -75,6 +76,13 @@ export const roleSidebarConfig: RoleSidebarConfig = {
       permission: 'viewReports',
       items: [
         { name: 'Reports and Analytics', path: '/admin/reports', icon: BarChart3, permission: 'viewReports' },
+      ],
+    },
+    {
+      title: 'Backup',
+      permission: 'manageSettings',
+      items: [
+        { name: 'Backup', path: '/admin/backup', icon: Database, permission: 'manageSettings' },
       ],
     },
     {
