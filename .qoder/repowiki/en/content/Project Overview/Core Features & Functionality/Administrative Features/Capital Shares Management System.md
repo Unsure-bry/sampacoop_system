@@ -4,10 +4,11 @@
 **Referenced Files in This Document**
 - [hooks/useCapitalShare.ts](file://hooks/useCapitalShare.ts)
 - [app/admin/capital-shares/page.tsx](file://app/admin/capital-shares/page.tsx)
-- [app/dashboard/page.tsx](file://app/dashboard/page.tsx)
-- [app/loan/page.tsx](file://app/loan/page.tsx)
-- [lib/savingsService.ts](file://lib/savingsService.ts)
+- [app/admin/settings/system/page.tsx](file://app/admin/settings/system/page.tsx)
+- [lib/settingsService.ts](file://lib/settingsService.ts)
+- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx)
 - [lib/userMemberService.ts](file://lib/userMemberService.ts)
+- [lib/savingsService.ts](file://lib/savingsService.ts)
 - [lib/firebase.ts](file://lib/firebase.ts)
 - [lib/rolePermissions.tsx](file://lib/rolePermissions.tsx)
 - [lib/types/savings.ts](file://lib/types/savings.ts)
@@ -15,44 +16,44 @@
 - [lib/certificateService.ts](file://lib/certificateService.ts)
 - [app/api/members/route.ts](file://app/api/members/route.ts)
 - [lib/auth.tsx](file://lib/auth.tsx)
-- [lib/settingsService.ts](file://lib/settingsService.ts)
-- [components/admin/MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx)
-- [app/admin/dashboard/page.tsx](file://app/admin/dashboard/page.tsx)
+- [lib/userMemberService.ts](file://lib/userMemberService.ts)
+- [app/dashboard/page.tsx](file://app/dashboard/page.tsx)
+- [app/loan/page.tsx](file://app/loan/page.tsx)
 - [middleware.ts](file://middleware.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced calculation logic with transaction-based approach for more accurate capital shares tracking
-- Implemented standardized 10,000-unit capital share requirement across all members
-- Added comprehensive transaction history tracking with member-specific subcollections
-- Improved payment status determination with real-time transaction aggregation
-- Enhanced administrative interface with detailed transaction management
-- Integrated transaction-based validation for financial operations
-- Added member-specific capital share transaction collections for scalability
+- Enhanced capital share configuration system with centralized system settings management
+- Implemented maximum capital share limits enforcement with real-time validation
+- Improved validation logic with dynamic capital share amount configuration
+- Added comprehensive capital share management interface with real-time system integration
+- Enhanced member registration workflow with configurable capital share requirements
+- Integrated real-time validation and currency formatting throughout the capital share workflow
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [System Architecture](#system-architecture)
 3. [Core Components](#core-components)
 4. [Capital Shares Management](#capital-shares-management)
-5. [User Registration and Membership](#user-registration-and-membership)
-6. [Financial Transactions](#financial-transactions)
-7. [Certificate Generation](#certificate-generation)
-8. [Permission System](#permission-system)
-9. [Data Management](#data-management)
-10. [Security and Authentication](#security-and-authentication)
-11. [Real-Time Monitoring and Dynamic Tracking](#real-time-monitoring-and-dynamic-tracking)
-12. [Loan Application Restrictions](#loan-application-restrictions)
-13. [Performance Considerations](#performance-considerations)
-14. [Troubleshooting Guide](#troubleshooting-guide)
-15. [Conclusion](#conclusion)
+5. [System Settings Configuration](#system-settings-configuration)
+6. [User Registration and Membership](#user-registration-and-membership)
+7. [Financial Transactions](#financial-transactions)
+8. [Certificate Generation](#certificate-generation)
+9. [Permission System](#permission-system)
+10. [Data Management](#data-management)
+11. [Security and Authentication](#security-and-authentication)
+12. [Real-Time Monitoring and Dynamic Tracking](#real-time-monitoring-and-dynamic-tracking)
+13. [Loan Application Restrictions](#loan-application-restrictions)
+14. [Performance Considerations](#performance-considerations)
+15. [Troubleshooting Guide](#troubleshooting-guide)
+16. [Conclusion](#conclusion)
 
 ## Introduction
 
 The Capital Shares Management System is a comprehensive cooperative management platform built with Next.js and Firebase. This system manages member capital shares, financial transactions, member registration, and administrative workflows for SAMPA Transport Service Cooperative. The platform provides a centralized solution for managing cooperative member relationships, financial obligations, and operational activities.
 
-**Updated** The system has been significantly enhanced with a transaction-based approach that provides more accurate capital shares tracking and payment status determination. The new implementation features standardized calculation logic with member-specific transaction collections, real-time status updates, and comprehensive administrative controls for managing capital share payments.
+**Updated** The system has been significantly enhanced with a comprehensive capital share configuration system that allows administrators to dynamically set and manage capital share requirements through centralized system settings. The new implementation features real-time validation, configurable capital share limits, and enhanced member registration workflow with dynamic validation based on system policies.
 
 ## System Architecture
 
@@ -65,6 +66,9 @@ UI[Next.js App Router]
 Components[React Components]
 Hooks[Custom Hooks]
 useCapitalShare[useCapitalShare Hook]
+SystemSettings[systemSettings Service]
+MemberRegistration[Member Registration Modal]
+CapitalShares[Capital Shares Interface]
 DynamicDashboard[Dynamic Dashboard]
 LoanInterface[Loan Application Interface]
 AdminCapitalShares[Admin Capital Shares Interface]
@@ -77,6 +81,7 @@ Firestore[(Firebase Firestore)]
 CollectionUpdates[Collection Updates]
 MemberCollections[Member-specific Collections]
 CapitalShareTransactions[capitalShareTransactions Subcollection]
+SystemSettingsDoc[systemSettings Document]
 end
 subgraph "Backend Services"
 API[API Routes]
@@ -85,13 +90,15 @@ Permissions[Permission System]
 LoanRestrictions[Loan Application Restrictions]
 SavingsValidation[Savings Transaction Validation]
 PaymentProcessing[Payment Processing Engine]
+SystemSettingsService[System Settings Service]
 end
 subgraph "Data Layer"
 Firestore[(Firebase Firestore)]
-Collections[members, users, loans, savings, rolePermissions]
+Collections[members, users, loans, savings, rolePermissions, systemSettings]
 Subcollections[member savings subcollections, capitalShareTransactions]
 PaymentInfo[paymentInfo object with capitalShare]
 MemberDocuments[Member Documents with paymentInfo]
+SystemSettingsDoc[systemSettings document with capitalShare]
 end
 subgraph "External Services"
 Email[Email Service]
@@ -103,11 +110,14 @@ UI --> API
 Components --> API
 Hooks --> useCapitalShare
 useCapitalShare --> RealTime
+SystemSettings --> SystemSettingsDoc
+SystemSettingsDoc --> RealTime
 RealTime --> Firestore
 DynamicDashboard --> useCapitalShare
 LoanInterface --> useCapitalShare
 AdminCapitalShares --> useCapitalShare
-MemberModal --> PaymentProcessing
+MemberRegistration --> SystemSettings
+MemberRegistration --> PaymentProcessing
 PaymentProcessing --> CapitalShareTransactions
 API --> Firestore
 Auth --> Firestore
@@ -122,21 +132,23 @@ Firestore --> Collections
 Collections --> Subcollections
 Subcollections --> PaymentInfo
 MemberDocuments --> PaymentInfo
+SystemSettingsDoc --> SystemSettings
 ```
 
 **Diagram sources**
-- [lib/firebase.ts:1-345](file://lib/firebase.ts#L1-345)
+- [lib/firebase.ts:1-384](file://lib/firebase.ts#L1-384)
 - [lib/auth.tsx:1-706](file://lib/auth.tsx#L1-706)
 - [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-226)
 - [hooks/useCapitalShare.ts:1-115](file://hooks/useCapitalShare.ts#L1-115)
-- [app/dashboard/page.tsx:1-800](file://app/dashboard/page.tsx#L1-800)
-- [app/loan/page.tsx:1-800](file://app/loan/page.tsx#L1-800)
-- [app/admin/capital-shares/page.tsx:1-758](file://app/admin/capital-shares/page.tsx#L1-758)
+- [lib/settingsService.ts:1-56](file://lib/settingsService.ts#L1-56)
+- [app/admin/settings/system/page.tsx:1-873](file://app/admin/settings/system/page.tsx#L1-873)
+- [components/admin/MemberRegistrationModal.tsx:1500-1699](file://components/admin/MemberRegistrationModal.tsx#L1500-1699)
 
-The architecture consists of several key layers with enhanced real-time monitoring:
+The architecture consists of several key layers with enhanced real-time monitoring and centralized configuration management:
 
 - **Presentation Layer**: Next.js application with React components, custom hooks, and real-time monitoring
 - **Business Logic Layer**: API routes handling business operations, data validation, and loan restrictions
+- **Configuration Management Layer**: Centralized system settings service with real-time updates
 - **Real-Time Data Layer**: Firebase Firestore integration with automatic updates and live listeners
 - **Monitoring Layer**: useCapitalShare hook providing continuous capital share status tracking
 - **Security Layer**: Authentication and authorization mechanisms with dynamic restrictions
@@ -144,18 +156,27 @@ The architecture consists of several key layers with enhanced real-time monitori
 - **Payment Processing Layer**: Modal-based payment management with transaction tracking and member-specific collections
 
 **Section sources**
-- [lib/firebase.ts:1-345](file://lib/firebase.ts#L1-345)
+- [lib/firebase.ts:1-384](file://lib/firebase.ts#L1-384)
 - [lib/auth.tsx:1-706](file://lib/auth.tsx#L1-706)
 - [hooks/useCapitalShare.ts:1-115](file://hooks/useCapitalShare.ts#L1-115)
+- [lib/settingsService.ts:1-56](file://lib/settingsService.ts#L1-56)
 
 ## Core Components
 
 ### Enhanced Data Model Architecture
 
-The system uses a document-based data model optimized for cooperative management with real-time monitoring:
+The system uses a document-based data model optimized for cooperative management with real-time monitoring and centralized configuration:
 
 ```mermaid
 erDiagram
+SYSTEM_SETTINGS {
+string id PK
+number membershipPayment
+number reactivationFee
+number capitalShare
+datetime updatedAt
+string updatedBy
+}
 MEMBERS {
 string id PK
 string firstName
@@ -239,6 +260,7 @@ string type
 string recordedBy
 datetime createdAt
 }
+SYSTEM_SETTINGS ||--|| MEMBERS : configures
 MEMBERS ||--o{ PAYMENT_INFO : contains
 MEMBERS ||--o{ CAPITAL_SHARE_TRANSACTIONS : contains
 ```
@@ -247,26 +269,26 @@ MEMBERS ||--o{ CAPITAL_SHARE_TRANSACTIONS : contains
 - [lib/types/savings.ts:1-22](file://lib/types/savings.ts#L1-22)
 - [lib/userMemberService.ts:23-94](file://lib/userMemberService.ts#L23-94)
 - [hooks/useCapitalShare.ts:7-13](file://hooks/useCapitalShare.ts#L7-13)
+- [lib/settingsService.ts:3-9](file://lib/settingsService.ts#L3-9)
 
 ### Enhanced Component Hierarchy
 
 ```mermaid
 graph TD
-AdminDashboard[Admin Dashboard] --> CapitalShares[Capital Shares Page]
+AdminDashboard[Admin Dashboard] --> SystemSettings[System Settings Page]
+AdminDashboard --> CapitalShares[Capital Shares Page]
 AdminDashboard --> MemberManagement[Member Management]
 AdminDashboard --> FinancialReports[Financial Reports]
-MemberManagement --> MemberRegistration[Member Registration Modal]
-MemberManagement --> MemberRecords[Member Records]
-MemberManagement --> MemberActivities[Member Activities]
-FinancialReports --> SavingsReport[Savings Reports]
-FinancialReports --> LoanReports[Loan Reports]
-FinancialReports --> CertificateReports[Certificate Reports]
+SystemSettings --> SystemSettingsService[System Settings Service]
+SystemSettings --> SettingsForm[Settings Form]
 CapitalShares --> useCapitalShare[useCapitalShare Hook]
 CapitalShares --> SavingsService[Savings Service]
 CapitalShares --> SettingsService[Settings Service]
 CapitalShares --> Permissions[Permission System]
 useCapitalShare --> RealTimeMonitoring[Real-Time Monitoring]
 useCapitalShare --> DynamicRestrictions[Dynamic Restrictions]
+MemberManagement --> MemberRegistration[Member Registration Modal]
+MemberRegistration --> SystemSettingsService[System Settings Service]
 MemberRegistration --> UserMemberService[User-Member Service]
 MemberRegistration --> CertificateService[Certificate Service]
 MemberRegistration --> EmailService[Email Service]
@@ -283,11 +305,13 @@ MemberModal --> MemberCollections[Member Collections]
 - [hooks/useCapitalShare.ts:22-22](file://hooks/useCapitalShare.ts#L22-22)
 - [app/dashboard/page.tsx:530-729](file://app/dashboard/page.tsx#L530-729)
 - [app/loan/page.tsx:370-569](file://app/loan/page.tsx#L370-569)
+- [app/admin/settings/system/page.tsx:1-873](file://app/admin/settings/system/page.tsx#L1-873)
 
 **Section sources**
 - [lib/types/savings.ts:1-22](file://lib/types/savings.ts#L1-22)
 - [app/admin/dashboard/page.tsx:88-796](file://app/admin/dashboard/page.tsx#L88-796)
 - [hooks/useCapitalShare.ts:1-115](file://hooks/useCapitalShare.ts#L1-115)
+- [lib/settingsService.ts:1-56](file://lib/settingsService.ts#L1-56)
 
 ## Capital Shares Management
 
@@ -301,7 +325,7 @@ Start([Load Capital Shares Page]) --> CheckPermissions{Check User Permissions}
 CheckPermissions --> |Has Permission| LoadData[Load Member Data]
 CheckPermissions --> |No Permission| ShowAccessDenied[Show Access Denied]
 LoadData --> FetchMembers[Fetch All Members]
-FetchMembers --> ProcessMembers[Process Member Data with Standardized Logic]
+FetchMembers --> ProcessMembers[Process Member Data with System Settings]
 ProcessMembers --> CalculateTotals[Calculate Statistics with New Metrics]
 CalculateTotals --> FilterData[Apply Filters]
 FilterData --> DisplayTable[Display Enhanced Capital Shares Table]
@@ -317,26 +341,26 @@ DisplayTable --> End
 **Diagram sources**
 - [app/admin/capital-shares/page.tsx:18-313](file://app/admin/capital-shares/page.tsx#L18-313)
 
-**Updated** The system now implements standardized capital share processing with a fixed required amount of 10,000 units for all members, providing consistent financial tracking across the cooperative with real-time updates. The new modal-based interface allows administrators to manage individual member payments with transaction tracking and member-specific collections.
+**Updated** The system now implements standardized capital share processing with configurable requirements through system settings, providing flexible financial tracking across the cooperative with real-time updates. The new modal-based interface allows administrators to manage individual member payments with transaction tracking and member-specific collections.
 
 The system tracks five key metrics with enhanced financial visibility:
 - **Total Capital Shares**: Sum of all member capital share amounts
 - **Paid Capital Shares**: Sum of capital shares with full payment status
 - **Pending Capital Shares**: Sum of capital shares with partial or unpaid status
-- **Required Capital Share Amount**: Standardized 10,000 unit requirement for all members
+- **Required Capital Share Amount**: Configurable amount from system settings for all members
 - **Member Distribution**: Count of members across different payment statuses with new pendingMembersCount metric
 
 ### Enhanced Payment Status Tracking
 
-The system implements a sophisticated payment status tracking mechanism with standardized logic and real-time updates:
+The system implements a sophisticated payment status tracking mechanism with configurable processing and real-time updates:
 
 | Status | Description | Visual Indicator | Calculation Logic |
 |--------|-------------|------------------|-------------------|
-| **Paid** | Full capital share payment (≥ 10,000 units) received | 🟢 Green Badge | `capitalShare >= REQUIRED_CAPITAL_SHARE` |
-| **Partial** | Partial payment received (0 < capitalShare < 10,000 units) | 🟡 Yellow Badge | `capitalShare > 0 && capitalShare < REQUIRED_CAPITAL_SHARE` |
+| **Paid** | Full capital share payment (≥ configured amount) received | 🟢 Green Badge | `capitalShare >= systemSettings.capitalShare` |
+| **Partial** | Partial payment received (0 < capitalShare < configured amount) | 🟡 Yellow Badge | `capitalShare > 0 && capitalShare < systemSettings.capitalShare` |
 | **Pending** | No payment received yet (capitalShare = 0) | 🟠 Orange Badge | `capitalShare = 0` |
 
-**Updated** The status determination logic has been enhanced with standardized processing that treats all members equally with a 10,000-unit required capital share amount, improving fairness and consistency across the cooperative with real-time monitoring capabilities. The new modal interface provides detailed transaction history for each member.
+**Updated** The status determination logic has been enhanced with configurable processing that treats all members equally with capital share requirements defined in system settings, improving fairness and consistency across the cooperative with real-time monitoring capabilities. The new modal interface provides detailed transaction history for each member.
 
 ### New Financial Tracking Features
 
@@ -367,8 +391,8 @@ The capital shares table now displays four additional columns for comprehensive 
 | Column | Purpose | Display Format | Color Coding |
 |--------|---------|----------------|--------------|
 | **Paid Amount** | Current capital share payment | Currency format (PHP) | Default text |
-| **Required Amount** | Standardized 10,000 unit requirement | Currency format (PHP) | Gray text |
-| **Remaining Balance** | Outstanding amount to reach 10,000 units | Currency format (PHP) | Red for positive balances, Green for zero |
+| **Required Amount** | Configurable amount from system settings | Currency format (PHP) | Gray text |
+| **Remaining Balance** | Outstanding amount to reach required amount | Currency format (PHP) | Red for positive balances, Green for zero |
 | **Status** | Payment status classification | Color-coded badges | Green for Paid, Yellow for Partial, Orange for Pending |
 
 **Updated** The table now includes color-coded visual indicators that provide immediate financial insight, with red text for outstanding balances and green text for fully paid amounts, all updated in real-time through the useCapitalShare hook. Each row now includes a payment button for quick transaction recording.
@@ -377,9 +401,85 @@ The capital shares table now displays four additional columns for comprehensive 
 - [app/admin/capital-shares/page.tsx:18-313](file://app/admin/capital-shares/page.tsx#L18-313)
 - [hooks/useCapitalShare.ts:22-92](file://hooks/useCapitalShare.ts#L22-92)
 
+## System Settings Configuration
+
+### Centralized System Settings Management
+
+The system now features a comprehensive configuration system that allows administrators to centrally manage all financial policies and requirements:
+
+```mermaid
+sequenceDiagram
+participant Admin as Admin User
+participant SettingsPage as System Settings Page
+participant SettingsService as Settings Service
+participant Firestore as Firebase Firestore
+Admin->>SettingsPage : Open System Settings
+SettingsPage->>SettingsService : getSystemSettings()
+SettingsService->>Firestore : getDocument('systemSettings', 'general')
+Firestore-->>SettingsService : Return Settings Data
+SettingsService-->>SettingsPage : System Settings Object
+SettingsPage->>Admin : Display Settings Form
+Admin->>SettingsPage : Modify Settings
+SettingsPage->>SettingsService : updateDocument()
+SettingsService->>Firestore : updateDocument('systemSettings', 'general')
+Firestore-->>SettingsService : Success Response
+SettingsService-->>SettingsPage : Settings Updated
+SettingsPage->>Admin : Show Success Message
+```
+
+**Diagram sources**
+- [app/admin/settings/system/page.tsx:42-97](file://app/admin/settings/system/page.tsx#L42-97)
+- [lib/settingsService.ts:21-37](file://lib/settingsService.ts#L21-37)
+
+### System Settings Data Model
+
+The system settings are stored in a centralized document with the following structure:
+
+```mermaid
+classDiagram
+class SystemSettings {
++number membershipPayment
++number reactivationFee
++number capitalShare
++string updatedAt
++string updatedBy
+}
+class DefaultSettings {
++number membershipPayment = 1500
++number reactivationFee = 1500
++number capitalShare = 10000
+}
+class SettingsService {
++getSystemSettings() SystemSettings
++formatCurrency(amount) string
++formatNumberWithCommas(amount) string
+}
+SystemSettings --> DefaultSettings : extends
+SettingsService --> SystemSettings : returns
+```
+
+**Diagram sources**
+- [lib/settingsService.ts:3-15](file://lib/settingsService.ts#L3-15)
+
+### Settings Configuration Interface
+
+The system settings interface provides comprehensive control over all financial policies:
+
+| Setting | Default Value | Description | Real-Time Impact |
+|---------|---------------|-------------|------------------|
+| **Membership Payment** | ₱1,500.00 | Initial membership fee | Affects member registration total |
+| **Reactivation Fee** | ₱1,500.00 | Fee for reactivating inactive members | Affects member restoration costs |
+| **Capital Share** | ₱10,000.00 | Required capital share amount | Affects all member financial requirements |
+
+**Updated** The system settings now include the critical capitalShare field that defines the required capital share amount for all members. This centralized configuration allows administrators to adjust financial requirements dynamically without code changes, with immediate real-time impact across all system components.
+
+**Section sources**
+- [app/admin/settings/system/page.tsx:1-873](file://app/admin/settings/system/page.tsx#L1-873)
+- [lib/settingsService.ts:1-56](file://lib/settingsService.ts#L1-56)
+
 ## User Registration and Membership
 
-### Member Registration Workflow
+### Enhanced Member Registration Workflow
 
 The member registration process is streamlined through a multi-step wizard with enhanced capital share processing and real-time validation:
 
@@ -387,33 +487,59 @@ The member registration process is streamlined through a multi-step wizard with 
 sequenceDiagram
 participant Admin as Admin User
 participant Modal as Registration Modal
-participant Service as User-Member Service
+participant SettingsService as Settings Service
+participant UserMemberService as User-Member Service
 participant Firestore as Firebase Firestore
 participant Email as Email Service
 participant Certificate as Certificate Service
 Admin->>Modal : Open Registration Modal
+Modal->>SettingsService : getSystemSettings()
+SettingsService->>Firestore : getDocument('systemSettings', 'general')
+Firestore-->>SettingsService : Return System Settings
+SettingsService-->>Modal : System Settings with capitalShare
 Modal->>Admin : Step 1 - Personal Information
 Admin->>Modal : Enter Personal Details
 Modal->>Admin : Step 2 - Role Selection
 Admin->>Modal : Select Driver/Operator
 Modal->>Admin : Step 3 - Capital Share Entry
 Admin->>Modal : Enter Capital Share Amount
-Note over Modal : Amount automatically processed with 10,000 unit standard
+Note over Modal : Real-time validation against systemSettings.capitalShare
 Modal->>Admin : Step 4 - Confirmation
 Admin->>Modal : Review and Submit
-Modal->>Service : createLinkedUserMember()
-Service->>Firestore : Create User Document
-Service->>Firestore : Create Member Document with paymentInfo
-Service->>Email : Send Welcome Email
-Service->>Certificate : Generate Certificate (Optional)
+Modal->>UserMemberService : createLinkedUserMember()
+UserMemberService->>Firestore : Create User Document
+UserMemberService->>Firestore : Create Member Document with paymentInfo
+UserMemberService->>Firestore : Update paymentInfo.capitalShare
+UserMemberService->>Email : Send Welcome Email
+UserMemberService->>Certificate : Generate Certificate (Optional)
 Certificate->>Firestore : Store Certificate Data
-Service-->>Modal : Registration Complete
+UserMemberService-->>Modal : Registration Complete
 Modal-->>Admin : Success Message
 ```
 
 **Diagram sources**
 - [components/admin/MemberRegistrationModal.tsx:249-432](file://components/admin/MemberRegistrationModal.tsx#L249-432)
 - [lib/userMemberService.ts:23-94](file://lib/userMemberService.ts#L23-94)
+- [lib/settingsService.ts:21-37](file://lib/settingsService.ts#L21-37)
+
+### Real-Time Capital Share Validation
+
+The member registration system now includes comprehensive real-time validation based on system settings:
+
+```mermaid
+flowchart TD
+Start([User enters capital share]) --> ValidateFormat{Validate Input Format}
+ValidateFormat --> |Invalid| ShowError[Show Format Error]
+ValidateFormat --> |Valid| CheckMax{Check Against System Settings}
+CheckMax --> |Exceeds Max| ShowMaxError[Show Maximum Error]
+CheckMax --> |Within Limits| UpdateDisplay[Update Display]
+ShowError --> End([End])
+ShowMaxError --> End
+UpdateDisplay --> End
+```
+
+**Diagram sources**
+- [components/admin/MemberRegistrationModal.tsx:1562-1610](file://components/admin/MemberRegistrationModal.tsx#L1562-1610)
 
 ### User-Member Linkage System
 
@@ -457,21 +583,29 @@ class CapitalShareInfo {
 +string status
 +boolean isFullyPaid
 }
+class SystemSettings {
++number capitalShare
++number membershipPayment
++number reactivationFee
+}
 UserMemberService --> UserDocument : creates
 UserMemberService --> MemberDocument : creates
 MemberDocument --> CapitalShareInfo : contains
+SystemSettings --> MemberDocument : configures
 UserDocument --> MemberDocument : linked by userId
 ```
 
 **Diagram sources**
 - [lib/userMemberService.ts:14-289](file://lib/userMemberService.ts#L14-289)
 - [hooks/useCapitalShare.ts:7-13](file://hooks/useCapitalShare.ts#L7-13)
+- [lib/settingsService.ts:3-9](file://lib/settingsService.ts#L3-9)
 
-**Updated** The member documents now include enhanced paymentInfo objects with standardized capital share processing, ensuring consistent financial tracking across all cooperative members with real-time updates. The new modal interface allows administrators to manage individual member payments with transaction history.
+**Updated** The member documents now include enhanced paymentInfo objects with configurable capital share processing, ensuring consistent financial tracking across all cooperative members with real-time updates. The new modal interface allows administrators to manage individual member payments with transaction history.
 
 **Section sources**
 - [components/admin/MemberRegistrationModal.tsx:1-800](file://components/admin/MemberRegistrationModal.tsx#L1-800)
 - [lib/userMemberService.ts:1-289](file://lib/userMemberService.ts#L1-289)
+- [lib/settingsService.ts:1-56](file://lib/settingsService.ts#L1-56)
 
 ## Financial Transactions
 
@@ -510,7 +644,7 @@ The system supports two primary transaction types with enhanced capital share pr
 | **Deposit** | Money added to member account | Increases balance | Can contribute to capital share payments |
 | **Withdrawal** | Money removed from member account | Decreases balance | May affect remaining capital share balance |
 
-**Updated** The transaction system now integrates seamlessly with capital share processing, allowing savings deposits to directly contribute toward meeting the standardized 10,000-unit capital share requirement with real-time status updates. The new modal interface provides comprehensive transaction tracking with member-specific collections.
+**Updated** The transaction system now integrates seamlessly with capital share processing, allowing savings deposits to directly contribute toward meeting the configurable capital share requirement with real-time status updates. The new modal interface provides comprehensive transaction tracking with member-specific collections.
 
 **Section sources**
 - [lib/savingsService.ts:1-669](file://lib/savingsService.ts#L1-669)
@@ -634,8 +768,9 @@ The permission system provides granular control over system functionality with e
 | **View Reports** | Access system reports | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Export Data** | Export system data | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **Manage Capital Shares** | Monitor and manage capital share payments | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Configure System Settings** | Modify system-wide settings | ✅ | ❌ | ❌ | ❌ | ❌ |
 
-**Updated** The permission system now includes enhanced capital share management capabilities with real-time monitoring and dynamic restrictions based on capital share status. Administrators can now manage individual member payments through the modal interface.
+**Updated** The permission system now includes enhanced capital share management capabilities with real-time monitoring and dynamic restrictions based on capital share status. Administrators can now manage individual member payments through the modal interface and configure system-wide financial policies.
 
 **Section sources**
 - [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-226)
@@ -672,7 +807,17 @@ object paymentInfo
 number capitalShare
 datetime paymentDate
 }
+SYSTEM_SETTINGS {
+string id = "general"
+number capitalShare
+number membershipPayment
+number reactivationFee
+datetime updatedAt
+string updatedBy
+}
 MEMBERS ||--o{ PAYMENT_INFO : contains
+MEMBERS ||--o{ CAPITAL_SHARE_TRANSACTIONS : contains
+SYSTEM_SETTINGS ||--|| MEMBERS : configures
 ```
 
 **Diagram sources**
@@ -687,14 +832,15 @@ The system implements comprehensive data validation with enhanced capital share 
 - **Permission Validation**: Controls access to sensitive operations
 - **Transaction Validation**: Prevents invalid financial operations
 - **Document References**: Maintains referential integrity across collections
-- **Capital Share Validation**: Ensures standardized 10,000-unit requirement processing
+- **Capital Share Validation**: Validates against system settings configuration
 - **Real-Time Updates**: Automatic synchronization of capital share status across all interfaces
 - **Member Collections**: Individual member-specific transaction collections for efficient querying
+- **System Settings Validation**: Ensures all financial policies are properly configured
 
-**Updated** The data validation system now includes enhanced capital share processing with real-time monitoring, ensuring all members meet the standardized 10,000-unit capital share requirement consistently with live status updates. Member-specific collections enable efficient transaction querying and payment tracking.
+**Updated** The data validation system now includes enhanced capital share processing with real-time monitoring, ensuring all members meet the configurable capital share requirement consistently with live status updates. Member-specific collections enable efficient transaction querying and payment tracking.
 
 **Section sources**
-- [lib/firebase.ts:1-345](file://lib/firebase.ts#L1-345)
+- [lib/firebase.ts:1-384](file://lib/firebase.ts#L1-384)
 - [app/api/members/route.ts:1-179](file://app/api/members/route.ts#L1-179)
 
 ## Security and Authentication
@@ -738,6 +884,7 @@ The authentication system includes multiple security layers with enhanced capita
 - **Audit Logging**: Complete activity tracking
 - **Real-Time Monitoring**: Continuous capital share status updates
 - **Dynamic Restrictions**: Automatic application of capital share requirements
+- **System Settings Security**: Protected access to financial policy configuration
 
 **Section sources**
 - [lib/auth.tsx:1-706](file://lib/auth.tsx#L1-706)
@@ -751,7 +898,7 @@ The new useCapitalShare hook provides comprehensive real-time monitoring of capi
 
 ```mermaid
 flowchart TD
-HookInitialization[useCapitalShare Hook Initialization] --> SetupState[Setup Initial State with 10,000 Unit Requirement]
+HookInitialization[useCapitalShare Hook Initialization] --> SetupState[Setup Initial State with System Settings]
 SetupState --> CheckUserId{Check User ID}
 CheckUserId --> |Valid| FetchMemberData[Fetch Member Data from Firestore]
 CheckUserId --> |Invalid| ShowDefaultState[Show Default State]
@@ -797,6 +944,7 @@ The real-time monitoring system provides comprehensive capital share tracking wi
 - **Restriction Enforcement**: Automatic application of loan and savings restrictions
 - **Notification System**: Real-time alerts for status changes and payment updates
 - **Performance Optimization**: Efficient real-time listeners with automatic cleanup
+- **System Settings Integration**: Real-time adaptation to configuration changes
 
 **Updated** The real-time monitoring system ensures that all capital share status changes are immediately reflected across the entire system, providing users with accurate, up-to-date information about their financial obligations. The new modal interface provides comprehensive transaction tracking with real-time updates.
 
@@ -835,7 +983,7 @@ ValidateApplication --> ProcessApplication[Process Application]
 The system implements comprehensive loan application restrictions based on capital share status:
 
 #### Capital Share Requirements
-- **Complete Payment Required**: Full 10,000 unit capital share payment mandatory
+- **Complete Payment Required**: Full capital share payment according to system settings
 - **Real-Time Validation**: Automatic checking of current capital share status
 - **Immediate Enforcement**: Restrictions applied as soon as status changes
 - **Visual Warnings**: Clear messaging about payment requirements
@@ -852,7 +1000,7 @@ The system implements comprehensive loan application restrictions based on capit
 - **Contact Information**: Direct links to cooperative office for assistance
 - **Alternative Actions**: Guidance on how to resolve restriction issues
 
-**Updated** The loan application restrictions system now operates in real-time, automatically enforcing financial requirements based on the latest capital share status, ensuring compliance with cooperative policies while providing clear guidance to users. The modal interface provides comprehensive payment tracking and transaction history.
+**Updated** The loan application restrictions system now operates in real-time, automatically enforcing financial requirements based on the latest capital share status and system settings configuration, ensuring compliance with cooperative policies while providing clear guidance to users. The modal interface provides comprehensive payment tracking and transaction history.
 
 **Section sources**
 - [app/loan/page.tsx:370-569](file://app/loan/page.tsx#L370-569)
@@ -869,10 +1017,11 @@ The system implements several performance optimization strategies with enhanced 
 - **Caching Strategies**: Client-side caching for frequently accessed data
 - **Lazy Loading**: Progressive loading of large datasets
 - **Pagination**: Efficient handling of large collections
-- **Standardized Processing**: Optimized calculations for consistent 10,000-unit capital share amounts
+- **Configurable Processing**: Optimized calculations for flexible capital share amounts
 - **Real-Time Listeners**: Efficient Firestore listeners with automatic cleanup
 - **Memory Management**: Proper cleanup of real-time listeners on component unmount
 - **Member Collections**: Efficient member-specific transaction querying with subcollections
+- **System Settings Caching**: Cached system settings to reduce Firestore queries
 
 ### Frontend Performance
 
@@ -887,6 +1036,7 @@ The frontend implements performance best practices with enhanced UI components a
 - **Real-Time Updates**: Efficient real-time listeners with debouncing
 - **State Management**: Optimized state updates to minimize re-renders
 - **Modal Performance**: Optimized modal rendering with conditional loading
+- **System Settings Integration**: Efficient integration with real-time settings updates
 
 **Updated** The frontend performance has been enhanced to handle the new table columns, color-coded visual indicators, and real-time updates efficiently, ensuring smooth user experience even with increased data complexity and real-time monitoring. The modal interface is optimized for performance with lazy loading and efficient state management.
 
@@ -916,7 +1066,11 @@ The frontend implements performance best practices with enhanced UI components a
 
 **Capital Share Processing Issues**
 - **Issue**: Capital share amounts not displaying correctly
-- **Solution**: Verify REQUIRED_CAPITAL_SHARE constant (10,000), check paymentInfo structure, confirm status calculation logic
+- **Solution**: Verify systemSettings.capitalShare configuration, check paymentInfo structure, confirm status calculation logic
+
+**System Settings Not Updating**
+- **Issue**: Changes to system settings not taking effect
+- **Solution**: Verify systemSettings document exists, check Firestore permissions, confirm real-time listener updates
 
 **Real-Time Monitoring Issues**
 - **Issue**: Capital share status not updating in real-time
@@ -942,6 +1096,10 @@ The frontend implements performance best practices with enhanced UI components a
 - **Issue**: Transaction history not loading in modal
 - **Solution**: Verify member ID resolution, check subcollection access permissions, confirm Firestore query syntax
 
+**System Settings Validation Issues**
+- **Issue**: Capital share amounts exceeding system limits not being validated
+- **Solution**: Verify systemSettingsService integration, check real-time validation logic, confirm error handling
+
 **Section sources**
 - [lib/auth.tsx:366-372](file://lib/auth.tsx#L366-372)
 - [lib/userMemberService.ts:101-200](file://lib/userMemberService.ts#L101-200)
@@ -950,31 +1108,34 @@ The frontend implements performance best practices with enhanced UI components a
 
 The Capital Shares Management System provides a comprehensive solution for cooperative member management with robust features for capital share tracking, financial transactions, member registration, and administrative oversight. The system's modular architecture, comprehensive permission system, and professional certificate generation capabilities make it well-suited for managing cooperative operations efficiently.
 
-**Updated** The system has been significantly enhanced with real-time monitoring capabilities, comprehensive financial requirement enforcement, and improved user experience through dynamic capital share status tracking. Key improvements include:
+**Updated** The system has been significantly enhanced with a comprehensive capital share configuration system that allows administrators to dynamically set and manage capital share requirements through centralized system settings. Key improvements include:
 
+- **Centralized Configuration**: System settings service with real-time updates and validation
 - **Real-Time Monitoring**: useCapitalShare hook provides live updates of capital share status across all interfaces
 - **Enhanced Financial Tracking**: New state variables and metrics for better visibility with real-time updates
 - **Improved Status Determination**: Clear Paid/Pending/Partial categorization logic with immediate visual feedback
 - **Advanced UI Features**: Color-coded visual indicators and comprehensive table columns with real-time data
 - **Integrated Payment System**: Seamless connection between savings transactions and capital share payments
 - **Dynamic Restrictions**: Automatic enforcement of loan application restrictions based on real-time capital share status
-- **Comprehensive Financial Requirements**: Strict enforcement of 10,000-unit capital share requirement with immediate policy compliance
+- **Flexible Financial Requirements**: Configurable capital share amounts through system settings with immediate policy compliance
 - **Enhanced User Experience**: Real-time feedback and progressive disclosure of restrictions improve user understanding
 - **Modal-Based Payment Management**: Complete payment processing system with transaction tracking and member-specific collections
 - **Real-Time Transaction Updates**: Live updates of payment history and status changes
 - **Member-Specific Collections**: Efficient querying and management of individual member transactions
+- **System Settings Integration**: Real-time adaptation to configuration changes across all system components
 
 Key strengths of the system include:
 
 - **Comprehensive Feature Set**: Covers all aspects of cooperative member management with enhanced financial tracking and real-time monitoring
 - **Professional Documentation**: High-quality certificate generation with financial transparency and real-time accuracy
 - **Robust Security**: Multi-layered authentication and authorization with enhanced capital share management and dynamic restrictions
-- **Scalable Architecture**: Optimized for growth and performance with standardized processing and real-time capabilities
+- **Scalable Architecture**: Optimized for growth and performance with configurable processing and real-time capabilities
 - **Real-Time User Experience**: Intuitive administration and member experiences with immediate feedback and dynamic restrictions
-- **Consistent Financial Standards**: Fair and transparent capital share requirements across all cooperative members with real-time enforcement
+- **Flexible Financial Standards**: Adaptable capital share requirements across all cooperative members with real-time enforcement
 - **Automatic Compliance**: Dynamic restrictions ensure policy adherence without manual intervention
 - **Complete Payment Lifecycle**: From registration through payment processing to transaction tracking
 - **Efficient Data Management**: Member-specific collections enable scalable transaction management
 - **Seamless Integration**: Cohesive experience across all system interfaces with real-time synchronization
+- **Centralized Policy Management**: Single source of truth for all financial policies and requirements
 
 The system provides a solid foundation for SAMPA Transport Service Cooperative's operational needs while maintaining flexibility for future enhancements and feature additions. The enhanced capital share management capabilities ensure fair treatment of all members while providing administrators with comprehensive tools for financial oversight and reporting. The real-time monitoring and dynamic restriction features create a seamless user experience that promotes compliance and financial responsibility among cooperative members. The new modal-based payment management system with transaction tracking provides administrators with complete visibility into member financial activities while maintaining data integrity and security.

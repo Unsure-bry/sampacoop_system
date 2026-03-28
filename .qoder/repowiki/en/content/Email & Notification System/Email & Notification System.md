@@ -24,6 +24,7 @@
 - Added comprehensive error handling and logging for email delivery failures
 - **Updated** Enhanced email service with new Firestore-based configuration system, dynamic template loading, and expanded notification functions including depositApplicationMessage() and withdrawalApplicationMessage()
 - **Updated** Added comprehensive email service configuration documentation covering multi-template support and improved error handling
+- **Updated** Certificate email URL correction from 'https://sampa-coop.vercel.app' to 'https://sampacoop-system.vercel.app' for proper certificate download routing
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -44,7 +45,7 @@
 ## Introduction
 This document describes the enhanced Email & Notification System in the SAMPA Cooperative Management Platform. The system now features a comprehensive EmailJS integration with advanced template management, automated certificate generation, transaction receipt notifications, and seamless loan approval workflows. The system provides reliable email delivery through centralized configuration management, robust error handling, and comprehensive logging for monitoring and troubleshooting.
 
-**Updated** Enhanced with comprehensive EmailJS template system, certificate generation workflow, transaction receipt automation, and loan approval integration with dynamic configuration loading from Firestore. Added new financial transaction notification functions including depositApplicationMessage() and withdrawalApplicationMessage() for comprehensive savings management notifications.
+**Updated** Enhanced with comprehensive EmailJS template system, certificate generation workflow, transaction receipt automation, and loan approval integration with dynamic configuration loading from Firestore. Added new financial transaction notification functions including depositApplicationMessage() and withdrawalApplicationMessage() for comprehensive savings management notifications. Updated certificate email URL to use the correct 'https://sampacoop-system.vercel.app' domain for proper certificate download routing.
 
 ## Project Structure
 The email and notification system spans multiple specialized components with clear separation of concerns:
@@ -95,7 +96,7 @@ EmailJSConfig --> Env
 The enhanced system consists of several interconnected components:
 
 - **Enhanced EmailJS Service**: Comprehensive template system supporting member registration, loan approvals, payment reminders, certificate notifications, and financial transaction notifications with dynamic configuration loading
-- **Advanced Certificate Generation**: PDF creation with official cooperative branding and automated email notification workflow with improved URL handling
+- **Advanced Certificate Generation**: PDF creation with official cooperative branding and automated email notification workflow with improved URL handling using the correct 'https://sampacoop-system.vercel.app' domain
 - **Transaction Receipt System**: Automated financial notifications for loan payments and savings deposits with duplicate prevention and enhanced error handling
 - **Loan Approval Integration**: Seamless email notifications for loan application decisions with detailed terms and improved message formatting
 - **Multi-tier Configuration Management**: Centralized EmailJS settings with Firestore backup and environment variable fallback with caching optimization
@@ -103,7 +104,7 @@ The enhanced system consists of several interconnected components:
 - **Robust Error Handling**: Structured error responses with detailed failure analysis and graceful degradation
 - **Expanded Financial Transaction Notifications**: New deposit and withdrawal application message functions for comprehensive savings management communication
 
-**Updated** Added comprehensive template system, certificate generation workflow, transaction receipt automation, enhanced configuration management with dynamic loading, and new financial transaction notification functions.
+**Updated** Added comprehensive template system, certificate generation workflow, transaction receipt automation, enhanced configuration management with dynamic loading, and new financial transaction notification functions. Updated certificate URL domain to use 'https://sampacoop-system.vercel.app' for proper certificate download routing.
 
 **Section sources**
 - [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
@@ -144,10 +145,10 @@ TxReceipt-->>TxSvc : "Success/Failure Result"
 The email service now provides a comprehensive template system with specialized functions for different notification types:
 
 **Template Categories**:
-- Member Registration Templates: Welcome emails with password setup links
+- Member Registration Templates: Welcome emails with password setup links using 'https://sampacoop-system.vercel.app'
 - Loan Approval Templates: Detailed approval notifications with loan terms
 - Payment Templates: Receipt notifications for loan payments and savings deposits
-- Certificate Templates: Official membership certificate notifications
+- Certificate Templates: Official membership certificate notifications with corrected URL routing
 - Financial Transaction Templates: Deposit applications, withdrawal applications, and loan rejection notifications
 - General Communication Templates: Basic email functionality
 
@@ -208,7 +209,7 @@ The certificate service provides comprehensive PDF generation with integrated em
 
 **Notification Workflow**:
 - Automated email notification upon certificate generation completion
-- Download link generation with certificate URL
+- Download link generation with corrected certificate URL using 'https://sampacoop-system.vercel.app'
 - Status tracking with sent timestamps and delivery confirmation
 - Member certificate record management in Firestore
 
@@ -216,12 +217,12 @@ The certificate service provides comprehensive PDF generation with integrated em
 - Comprehensive error catching with detailed failure reporting
 - Graceful degradation when certificate generation fails
 - Improved success/failure status reporting
-- Certificate URL validation and processing
+- Certificate URL validation and processing using proper domain routing
 
 **Improved URL Configuration**:
 - Dynamic URL generation using `window.location.origin` for production environments
-- Fallback to localhost for server-side rendering scenarios
-- Enhanced certificate download link handling
+- Fallback to 'https://sampacoop-system.vercel.app' for server-side rendering scenarios
+- Enhanced certificate download link handling with proper domain routing
 
 ```mermaid
 flowchart TD
@@ -323,11 +324,11 @@ The system now supports a comprehensive template system with specialized functio
 **Template Categories and Functions**:
 
 **Member Registration Templates**:
-- `sendMemberRegistrationEmail()`: Welcome emails with password setup links
-- `sendAutoCredentialsEmail()`: Temporary credential emails for new members
+- `sendMemberRegistrationEmail()`: Welcome emails with password setup links using 'https://sampacoop-system.vercel.app'
+- `sendAutoCredentialsEmail()`: Temporary credential emails for new members using 'https://sampacoop-system.vercel.app'
 
 **Loan Management Templates**:
-- `sendLoanApprovalEmail()`: Loan approval notifications with loan ID
+- `sendLoanApprovalEmail()`: Loan approval notifications with loan ID using 'https://sampacoop-system.vercel.app'
 - `approvedloanMessage()`: Detailed loan approval with terms and calculations
 - `rejectedLoanMessage()`: Loan rejection notifications with reasons
 
@@ -337,7 +338,7 @@ The system now supports a comprehensive template system with specialized functio
 - `withdrawalApplicationMessage()`: Savings withdrawal confirmation emails with withdrawal numbers
 
 **Certificate Templates**:
-- `sendCertificateNotificationEmail()`: Official certificate notification emails
+- `sendCertificateNotificationEmail()`: Official certificate notification emails with corrected URL routing
 
 **Template Processing Features**:
 - Dynamic template selection based on notification type
@@ -349,7 +350,7 @@ The system now supports a comprehensive template system with specialized functio
 - Multiple template IDs for different notification types
 - Improved error handling and logging
 - Better configuration management with caching
-- Enhanced URL handling for production environments
+- Enhanced URL handling for production environments using 'https://sampacoop-system.vercel.app'
 
 **Section sources**
 - [emailService.ts:105-389](file://lib/emailService.ts#L105-L389)
@@ -365,20 +366,20 @@ The certificate generation service provides professional PDF creation with integ
 
 **Notification Integration**:
 - Automated email notification upon certificate completion
-- Download link generation with certificate URL
+- Download link generation with certificate URL using 'https://sampacoop-system.vercel.app'
 - Status tracking with sent timestamps
 - Member certificate record management
 
 **Enhanced URL Configuration**:
 - Dynamic URL generation using `window.location.origin` for production environments
-- Fallback to localhost for server-side rendering scenarios
-- Improved certificate download link handling
+- Fallback to 'https://sampacoop-system.vercel.app' for server-side rendering scenarios
+- Improved certificate download link handling with proper domain routing
 
 **Firestore Integration**:
 - Direct Firestore integration for certificate storage
 - Member document updates with certificate metadata
 - Enhanced certificate retrieval with validation
-- Improved certificate URL handling and processing
+- Improved certificate URL handling and processing using corrected domain
 
 **Section sources**
 - [certificateService.ts:12-294](file://lib/certificateService.ts#L12-L294)
@@ -555,7 +556,7 @@ Enhanced troubleshooting capabilities for the improved email system:
 - **PDF Generation Failures**: Verify jsPDF and jspdf-autotable dependencies are properly installed
 - **Firestore Certificate Storage**: Check certificate URL format and base64 encoding
 - **Certificate Retrieval Errors**: Verify member document contains proper certificate data
-- **URL Configuration Issues**: Check certificate download URL generation for production environments
+- **URL Configuration Issues**: Check certificate download URL generation for production environments using 'https://sampacoop-system.vercel.app'
 
 **System Integration Problems**:
 - **Transaction Service Integration**: Verify transaction service properly calls receipt functions
@@ -579,13 +580,14 @@ The SAMPA platform now implements a robust, enterprise-grade email and notificat
 
 **Key Improvements**:
 - **Comprehensive Template System**: Specialized email templates for member registration, loan approvals, payments, certificates, and financial transactions
-- **Professional Certificate Generation**: PDF creation with official cooperative branding and automated notification workflow with improved URL handling
+- **Professional Certificate Generation**: PDF creation with official cooperative branding and automated notification workflow with improved URL handling using 'https://sampacoop-system.vercel.app'
 - **Automated Transaction Receipts**: Real-time email notifications for loan payments and savings deposits with enhanced error handling
 - **Seamless Loan Integration**: Automated email notifications for loan approval and rejection decisions with improved message formatting
 - **Centralized Configuration Management**: Firestore-based EmailJS settings with automatic fallback and caching optimization
 - **Enhanced Error Handling**: Structured logging and graceful degradation with comprehensive error reporting
 - **Expanded Financial Transaction Notifications**: New deposit and withdrawal application message functions for comprehensive savings management communication
 - **Improved User Experience**: Reliable email delivery without impacting primary business operations
+- **Corrected Certificate Routing**: Fixed certificate email URL domain to use 'https://sampacoop-system.vercel.app' for proper certificate download routing
 
 **Technical Achievements**:
 - Multi-tier configuration management with caching and fallback
@@ -594,7 +596,7 @@ The SAMPA platform now implements a robust, enterprise-grade email and notificat
 - Seamless integration with loan approval workflow and financial services
 - Robust error handling and user-friendly failure responses
 - Real-time email delivery tracking and analytics
-- Enhanced URL configuration for production environments
+- Enhanced URL configuration for production environments using corrected domain
 - Comprehensive financial transaction notification coverage
 
 **Future Enhancement Opportunities**:

@@ -12,6 +12,7 @@
 - [Input.tsx](file://components/auth/Input.tsx)
 - [Button.tsx](file://components/auth/Button.tsx)
 - [MemberRegistrationModal.tsx](file://components/admin/MemberRegistrationModal.tsx)
+- [SecretaryMemberRegistrationModal.tsx](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx)
 - [CertificatePreviewModal.tsx](file://components/admin/CertificatePreviewModal.tsx)
 - [certificateService.ts](file://lib/certificateService.ts)
 - [route.ts](file://app/api/certificate/[memberId]/route.ts)
@@ -21,17 +22,15 @@
 - [firebaseAdmin.ts](file://lib/firebaseAdmin.ts)
 - [settingsService.ts](file://lib/settingsService.ts)
 - [member.ts](file://lib/types/member.ts)
+- [validators.ts](file://lib/validators.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced MemberRegistrationModal with comprehensive beneficiary information management capabilities
-- Added support for up to two beneficiaries per member registration with dynamic form fields, validation, and backend integration
-- Introduced new BeneficiaryInfo interface for structured beneficiary data handling
-- Implemented beneficiary management UI with add/remove functionality and real-time validation
-- Enhanced confirmation section for displaying beneficiary details during registration
-- Updated userMemberService.ts to support beneficiary data in member documents
-- Integrated beneficiary information into certificate generation workflow
+- Enhanced birthdate validation with strict year format requirements (4-digit years), automatic year truncation, and comprehensive error messaging for validation scenarios
+- Updated Member Registration Modal with improved birthdate validation logic including automatic year truncation and detailed error handling
+- Enhanced validation system with comprehensive age verification (18-100 years), future date prevention, and invalid date detection
+- Improved user experience with automatic year format correction and real-time validation feedback
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -45,12 +44,12 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the complete Member Registration Workflow within the SAMPA Cooperative Management System. It covers the end-to-end process from initial form submission through account activation, including API endpoints, front-end validation, automatic account creation, role assignment defaults, and integration with Firebase Authentication and Firestore. The workflow now includes enhanced multi-step validation, dynamic role-specific fields, integrated certificate preview functionality, comprehensive beneficiary management capabilities, and a sophisticated capital share payment system with enhanced user experience.
+This document explains the complete Member Registration Workflow within the SAMPA Cooperative Management System. It covers the end-to-end process from initial form submission through account activation, including API endpoints, front-end validation, automatic account creation, role assignment defaults, and integration with Firebase Authentication and Firestore. The workflow now includes enhanced multi-step validation, dynamic role-specific fields, integrated certificate preview functionality, comprehensive beneficiary management capabilities, sophisticated capital share payment system with enhanced user experience, and **UPDATED** enhanced birthdate validation with strict year format requirements and automatic year truncation.
 
 ## Project Structure
 The registration workflow spans client-side pages, server-side API routes, and shared libraries for authentication, Firestore utilities, and email services. Key areas include:
 - Front-end registration page with form validation and submission
-- Enhanced Member Registration Modal with multi-step validation, dynamic fields, beneficiary management, and sophisticated payment processing
+- Enhanced Member Registration Modal with multi-step validation, dynamic fields, beneficiary management, sophisticated payment processing, comprehensive birthdate validation, and integrated certificate preview functionality
 - Certificate Preview Modal for interactive certificate generation
 - API route for member creation with input validation and payment calculation
 - Firestore utilities for database operations
@@ -60,18 +59,21 @@ The registration workflow spans client-side pages, server-side API routes, and s
 - Certificate service for PDF generation and storage
 - System settings service for dynamic fee configuration
 - Beneficiary management system for cooperative member designation
+- **Updated** Enhanced birthdate validation system with strict year format requirements and automatic year truncation
 
 ```mermaid
 graph TB
 subgraph "Client-Side"
 RP["Register Page<br/>app/register/page.tsx"]
 MRM["Enhanced Member Registration Modal<br/>components/admin/MemberRegistrationModal.tsx"]
+SMRM["Secretary Member Registration Modal<br/>app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx"]
 CPM["Certificate Preview Modal<br/>components/admin/CertificatePreviewModal.tsx"]
 AUTHCTX["Auth Context<br/>lib/auth.tsx"]
 INPUT["Input Component<br/>components/auth/Input.tsx"]
 BTN["Button Component<br/>components/auth/Button.tsx"]
 SETTINGS["System Settings Service<br/>lib/settingsService.ts"]
 MEMBERTYPES["Member Types<br/>lib/types/member.ts"]
+VALIDATORS["Validators<br/>lib/validators.ts"]
 END
 subgraph "Server-Side"
 API_MEM["Members API Route<br/>app/api/members/route.ts"]
@@ -100,6 +102,13 @@ MRM --> CPM
 MRM --> CERTSERVICE
 MRM --> SETTINGS
 MRM --> MEMBERTYPES
+MRM --> VALIDATORS
+SMRM --> FIRESTORE
+SMRM --> UMS
+SMRM --> EMAIL
+SMRM --> CERTSERVICE
+SMRM --> SETTINGS
+SMRM --> MEMBERTYPES
 CPM --> CERTSERVICE
 API_MEM --> FB_ADMIN
 API_MEM --> FIRESTORE
@@ -122,6 +131,7 @@ AUTHCTX --> EMAIL
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [MemberRegistrationModal.tsx:1-1667](file://components/admin/MemberRegistrationModal.tsx#L1-L1667)
+- [SecretaryMemberRegistrationModal.tsx:1-1043](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L1-L1043)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
@@ -130,6 +140,7 @@ AUTHCTX --> EMAIL
 - [firebaseAdmin.ts:1-277](file://lib/firebaseAdmin.ts#L1-L277)
 - [settingsService.ts:1-54](file://lib/settingsService.ts#L1-L54)
 - [member.ts:1-85](file://lib/types/member.ts#L1-L85)
+- [validators.ts:1-236](file://lib/validators.ts#L1-L236)
 
 **Section sources**
 - [page.tsx:1-323](file://app/register/page.tsx#L1-L323)
@@ -139,6 +150,7 @@ AUTHCTX --> EMAIL
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [MemberRegistrationModal.tsx:1-1667](file://components/admin/MemberRegistrationModal.tsx#L1-L1667)
+- [SecretaryMemberRegistrationModal.tsx:1-1043](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L1-L1043)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
@@ -147,12 +159,14 @@ AUTHCTX --> EMAIL
 - [firebaseAdmin.ts:1-277](file://lib/firebaseAdmin.ts#L1-L277)
 - [settingsService.ts:1-54](file://lib/settingsService.ts#L1-L54)
 - [member.ts:1-85](file://lib/types/member.ts#L1-L85)
+- [validators.ts:1-236](file://lib/validators.ts#L1-L236)
 
 ## Core Components
-- **Enhanced Member Registration Modal**: Multi-step form with dynamic fields for Driver/Operator roles, advanced validation, real-time license number formatting, integrated certificate preview functionality, comprehensive payment processing, and **NEW** comprehensive beneficiary management system supporting up to two beneficiaries per member registration.
+- **Enhanced Member Registration Modal**: Multi-step form with dynamic fields for Driver/Operator roles, advanced validation, real-time license number formatting, integrated certificate preview functionality, comprehensive payment processing, comprehensive beneficiary management system supporting up to two beneficiaries per member registration, and **UPDATED** enhanced birthdate validation with strict year format requirements (4-digit years), automatic year truncation, and comprehensive error messaging.
+- **Secretary Member Registration Modal**: Alternative registration interface with streamlined birthdate validation and simplified form fields.
 - **Certificate Preview Modal**: Interactive modal for reviewing and customizing share certificates before generation, featuring real-time preview with editable fields and formal certificate design.
 - **Advanced Certificate Service**: Comprehensive PDF generation service with official cooperative styling, automatic data extraction, and Firestore integration for certificate storage.
-- **Dynamic Validation System**: Enhanced form validation with step-by-step validation, role-specific field requirements, real-time license number validation, dynamic plate number field management, and strict input formatting.
+- **Dynamic Validation System**: Enhanced form validation with step-by-step validation, role-specific field requirements, real-time license number validation, dynamic plate number field management, strict input formatting, and **UPDATED** comprehensive birthdate validation with automatic year truncation.
 - **System Settings Integration**: Dynamic membership fee calculation based on system configuration, ensuring consistent fee amounts across the application.
 - **Sophisticated Capital Share Payment System**: Enhanced payment processing feature with dual-state currency formatting, real-time thousand separators, decimal precision control, and multi-state display formatting (focused/blurred/initial states).
 - **Strict Jeepney Plate Number Validation**: Enhanced validation system for jeepney plate numbers with automatic uppercase conversion, hyphen insertion, and format enforcement (ABC-1234 pattern).
@@ -160,13 +174,15 @@ AUTHCTX --> EMAIL
 - **Register Page**: Client-side form with validation, email uniqueness check, and password hashing prior to Firestore write.
 - **Members API Route**: Server-side endpoint for creating members with robust input validation, email format checks, duplicate detection, and PBKDF2-based password hashing.
 - **Firestore Utilities**: Unified client-side Firestore helpers for set/get/query/update/delete operations with error handling.
-- **User-Member Service**: Ensures consistent user ID across users and members collections, email existence checks, automatic linkage validation/repair, and **NEW** comprehensive beneficiary data integration.
+- **User-Member Service**: Ensures consistent user ID across users and members collections, email existence checks, automatic linkage validation/repair, comprehensive beneficiary data integration, and **UPDATED** birthdate data handling.
 - **Email Service**: Sends welcome and password setup emails via EmailJS with configurable templates.
 - **Authentication Context**: Manages user state, role-based routing, and login flow with timing-safe comparisons and secure password verification.
 - **Setup Password API**: Handles password setup for accounts that were created without an initial password, enforcing PBKDF2 hashing and preventing duplicate setups.
+- **Validator Utilities**: Comprehensive validation utilities for route access, role validation, and authentication route handling.
 
 **Section sources**
 - [MemberRegistrationModal.tsx:1-1667](file://components/admin/MemberRegistrationModal.tsx#L1-L1667)
+- [SecretaryMemberRegistrationModal.tsx:1-1043](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L1-L1043)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [page.tsx:1-323](file://app/register/page.tsx#L1-L323)
@@ -178,18 +194,20 @@ AUTHCTX --> EMAIL
 - [route.ts:1-177](file://app/api/setup-password/route.ts#L1-L177)
 - [settingsService.ts:1-54](file://lib/settingsService.ts#L1-L54)
 - [member.ts:1-85](file://lib/types/member.ts#L1-L85)
+- [validators.ts:1-236](file://lib/validators.ts#L1-L236)
 
 ## Architecture Overview
-The registration workflow integrates client-side forms, server-side APIs, and Firestore. Three complementary flows exist with enhanced certificate integration, comprehensive payment processing, and **NEW** beneficiary management capabilities:
+The registration workflow integrates client-side forms, server-side APIs, and Firestore. Three complementary flows exist with enhanced certificate integration, comprehensive payment processing, comprehensive beneficiary management capabilities, and **UPDATED** enhanced birthdate validation system:
 - Direct registration via the Register Page (client-side hashing and Firestore write)
-- Admin-driven registration via the Enhanced Member Registration Modal (server-side hashing, user-member linking, integrated certificate generation, sophisticated payment processing, and **NEW** beneficiary management)
-- Enhanced beneficiary management system supporting up to two beneficiaries per member registration
+- Admin-driven registration via the Enhanced Member Registration Modal (server-side hashing, user-member linking, integrated certificate generation, sophisticated payment processing, comprehensive beneficiary management, and **UPDATED** enhanced birthdate validation)
+- Secretary-driven registration via the Secretary Member Registration Modal (streamlined form with comprehensive birthdate validation)
+- Enhanced birthdate validation system with strict year format requirements, automatic year truncation, and comprehensive error messaging
 
 ```mermaid
 sequenceDiagram
 participant Admin as "Admin User"
 participant Modal as "Enhanced Member Registration Modal<br/>components/admin/MemberRegistrationModal.tsx"
-participant Beneficiaries as "Beneficiary Management System<br/>Dynamic Form Fields"
+participant Birthdate as "Enhanced Birthdate Validation<br/>Automatic Year Truncation & Error Messaging"
 participant Settings as "System Settings Service<br/>lib/settingsService.ts"
 participant UMS as "User-Member Service<br/>lib/userMemberService.ts"
 participant FS as "Firestore Utils<br/>lib/firebase.ts"
@@ -197,8 +215,8 @@ participant Email as "Email Service<br/>lib/emailService.ts"
 participant CPV as "Certificate Preview Modal<br/>components/admin/CertificatePreviewModal.tsx"
 participant CertSvc as "Certificate Service<br/>lib/certificateService.ts"
 Admin->>Modal : Fill multi-step form with dynamic fields
-Modal->>Beneficiaries : Manage up to 2 beneficiaries
-Beneficiaries-->>Modal : Validate beneficiary data
+Modal->>Birthdate : Validate birthdate with strict 4-digit year format
+Birthdate-->>Modal : Automatic year truncation & comprehensive error messaging
 Modal->>Settings : Fetch system settings for membership fee
 Settings-->>Modal : Return membership payment amount
 Modal->>Modal : Validate current step with enhanced validation
@@ -209,10 +227,10 @@ FS-->>UMS : Exists/Not Found
 alt Email exists
 Modal-->>Admin : Show "Email already registered" error
 else Email not found
-Modal->>UMS : Create linked user + member records with payment info and beneficiaries
+Modal->>UMS : Create linked user + member records with payment info, beneficiaries, and birthdate
 UMS->>FS : Create user document
 FS-->>UMS : Success/Failure
-UMS->>FS : Create member document with payment info and beneficiaries
+UMS->>FS : Create member document with payment info, beneficiaries, and birthdate
 FS-->>UMS : Success/Failure
 alt Both succeed
 Modal->>Email : Send welcome email
@@ -233,6 +251,8 @@ end
 
 **Diagram sources**
 - [MemberRegistrationModal.tsx:237-415](file://components/admin/MemberRegistrationModal.tsx#L237-L415)
+- [MemberRegistrationModal.tsx:755-794](file://components/admin/MemberRegistrationModal.tsx#L755-L794)
+- [MemberRegistrationModal.tsx:800-807](file://components/admin/MemberRegistrationModal.tsx#L800-L807)
 - [MemberRegistrationModal.tsx:994-1117](file://components/admin/MemberRegistrationModal.tsx#L994-L1117)
 - [MemberRegistrationModal.tsx:1482-1500](file://components/admin/MemberRegistrationModal.tsx#L1482-L1500)
 - [settingsService.ts:19-35](file://lib/settingsService.ts#L19-L35)
@@ -245,7 +265,7 @@ end
 ## Detailed Component Analysis
 
 ### Enhanced Member Registration Modal (Admin-Driven)
-**Updated** Enhanced with improved multi-step form validation, dynamic role-specific fields, integrated certificate preview functionality, sophisticated payment processing, and **NEW** comprehensive beneficiary management system supporting up to two beneficiaries per member registration.
+**Updated** Enhanced with improved multi-step form validation, dynamic role-specific fields, integrated certificate preview functionality, sophisticated payment processing, comprehensive beneficiary management system supporting up to two beneficiaries per member registration, and **UPDATED** enhanced birthdate validation with strict year format requirements (4-digit years), automatic year truncation, and comprehensive error messaging.
 
 - **Multi-step Validation System**: Implements `validateCurrentStep()` function for step-by-step validation with dynamic field requirements based on selected role.
 - **Dynamic Role Fields**: Role-specific fields appear based on Driver/Operator selection with conditional validation for address, license numbers, and jeepney information.
@@ -256,14 +276,15 @@ end
 - **Strict Input Formatting**: Enhanced input formatting with automatic uppercase conversion and hyphen insertion for license numbers, TIN IDs, and jeepney plate numbers.
 - **Certificate Preview Integration**: Seamless integration with Certificate Preview Modal for immediate certificate generation after registration.
 - **Progress Tracking**: Visual progress indicators showing current step completion status.
-- ****NEW** Beneficiary Management System**: Comprehensive beneficiary information management supporting up to two beneficiaries per member registration with dynamic form fields, real-time validation, and confirmation section integration.
+- **Comprehensive Beneficiary Management System**: **NEW** Multi-step beneficiary information management supporting up to two beneficiaries per member registration with dynamic form fields, real-time validation, and confirmation section integration.
+- **Enhanced Birthdate Validation**: **UPDATED** Comprehensive birthdate validation system with strict 4-digit year format requirements, automatic year truncation, and detailed error messaging for validation scenarios.
 
 ```mermaid
 flowchart TD
-Start(["Registration Start"]) --> Step1["Step 1: Personal Info<br/>- Role Selection<br/>- Basic Info Validation<br/>- Address Fields<br/>- Beneficiary Section<br/>- Add Beneficiary Button<br/>- Up to 2 Beneficiaries"]
+Start(["Registration Start"]) --> Step1["Step 1: Personal Info<br/>- Role Selection<br/>- Basic Info Validation<br/>- Address Fields<br/>- Beneficiary Section<br/>- Add Beneficiary Button<br/>- Up to 2 Beneficiaries<br/>- Enhanced Birthdate Validation"]
 Step1 --> Step2["Step 2: Role Details<br/>- Driver: License/TIN<br/>- Operator: Jeepney Count<br/>- Real-time Validation<br/>- Plate Number Formatting"]
 Step2 --> Step3["Step 3: Payment & Confirmation<br/>- System Settings Integration<br/>- Capital Share Input<br/>- Dual-State Currency Formatting<br/>- Real-time Thousand Separators<br/>- Decimal Precision Control<br/>- Total Fee Calculation<br/>- Receipt Control Number<br/>- Beneficiary Confirmation"]
-Validate["Final Validation<br/>- All Fields Complete<br/>- Email Uniqueness Check<br/>- Payment Validation<br/>- Beneficiary Validation"]
+Validate["Final Validation<br/>- All Fields Complete<br/>- Email Uniqueness Check<br/>- Payment Validation<br/>- Beneficiary Validation<br/>- Enhanced Birthdate Validation"]
 Validate --> Success{"Registration Success?"}
 Success --> |Yes| CertificatePreview["Show Certificate Preview Modal"]
 Success --> |No| ShowErrors["Show Validation Errors"]
@@ -276,6 +297,8 @@ ShowErrors --> End(["Stop"])
 - [MemberRegistrationModal.tsx:127-168](file://components/admin/MemberRegistrationModal.tsx#L127-L168)
 - [MemberRegistrationModal.tsx:237-276](file://components/admin/MemberRegistrationModal.tsx#L237-L276)
 - [MemberRegistrationModal.tsx:424-464](file://components/admin/MemberRegistrationModal.tsx#L424-L464)
+- [MemberRegistrationModal.tsx:755-794](file://components/admin/MemberRegistrationModal.tsx#L755-L794)
+- [MemberRegistrationModal.tsx:800-807](file://components/admin/MemberRegistrationModal.tsx#L800-L807)
 - [MemberRegistrationModal.tsx:994-1117](file://components/admin/MemberRegistrationModal.tsx#L994-L1117)
 - [MemberRegistrationModal.tsx:1482-1500](file://components/admin/MemberRegistrationModal.tsx#L1482-L1500)
 - [MemberRegistrationModal.tsx:1356-1444](file://components/admin/MemberRegistrationModal.tsx#L1356-L1444)
@@ -285,6 +308,58 @@ ShowErrors --> End(["Stop"])
 - [settingsService.ts:19-54](file://lib/settingsService.ts#L19-L54)
 - [userMemberService.ts:23-92](file://lib/userMemberService.ts#L23-L92)
 - [emailService.ts:41-67](file://lib/emailService.ts#L41-L67)
+
+### Enhanced Birthdate Validation System
+**UPDATED** Comprehensive birthdate validation system with strict year format requirements (4-digit years), automatic year truncation, and detailed error messaging for validation scenarios.
+
+- **Strict Year Format Validation**: Birthdate validation enforces exactly 4-digit year format using regex pattern `/^\d{4}-/` to ensure valid year representation.
+- **Automatic Year Truncation**: Real-time automatic truncation of years exceeding 4 digits with immediate correction to 4-digit format during input.
+- **Comprehensive Age Verification**: Validates age constraints with minimum age of 18 years and maximum age of 100 years, ensuring appropriate member demographics.
+- **Future Date Prevention**: Prevents birthdates in the future by comparing with current date, ensuring logical birthdate entries.
+- **Invalid Date Detection**: Comprehensive validation for invalid dates including leap year calculations and month/day boundaries.
+- **Detailed Error Messaging**: Provides specific error messages for different validation failure scenarios including year format, age limits, invalid dates, and future dates.
+- **Real-time Input Processing**: Automatic year truncation occurs during input with immediate user feedback and corrected date format.
+- **Integration with Age Calculation**: Automatic age calculation and display based on validated birthdate with real-time updates.
+
+```mermaid
+flowchart TD
+BirthdateInput["Birthdate Input"] --> YearFormat["Validate 4-Digit Year Format"]
+YearFormat --> YearValid{"Year Format Valid?"}
+YearValid --> |No| YearError["Show 'Invalid year format. Year must be 4 digits (e.g., 1990)'"]
+YearValid --> |Yes| YearRange["Check Year Range (1900-9999)"]
+YearRange --> YearRangeValid{"Year in Range?"}
+YearRangeValid --> |No| YearRangeError["Show 'Please enter a valid year between 1900 and 9999'"]
+YearRangeValid --> |Yes| ParseDate["Parse Date Value"]
+ParseDate --> DateValid{"Valid Date?"}
+DateValid --> |No| InvalidDateError["Show 'Please enter a valid date'"]
+DateValid --> |Yes| AgeCalc["Calculate Age"]
+AgeCalc --> AgeValid{"Age 18-100?"}
+AgeValid --> |No| AgeError["Show 'Member must be at least 18 years old' or 'Please enter a valid birthdate'"]
+AgeValid --> |Yes| FutureCheck["Check Future Date"]
+FutureCheck --> FutureValid{"Date in Past?"}
+FutureValid --> |No| FutureError["Show 'Birthdate cannot be in the future'"]
+FutureValid --> |Yes| Success["Birthdate Validated Successfully"]
+```
+
+**Diagram sources**
+- [MemberRegistrationModal.tsx:755-794](file://components/admin/MemberRegistrationModal.tsx#L755-L794)
+- [MemberRegistrationModal.tsx:800-807](file://components/admin/MemberRegistrationModal.tsx#L800-L807)
+
+**Section sources**
+- [MemberRegistrationModal.tsx:755-794](file://components/admin/MemberRegistrationModal.tsx#L755-L794)
+- [MemberRegistrationModal.tsx:800-807](file://components/admin/MemberRegistrationModal.tsx#L800-L807)
+
+### Secretary Member Registration Modal
+**Updated** Streamlined registration interface with comprehensive birthdate validation and simplified form fields.
+
+- **Streamlined Form Design**: Simplified form layout focusing on essential registration fields with comprehensive birthdate validation.
+- **Comprehensive Birthdate Validation**: Same enhanced birthdate validation system as the main modal with strict age verification and error messaging.
+- **Simplified Role Selection**: Streamlined role selection with automatic field visibility based on selected role.
+- **Integrated Address Fields**: Role-specific address fields with pattern validation for proper address formatting.
+- **Real-time Validation Feedback**: Immediate validation feedback with comprehensive error messaging for all form fields.
+
+**Section sources**
+- [SecretaryMemberRegistrationModal.tsx:506-528](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L506-L528)
 
 ### Comprehensive Beneficiary Management System
 **NEW** Multi-step beneficiary information management system supporting up to two beneficiaries per member registration with dynamic form fields, real-time validation, and backend integration.
@@ -478,7 +553,7 @@ end
 - Creates linked user and member records atomically; on failure, rolls back user creation.
 - Validates and repairs user-member linkage on login, ensuring both collections remain synchronized.
 - Provides email existence checks and batched updates across both collections.
-- **Updated** Now includes payment information and **NEW** comprehensive beneficiary data in member documents for complete registration processing.
+- **Updated** Now includes payment information, comprehensive beneficiary data, and **UPDATED** enhanced birthdate data handling in member documents for complete registration processing.
 
 **Section sources**
 - [userMemberService.ts:1-289](file://lib/userMemberService.ts#L1-L289)
@@ -511,6 +586,17 @@ end
 - [route.ts:1-177](file://app/api/setup-password/route.ts#L1-L177)
 - [passwordUtils.ts:64-92](file://lib/passwordUtils.ts#L64-L92)
 
+### Validator Utilities
+**New** Comprehensive validation utilities for route access, role validation, and authentication route handling.
+
+- **Route Access Validation**: Validates access to different route categories (admin, user, auth) based on user role and permissions.
+- **Role-Specific Validation**: Ensures users can only access routes appropriate for their role with conflict prevention.
+- **Authentication Route Access**: Allows access to authentication routes for everyone regardless of authentication status.
+- **Dashboard Path Resolution**: Resolves appropriate dashboard paths based on user role with comprehensive role mapping.
+
+**Section sources**
+- [validators.ts:1-236](file://lib/validators.ts#L1-L236)
+
 ### Member Types Definition
 **New** Comprehensive type definitions for member data structures including enhanced beneficiary support.
 
@@ -525,17 +611,18 @@ end
 - [member.ts:1-85](file://lib/types/member.ts#L1-L85)
 
 ## Dependency Analysis
-The registration workflow exhibits clear separation of concerns with enhanced certificate integration, comprehensive payment processing, and **NEW** beneficiary management capabilities:
+The registration workflow exhibits clear separation of concerns with enhanced certificate integration, comprehensive payment processing, comprehensive beneficiary management capabilities, and **UPDATED** enhanced birthdate validation system:
 - Client-side registration depends on Firestore utilities and email service.
 - Enhanced server-side registration depends on Firebase Admin utilities, password utilities, certificate service, and system settings service.
-- Both flows rely on user-member service for consistent identity management and **NEW** comprehensive beneficiary data handling.
-- Authentication context coordinates login and role-based routing.
+- Both flows rely on user-member service for consistent identity management, comprehensive beneficiary data handling, and **UPDATED** enhanced birthdate data processing.
+- Authentication context coordinates login and role-based routing with comprehensive validator utilities.
 - Certificate service provides PDF generation and storage capabilities.
 - Certificate preview modal integrates with certificate service for interactive certificate management.
 - System settings service provides dynamic configuration for membership fees.
 - **Updated** Sophisticated capital share input system integrates with dual-state currency formatting and real-time validation.
 - **NEW** Beneficiary management system integrates with dynamic form fields and backend data storage.
 - **NEW** Member types definition provides comprehensive type safety for member data structures.
+- **UPDATED** Enhanced birthdate validation system integrates with real-time input processing and comprehensive error messaging.
 
 ```mermaid
 graph TB
@@ -548,6 +635,13 @@ MRM --> CPM["Certificate Preview Modal"]
 MRM --> CERTSERVICE["Certificate Service"]
 MRM --> SETTINGS["System Settings Service"]
 MRM --> MEMBERTYPES["Member Types"]
+MRM --> VALIDATORS["Validator Utilities"]
+SMRM["Secretary Member Registration Modal"] --> UMS
+SMRM --> FIRESTORE
+SMRM --> EMAIL
+SMRM --> CERTSERVICE
+SMRM --> SETTINGS
+SMRM --> MEMBERTYPES
 CPM --> CERTSERVICE
 API_MEM["Members API"] --> FB_ADMIN["Firebase Admin Utils"]
 API_MEM --> PWUTILS["Password Utils"]
@@ -558,6 +652,7 @@ API_CERT --> FIRESTORE
 AUTHCTX["Auth Context"] --> FIRESTORE
 AUTHCTX --> EMAIL
 AUTHCTX --> UMS
+AUTHCTX --> VALIDATORS
 API_AUTH["Auth API"] --> FB_ADMIN
 API_AUTH --> UMS
 ```
@@ -570,6 +665,7 @@ API_AUTH --> UMS
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [MemberRegistrationModal.tsx:1-1667](file://components/admin/MemberRegistrationModal.tsx#L1-L1667)
+- [SecretaryMemberRegistrationModal.tsx:1-1043](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L1-L1043)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
@@ -578,6 +674,7 @@ API_AUTH --> UMS
 - [passwordUtils.ts:1-146](file://lib/passwordUtils.ts#L1-L146)
 - [settingsService.ts:1-54](file://lib/settingsService.ts#L1-L54)
 - [member.ts:1-85](file://lib/types/member.ts#L1-L85)
+- [validators.ts:1-236](file://lib/validators.ts#L1-L236)
 
 **Section sources**
 - [page.tsx:1-323](file://app/register/page.tsx#L1-L323)
@@ -587,6 +684,7 @@ API_AUTH --> UMS
 - [emailService.ts:1-113](file://lib/emailService.ts#L1-L113)
 - [auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [MemberRegistrationModal.tsx:1-1667](file://components/admin/MemberRegistrationModal.tsx#L1-L1667)
+- [SecretaryMemberRegistrationModal.tsx:1-1043](file://app/admin/secretary/components/SecretaryMemberRegistrationModal.tsx#L1-L1043)
 - [CertificatePreviewModal.tsx:1-532](file://components/admin/CertificatePreviewModal.tsx#L1-L532)
 - [certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
@@ -595,6 +693,7 @@ API_AUTH --> UMS
 - [passwordUtils.ts:1-146](file://lib/passwordUtils.ts#L1-L146)
 - [settingsService.ts:1-54](file://lib/settingsService.ts#L1-L54)
 - [member.ts:1-85](file://lib/types/member.ts#L1-L85)
+- [validators.ts:1-236](file://lib/validators.ts#L1-L236)
 
 ## Performance Considerations
 - Client-side hashing reduces server load but increases client CPU usage; acceptable for modern browsers.
@@ -611,6 +710,9 @@ API_AUTH --> UMS
 - **NEW** Beneficiary management system uses efficient state management with minimal re-rendering for dynamic form fields.
 - **NEW** Beneficiary validation occurs in real-time with automatic filtering to prevent invalid data entry.
 - **NEW** Backend integration for beneficiary data maintains optimal Firestore query performance with proper indexing.
+- **UPDATED** Enhanced birthdate validation system performs efficient real-time validation with automatic year truncation and comprehensive error messaging.
+- **UPDATED** Automatic year truncation occurs during input processing with minimal performance impact.
+- **UPDATED** Comprehensive age verification and date validation occurs efficiently with optimized date parsing and comparison algorithms.
 
 ## Troubleshooting Guide
 Common validation errors and resolutions:
@@ -666,6 +768,14 @@ Common validation errors and resolutions:
   - Firestore storage of beneficiary arrays requires array validation.
   - Certificate generation includes beneficiary information; ensure data integrity.
   - Resolution: Verify beneficiary data structure and check Firestore connectivity.
+- **UPDATED** Enhanced birthdate validation errors:
+  - Year format validation fails: Ensure 4-digit year format (e.g., 1990) instead of 2-digit years.
+  - Year range validation fails: Ensure year between 1900 and 9999.
+  - Age validation fails: Ensure age between 18 and 100 years.
+  - Future date validation fails: Ensure birthdate is not in the future.
+  - Invalid date validation fails: Ensure valid date format and values.
+  - Automatic year truncation issues: Verify that 5-digit years are automatically truncated to 4 digits.
+  - Resolution: Use provided error messages and ensure proper birthdate format and values.
 - Firestore connectivity issues:
   - Client-side: Initialization or permission errors.
   - Server-side: Admin SDK initialization errors or missing credentials.
@@ -686,6 +796,9 @@ Security considerations:
 - **NEW** Beneficiary data security: Real-time input filtering prevents injection attacks in beneficiary forms.
 - **NEW** Beneficiary validation: Strict character filtering ensures data integrity and prevents malicious input.
 - **NEW** Beneficiary storage security: Backend integration with userMemberService ensures secure data storage and retrieval.
+- **UPDATED** Enhanced birthdate validation security: Comprehensive validation prevents invalid birthdate entries and ensures proper age verification.
+- **UPDATED** Automatic year truncation security: Real-time input processing prevents malformed year entries and ensures data integrity.
+- **UPDATED** Error messaging security: Detailed error messages help users correct input without exposing system vulnerabilities.
 
 **Section sources**
 - [page.tsx:72-133](file://app/register/page.tsx#L72-L133)
@@ -697,6 +810,8 @@ Security considerations:
 - [MemberRegistrationModal.tsx:1020-1072](file://components/admin/MemberRegistrationModal.tsx#L1020-L1072)
 - [MemberRegistrationModal.tsx:1183-1227](file://components/admin/MemberRegistrationModal.tsx#L1183-L1227)
 - [MemberRegistrationModal.tsx:1356-1444](file://components/admin/MemberRegistrationModal.tsx#L1356-L1444)
+- [MemberRegistrationModal.tsx:755-794](file://components/admin/MemberRegistrationModal.tsx#L755-L794)
+- [MemberRegistrationModal.tsx:800-807](file://components/admin/MemberRegistrationModal.tsx#L800-L807)
 - [MemberRegistrationModal.tsx:994-1117](file://components/admin/MemberRegistrationModal.tsx#L994-L1117)
 - [MemberRegistrationModal.tsx:1482-1500](file://components/admin/MemberRegistrationModal.tsx#L1482-L1500)
 - [CertificatePreviewModal.tsx:455-473](file://components/admin/CertificatePreviewModal.tsx#L455-L473)
@@ -704,8 +819,10 @@ Security considerations:
 - [userMemberService.ts:34-70](file://lib/userMemberService.ts#L34-L70)
 
 ## Conclusion
-The SAMPA Cooperative Management System implements a robust and secure member registration workflow supporting both self-registration and admin-driven registration. The enhanced Member Registration Modal provides a comprehensive multi-step validation system with dynamic role-specific fields, real-time license number validation, integrated certificate preview functionality, sophisticated capital share payment system with dual-state currency formatting, real-time thousand separators, decimal precision control, multi-state display formatting, and **NEW** comprehensive beneficiary management system supporting up to two beneficiaries per member registration.
+The SAMPA Cooperative Management System implements a robust and secure member registration workflow supporting both self-registration and admin-driven registration. The enhanced Member Registration Modal provides a comprehensive multi-step validation system with dynamic role-specific fields, real-time license number validation, integrated certificate preview functionality, sophisticated capital share payment system with dual-state currency formatting, real-time thousand separators, decimal precision control, multi-state display formatting, comprehensive beneficiary management system supporting up to two beneficiaries per member registration, and **UPDATED** enhanced birthdate validation system with strict year format requirements (4-digit years), automatic year truncation, and comprehensive error messaging.
 
-The workflow seamlessly integrates certificate generation with professional PDF creation, ensuring members receive official share certificates immediately after registration. Client-side and server-side flows share consistent validation, hashing, and error handling patterns, while user-member linking ensures data integrity across collections. The integration with Firestore, EmailJS, certificate service, and system settings provides a reliable foundation for user onboarding, complemented by strong security practices, comprehensive troubleshooting guidance, dynamic payment processing capabilities, and **NEW** beneficiary management functionality.
+The workflow seamlessly integrates certificate generation with professional PDF creation, ensuring members receive official share certificates immediately after registration. Client-side and server-side flows share consistent validation, hashing, and error handling patterns, while user-member linking ensures data integrity across collections. The integration with Firestore, EmailJS, certificate service, and system settings provides a reliable foundation for user onboarding, complemented by strong security practices, comprehensive troubleshooting guidance, dynamic payment processing capabilities, comprehensive beneficiary management functionality, and **UPDATED** enhanced birthdate validation system.
 
-The addition of sophisticated capital share input functionality significantly enhances the system's ability to manage cooperative membership fees with improved user experience and data quality standards. The **NEW** beneficiary management system provides comprehensive support for cooperative member designation, ensuring proper documentation and future-proofing for cooperative governance requirements. The enhanced Member Registration Modal now serves as a complete solution for cooperative member onboarding, combining security, usability, and comprehensive data management capabilities essential for modern cooperative operations.
+The addition of sophisticated capital share input functionality significantly enhances the system's ability to manage cooperative membership fees with improved user experience and data quality standards. The **NEW** beneficiary management system provides comprehensive support for cooperative member designation, ensuring proper documentation and future-proofing for cooperative governance requirements. The **UPDATED** enhanced birthdate validation system ensures proper age verification and data integrity while providing comprehensive error messaging for validation scenarios.
+
+The enhanced Member Registration Modal now serves as a complete solution for cooperative member onboarding, combining security, usability, comprehensive data management capabilities, and **UPDATED** enhanced validation systems essential for modern cooperative operations. The comprehensive birthdate validation system with automatic year truncation and detailed error messaging ensures proper member demographics while maintaining excellent user experience through real-time validation feedback and automatic input correction.
