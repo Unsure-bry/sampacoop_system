@@ -1680,7 +1680,7 @@ export default function MemberRegistrationModal({
                   <button
                     type="submit"
                     className={`w-full sm:w-auto px-6 py-3 rounded-lg transition-colors flex items-center justify-center order-1 sm:order-2 ${
-                      Object.keys(errors).length === 0 && !isSubmitting && controlNumber.trim() !== '' && capitalShare <= (systemSettings?.capitalShare || 10000)
+                      Object.keys(errors).length === 0 && !isSubmitting && controlNumber.trim() !== '' && capitalShare <= (systemSettings?.apitalShare || 10000)
                         ? 'bg-red-600 text-white hover:bg-red-700' 
                         : 'bg-gray-400 text-white cursor-not-allowed'
                     }`}

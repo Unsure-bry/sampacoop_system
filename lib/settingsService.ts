@@ -3,6 +3,7 @@ import { firestore } from './firebase';
 export interface SystemSettings {
   membershipPayment: number;
   reactivationFee: number;
+  capitalShare: number;
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -10,6 +11,7 @@ export interface SystemSettings {
 const defaultSettings: SystemSettings = {
   membershipPayment: 1500,
   reactivationFee: 1500,
+  capitalShare: 10000,
 };
 
 /**
