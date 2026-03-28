@@ -44,7 +44,7 @@ export default function ReportsAndAnalytics() {
     totalCapitalShares: 0,
     totalLoans: 0
   });
-  const [metricsData, setMetricsData] = useState<any[]>([]);
+
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [loanStatusData, setLoanStatusData] = useState<LoanStatusData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,14 +123,6 @@ export default function ReportsAndAnalytics() {
         totalCapitalShares,
         totalLoans
       });
-
-      // Set unified metrics data for visualization
-      setMetricsData([
-        { name: 'Total Members', value: members.length, color: '#3B82F6', type: 'count' },
-        { name: 'Total Savings', value: totalSavings, color: '#10B981', type: 'currency' },
-        { name: 'Total Loans', value: totalLoans, color: '#8B5CF6', type: 'currency' },
-        { name: 'Capital Shares', value: totalCapitalShares, color: '#F59E0B', type: 'currency' }
-      ]);
 
       // Calculate monthly data (last 6 months)
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -238,7 +230,7 @@ export default function ReportsAndAnalytics() {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-full">
@@ -287,65 +279,6 @@ export default function ReportsAndAnalytics() {
           </div>
         </div>
 
-        <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-100 rounded-full">
-              <DollarSign className="h-5 w-5 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-sm text-orange-600">Capital Shares</p>
-              <p className="text-xl font-bold text-orange-800">{formatCurrency(stats.totalCapitalShares)}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Unified Metrics Overview Chart */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">System Overview - Key Metrics</h3>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={metricsData} layout="vertical" margin={{ left: 100 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                type="number" 
-                tickFormatter={(value) => value >= 1000 ? `₱${(value / 1000).toFixed(0)}k` : value.toString()}
-              />
-              <YAxis type="category" dataKey="name" width={100} />
-              <Tooltip 
-                formatter={(value: any, name: any, props: any) => {
-                  if (props?.payload?.type === 'currency') {
-                    return [formatCurrency(Number(value) || 0), name];
-                  }
-                  return [(Number(value) || 0).toLocaleString(), name];
-                }}
-              />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                {metricsData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-          <div className="text-center p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-600">Total Members</p>
-            <p className="text-lg font-bold text-blue-800">{stats.totalMembers.toLocaleString()}</p>
-          </div>
-          <div className="text-center p-3 bg-green-50 rounded-lg">
-            <p className="text-sm text-green-600">Total Savings</p>
-            <p className="text-lg font-bold text-green-800">{formatCurrency(stats.totalSavings)}</p>
-          </div>
-          <div className="text-center p-3 bg-purple-50 rounded-lg">
-            <p className="text-sm text-purple-600">Total Loans</p>
-            <p className="text-lg font-bold text-purple-800">{formatCurrency(stats.totalLoans)}</p>
-          </div>
-          <div className="text-center p-3 bg-orange-50 rounded-lg">
-            <p className="text-sm text-orange-600">Capital Shares</p>
-            <p className="text-lg font-bold text-orange-800">{formatCurrency(stats.totalCapitalShares)}</p>
-          </div>
-        </div>
       </div>
 
       {/* Charts Grid */}
@@ -368,32 +301,29 @@ export default function ReportsAndAnalytics() {
           </div>
         </div>
 
-        {/* Financial Overview - Key Metrics */}
+        {/* Loan Status Distribution */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Financial Overview</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Loan Status Distribution</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={metricsData} layout="vertical" margin={{ left: 100 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  type="number" 
-                  tickFormatter={(value) => value >= 1000 ? `₱${(value / 1000).toFixed(0)}k` : value.toString()}
-                />
-                <YAxis type="category" dataKey="name" width={100} />
-                <Tooltip 
-                  formatter={(value: any, name: any, props: any) => {
-                    if (props?.payload?.type === 'currency') {
-                      return [formatCurrency(Number(value) || 0), name];
-                    }
-                    return [(Number(value) || 0).toLocaleString(), name];
-                  }}
-                />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                  {metricsData.map((entry, index) => (
+              <PieChart>
+                <Pie
+                  data={loanStatusData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {loanStatusData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
-                </Bar>
-              </BarChart>
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
