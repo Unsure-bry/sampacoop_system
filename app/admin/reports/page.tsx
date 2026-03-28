@@ -679,19 +679,19 @@ export default function ReportsPage() {
                       <div className="text-sm text-purple-800 mt-1">Total Loans</div>
                     </div>
                     <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-lg border border-orange-200">
-                      <div className="text-3xl font-bold text-orange-600">₱{reportData.loansSummary.totalLoanAmount.toLocaleString()}</div>
-                      <div className="text-sm text-orange-800 mt-1">Loan Portfolio</div>
+                      <div className="text-3xl font-bold text-orange-600">₱{reportData.capitalSharesSummary.totalPaid.toLocaleString()}</div>
+                      <div className="text-sm text-orange-800 mt-1">Total Capital Shares</div>
                     </div>
                   </div>
                 </div>
                 
-                {/* Analytics Charts */}
+                {/* Analytics Charts - Overview of All 4 Tabs */}
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Analytics Dashboard</h3>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Member Status Distribution */}
+                    {/* Members Tab Overview - Member Status Distribution */}
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h4 className="font-medium text-gray-700 mb-3">Member Status Distribution</h4>
+                      <h4 className="font-medium text-gray-700 mb-3">Members Overview</h4>
                       <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
@@ -722,24 +722,127 @@ export default function ReportsPage() {
                       </div>
                     </div>
                     
-                    {/* Financial Overview */}
+                    {/* Savings Tab Overview - Top Savers */}
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h4 className="font-medium text-gray-700 mb-3">Financial Overview</h4>
+                      <h4 className="font-medium text-gray-700 mb-3">Savings Overview</h4>
                       <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart
-                            data={[
-                              { name: 'Total Savings', amount: reportData.savingsSummary.totalSavings },
-                              { name: 'Loan Portfolio', amount: reportData.loansSummary.totalLoanAmount }
-                            ]}
+                            data={reportData.savingsSummary.topSavers.slice(0, 5).map(saver => ({
+                              name: saver.name.split(' ')[0],
+                              amount: saver.amount
+                            }))}
                             margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                           >
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                             <YAxis tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
-                            <Tooltip formatter={(value) => [`₱${Number(value || 0).toLocaleString()}`, 'Amount']} />
-                            <Bar dataKey="amount" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                            <Tooltip formatter={(value) => [`₱${Number(value || 0).toLocaleString()}`, 'Savings']} />
+                            <Bar dataKey="amount" fill="#10B981" radius={[4, 4, 0, 0]} />
                           </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                    
+                    {/* Loans Tab Overview - Loan Status Distribution */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-3">Loans Overview</h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={Object.entries(reportData.loansSummary.loanStatusDistribution).map(([status, count]) => {
+                                const colorMap: Record<string, string> = {
+                                  'active': '#3B82F6',
+                                  'completed': '#22C55E',
+                                  'approved': '#10B981',
+                                  'pending': '#F59E0B',
+                                  'rejected': '#EF4444',
+                                  'paid': '#06B6D4',
+                                  'defaulted': '#DC2626',
+                                  'cancelled': '#6B7280',
+                                  'processing': '#8B5CF6',
+                                  'under_review': '#F97316',
+                                  'closed': '#14B8A6',
+                                  'disbursed': '#84CC16',
+                                  'fully_paid': '#8B5CF6'
+                                };
+                                return {
+                                  name: status.charAt(0).toUpperCase() + status.slice(1),
+                                  value: count,
+                                  color: colorMap[status.toLowerCase()] || '#6B7280'
+                                };
+                              })}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={(props: { name?: string; percent?: number }) => `${props.name || ''} ${((props.percent || 0) * 100).toFixed(0)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {Object.entries(reportData.loansSummary.loanStatusDistribution).map(([status, count], index) => {
+                                const colorMap: Record<string, string> = {
+                                  'active': '#3B82F6',
+                                  'completed': '#22C55E',
+                                  'approved': '#10B981',
+                                  'pending': '#F59E0B',
+                                  'rejected': '#EF4444',
+                                  'paid': '#06B6D4',
+                                  'defaulted': '#DC2626',
+                                  'cancelled': '#6B7280',
+                                  'processing': '#8B5CF6',
+                                  'under_review': '#F97316',
+                                  'closed': '#14B8A6',
+                                  'disbursed': '#84CC16',
+                                  'fully_paid': '#8B5CF6'
+                                };
+                                return (
+                                  <Cell 
+                                    key={`cell-${index}`} 
+                                    fill={colorMap[status.toLowerCase()] || '#6B7280'} 
+                                  />
+                                );
+                              })}
+                            </Pie>
+                            <Tooltip />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                    
+                    {/* Capital Shares Tab Overview - Capital Shares Status Distribution */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-3">Capital Shares Overview</h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Fully Paid', value: reportData.capitalSharesSummary.paidMembers, color: '#10B981' },
+                                { name: 'Partial', value: reportData.capitalSharesSummary.partialMembers, color: '#F59E0B' },
+                                { name: 'No Payment', value: reportData.capitalSharesSummary.pendingMembers, color: '#EF4444' }
+                              ].filter(item => item.value > 0)}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={(props: { name?: string; percent?: number }) => `${props.name || ''} ${((props.percent || 0) * 100).toFixed(0)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {[
+                                { name: 'Fully Paid', value: reportData.capitalSharesSummary.paidMembers, color: '#10B981' },
+                                { name: 'Partial', value: reportData.capitalSharesSummary.partialMembers, color: '#F59E0B' },
+                                { name: 'No Payment', value: reportData.capitalSharesSummary.pendingMembers, color: '#EF4444' }
+                              ].filter(item => item.value > 0).map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                            <Legend />
+                          </PieChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
