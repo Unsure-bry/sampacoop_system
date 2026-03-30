@@ -49,6 +49,7 @@ interface LoanRequest {
   planName?: string;
   amount: number;
   term: number;
+  interestRate?: number; // Interest rate at time of application (snapshot)
   status: string;
   description?: string;
   createdAt: string;
@@ -328,14 +329,9 @@ export default function LoanRequestsManager() {
             email: requestData.email || ''
           };
           
-          // Get interest rate from loan plan
-          if (requestData.planId) {
-            const planResult = await firestore.getDocument('loanPlans', requestData.planId);
-            if (planResult.success && planResult.data) {
-              const planData = planResult.data as any;
-              interestRate = planData.interestRate || 3;
-            }
-          }
+          // Use interest rate from loan request (stored at time of application)
+          // This ensures the rate doesn't change even if admin modifies the loan plan later
+          interestRate = requestData.interestRate || 3;
         } else {
           // Fallback to fetching from users collection
           const userResult = await firestore.getDocument('users', userId);

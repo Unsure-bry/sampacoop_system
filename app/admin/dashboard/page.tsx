@@ -56,6 +56,8 @@ interface DashboardStats {
   activeLoans: number;
   pendingRequests: number;
   totalApprovedLoans: number;
+  activeLoansAmount: number; // Total amount of active loans
+  totalDisbursedLoansAmount: number; // Total amount of all loans ever disbursed (active + completed)
 }
 
 interface SavingsLeaderboardEntry {
@@ -93,11 +95,33 @@ export default function DynamicAdminDashboard() {
     activeLoans: 0,
     pendingRequests: 0,
     totalApprovedLoans: 0,
+    activeLoansAmount: 0,
+    totalDisbursedLoansAmount: 0,
+  });
+  
+  // Date filter state
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
   const [savingsLeaderboard, setSavingsLeaderboard] = useState<SavingsLeaderboardEntry[]>([]);
   const [filteredSavings, setFilteredSavings] = useState<SavingsLeaderboardEntry[]>([]);
   const [savingsFilter, setSavingsFilter] = useState<'all' | 'daily' | 'monthly' | 'yearly'>('all');
   const [loading, setLoading] = useState(true);
+  
+  // Monthly data for trends chart
+  const [monthlyData, setMonthlyData] = useState<Array<{
+    month: string;
+    monthLabel: string;
+    totalMembers: number;
+    activeLoansCount: number;
+    activeLoansAmount: number;
+    totalDisbursedAmount: number;
+    approvedLoansCount: number;
+    pendingRequestsCount: number;
+  }>>([]);
+  
+
 
   // Validate that this user should be on this dashboard
   useEffect(() => {
@@ -159,6 +183,90 @@ export default function DynamicAdminDashboard() {
       setFilteredSavings(filteredData);
     }
   }, [savingsLeaderboard, savingsFilter]);
+
+  // Calculate monthly data from loans for trend chart
+  const calculateMonthlyData = (loans: Loan[], members: Member[], loanRequests: any[]) => {
+    const months: Array<{
+      month: string;
+      monthLabel: string;
+      totalMembers: number;
+      activeLoansCount: number;
+      activeLoansAmount: number;
+      totalDisbursedAmount: number;
+      approvedLoansCount: number;
+      pendingRequestsCount: number;
+    }> = [];
+    
+    // Get last 6 months for comparison
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      
+      // Calculate data for this month
+      // Active loans: loans that were active during this month (started before or during, not completed before)
+      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      
+      const activeLoansInMonth = loans.filter(loan => {
+        const loanStart = loan.startDate ? new Date(loan.startDate) : null;
+        const loanEnd = loan.endDate ? new Date(loan.endDate) : null;
+        
+        if (!loanStart) return false;
+        
+        // Loan is active if it started before or during this month
+        // AND (it has no end date OR end date is after this month OR it's still active)
+        const startedBeforeMonthEnd = loanStart <= monthEnd;
+        const notCompletedBeforeMonth = !loanEnd || loanEnd >= d || loan.status === 'active';
+        
+        return startedBeforeMonthEnd && notCompletedBeforeMonth && 
+               (loan.status === 'active' || loan.status === 'completed' || loan.status === 'approved');
+      });
+      
+      // Approved loans: loans that were approved in this month
+      const approvedLoansInMonth = loans.filter(loan => {
+        const loanStart = loan.startDate ? new Date(loan.startDate) : null;
+        if (!loanStart) return false;
+        return loanStart.getMonth() === d.getMonth() && 
+               loanStart.getFullYear() === d.getFullYear() &&
+               (loan.status === 'active' || loan.status === 'completed' || loan.status === 'approved');
+      });
+      
+      // Count members who joined up to this month
+      const membersUpToMonth = members.filter(member => {
+        const memberCreated = member.createdAt ? new Date(member.createdAt) : null;
+        if (!memberCreated) return false;
+        return memberCreated <= monthEnd;
+      }).length;
+      
+      // Count pending loan requests up to this month
+      const pendingRequestsUpToMonth = loanRequests.filter(request => {
+        const requestDate = request.createdAt ? new Date(request.createdAt) : null;
+        if (!requestDate) return false;
+        return requestDate <= monthEnd && request.status === 'pending';
+      }).length;
+      
+      months.push({
+        month: monthKey,
+        monthLabel,
+        totalMembers: membersUpToMonth,
+        activeLoansCount: activeLoansInMonth.length,
+        activeLoansAmount: activeLoansInMonth.reduce((sum, loan) => sum + (loan.amount || 0), 0),
+        totalDisbursedAmount: loans
+          .filter(loan => {
+            const loanStart = loan.startDate ? new Date(loan.startDate) : null;
+            if (!loanStart) return false;
+            return loanStart <= monthEnd && 
+                   (loan.status === 'active' || loan.status === 'completed' || loan.status === 'approved');
+          })
+          .reduce((sum, loan) => sum + (loan.amount || 0), 0),
+        approvedLoansCount: approvedLoansInMonth.length,
+        pendingRequestsCount: pendingRequestsUpToMonth
+      });
+    }
+    
+    return months;
+  };
 
   // Fetch dashboard data
   useEffect(() => {
@@ -322,16 +430,34 @@ export default function DynamicAdminDashboard() {
         // Process loans for both active and approved counts
         let activeLoans = 0;
         let totalApprovedLoans = 0;
+        let activeLoansAmount = 0;
+        let totalDisbursedLoansAmount = 0;
         
+        let loans: Loan[] = [];
         if (loansResult.success && loansResult.data) {
-          const loans = loansResult.data as Loan[];
-          activeLoans = loans.filter(loan => loan.status === 'active').length;
+          loans = loansResult.data as Loan[];
+          const activeLoansList = loans.filter(loan => loan.status === 'active');
+          activeLoans = activeLoansList.length;
+          activeLoansAmount = activeLoansList.reduce((sum, loan) => sum + (loan.amount || 0), 0);
           totalApprovedLoans = loans.filter(loan => loan.status === 'approved').length;
+          
+          // Calculate total disbursed amount including active and completed loans
+          totalDisbursedLoansAmount = loans
+            .filter(loan => loan.status === 'active' || loan.status === 'completed' || loan.status === 'approved')
+            .reduce((sum, loan) => sum + (loan.amount || 0), 0);
+          
+          // Calculate monthly data for trend chart
+          const allLoanRequests = loanRequestsResult.success && loanRequestsResult.data ? loanRequestsResult.data : [];
+          const monthlyTrends = calculateMonthlyData(loans, membersResult.data as Member[], allLoanRequests);
+          setMonthlyData(monthlyTrends);
         } else {
           console.error('Failed to fetch loans data:', loansResult.error);
           // Set to 0 if we can't fetch reliable data
           activeLoans = 0;
           totalApprovedLoans = 0;
+          activeLoansAmount = 0;
+          totalDisbursedLoansAmount = 0;
+          setMonthlyData([]);
         }
 
         // Also count approved loans from loanRequests collection
@@ -510,7 +636,9 @@ export default function DynamicAdminDashboard() {
           totalMembers: totalMembers || 0,
           activeLoans: activeLoans || 0,
           pendingRequests: pendingRequests || 0,
-          totalApprovedLoans: totalApprovedLoans || 0
+          totalApprovedLoans: totalApprovedLoans || 0,
+          activeLoansAmount: activeLoansAmount || 0,
+          totalDisbursedLoansAmount: totalDisbursedLoansAmount || 0
         });
 
         setSavingsLeaderboard(savingsLeaderboardData || []);
@@ -535,13 +663,37 @@ export default function DynamicAdminDashboard() {
     }).format(amount);
   };
 
-  // Mock chart data based on fetched data
-  const loanData = [
-    { name: 'Total Members', count: stats.totalMembers },
-    { name: 'Active Loans', count: stats.activeLoans },
-    { name: 'Pending Requests', count: stats.pendingRequests },
-    { name: 'Approved Loans', count: stats.totalApprovedLoans },
-  ];
+  // Chart data - use monthly trends data if available, otherwise fallback to current stats
+  const loanData = monthlyData.length > 0 
+    ? monthlyData.map(m => ({
+        name: m.monthLabel,
+        members: m.totalMembers,
+        count: m.activeLoansCount,
+        amount: m.activeLoansAmount,
+        disbursed: m.totalDisbursedAmount,
+        pending: m.pendingRequestsCount
+      }))
+    : [
+        { name: 'Total Members', members: stats.totalMembers, count: 0, amount: 0, disbursed: 0, pending: 0 },
+        { name: 'Active Loans', members: 0, count: stats.activeLoans, amount: stats.activeLoansAmount, disbursed: 0, pending: 0 },
+        { name: 'Pending Requests', members: 0, count: 0, amount: 0, disbursed: 0, pending: stats.pendingRequests },
+        { name: 'Approved Loans', members: 0, count: 0, amount: stats.totalDisbursedLoansAmount, disbursed: 0, pending: 0 },
+      ];
+  
+  // Generate month options for filter (last 12 months)
+  const getMonthOptions = () => {
+    const options = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+      options.push({ value, label });
+    }
+    return options;
+  };
+  
+  const monthOptions = getMonthOptions();
 
   // Render a loading skeleton
   if (loading || authLoading) {
@@ -676,9 +828,12 @@ export default function DynamicAdminDashboard() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* Loan and Savings Chart */}
+        {/* Monthly Loan Trends Chart */}
         <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-          <h2 className="text-base sm:text-lg font-medium text-gray-800 mb-4">Monthly Trends</h2>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
+            <h2 className="text-base sm:text-lg font-medium text-gray-800">Monthly Trends</h2>
+          </div>
+          
           <div className="h-64 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
@@ -692,18 +847,36 @@ export default function DynamicAdminDashboard() {
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
-                <YAxis tickFormatter={(value) => value.toString()} />
-                <Tooltip formatter={(value, name) => 
-                  ['Total Members', 'Active Loans', 'Pending Requests'].includes(name as string)
-                    ? [value, name]
-                    : [formatCurrency(Number(value)), name]
-                } />
-                <Legend />
-                <Bar dataKey="count" fill="#0088FE" name="Counts" />
-                <Bar dataKey="amount" fill="#FFBB28" name="Amount" />
+                <YAxis yAxisId="left" tickFormatter={(value) => value.toString()} />
+                <YAxis yAxisId="right" orientation="right" tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
+                <Tooltip 
+                  formatter={(value, name, props) => {
+                    if (props.dataKey === 'amount') {
+                      return [formatCurrency(Number(value)), 'Active Loans Amount'];
+                    }
+                    if (props.dataKey === 'disbursed') {
+                      return [formatCurrency(Number(value)), 'Total Disbursed'];
+                    }
+                    if (props.dataKey === 'members') {
+                      return [value, 'Total Members'];
+                    }
+                    if (props.dataKey === 'pending') {
+                      return [value, 'Pending Requests'];
+                    }
+                    return [value, 'Active Loans Count'];
+                  }}
+                />
+                <Bar yAxisId="left" dataKey="members" fill="#8884d8" name="Total Members" />
+                <Bar yAxisId="left" dataKey="count" fill="#0088FE" name="Active Loans Count" />
+                <Bar yAxisId="left" dataKey="pending" fill="#FF8042" name="Pending Requests" />
+                <Bar yAxisId="right" dataKey="amount" fill="#FFBB28" name="Active Loans Amount" />
+                <Bar yAxisId="right" dataKey="disbursed" fill="#00C49F" name="Total Disbursed (Cumulative)" />
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Click legend buttons above to show/hide data series
+          </p>
         </div>
       
         {/* Member Savings Leaderboard */}
@@ -734,14 +907,14 @@ export default function DynamicAdminDashboard() {
                 <div 
                   key={entry.memberId || index} 
                   className={`flex items-center justify-between p-3 sm:p-4 rounded-lg transition-all duration-200 ${
-                    index === 0 ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 shadow-sm' : 
-                    index === 1 ? 'bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200' : 
-                    index === 2 ? 'bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200' : 
+                    index === 0 ? 'bg- gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 shadow-sm' : 
+                    index === 1 ? 'bg- gradient-to-r from-gray-50 to-gray-100 border border-gray-200' : 
+                    index === 2 ? 'bg- gradient-to-r from-amber-50 to-amber-100 border border-amber-200' : 
                     'bg-gray-50 hover:bg-gray-100 border border-gray-100'
                   }`}
                 >
                   <div className="flex items-center min-w-0 flex-1">
-                    <div className={`flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm ${
+                    <div className={`flex- shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm ${
                       index === 0 ? 'bg-yellow-500 text-white' : 
                       index === 1 ? 'bg-gray-400 text-white' : 
                       index === 2 ? 'bg-amber-600 text-white' : 

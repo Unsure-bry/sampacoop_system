@@ -93,16 +93,10 @@ export default function LoanTable({
       // Use member information from the loan request
       const fullName = requestData.fullName || `${requestData.firstName || ''} ${requestData.lastName || ''}`.trim() || 'User Not Found';
       const role = requestData.role || 'N/A';
-      let interestRate = 3; // Default interest rate
       
-      // Get interest rate from loan plan if available
-      if (requestData.planId) {
-        const planResult = await firestore.getDocument('loanPlans', requestData.planId);
-        if (planResult.success && planResult.data) {
-          const planData = planResult.data as any;
-          interestRate = planData.interestRate || 3;
-        }
-      }
+      // Use interest rate from loan request (stored at time of application)
+      // This ensures the rate doesn't change even if admin modifies the loan plan later
+      const interestRate = requestData.interestRate || 3;
       
       // Calculate amortization schedule
       // Logic: Total Amount = Principal + (Principal × Interest Rate × Term), then divide by days

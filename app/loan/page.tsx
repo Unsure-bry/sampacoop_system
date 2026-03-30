@@ -946,6 +946,10 @@ export default function LoanPage() {
                   <p className="text-base sm:text-lg font-bold text-gray-900">{selectedLoan.term} months</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Interest Rate</p>
+                  <p className="text-base sm:text-lg font-bold text-gray-900">{selectedLoan.interestRate || 3}%</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Status</p>
                   <span className={`inline-block px-3 py-1.5 rounded-full text-sm font-bold ${getLoanStatusBadgeClass(selectedLoan.status)}`}>
                     {selectedLoan.status?.charAt(0).toUpperCase() + selectedLoan.status?.slice(1)}

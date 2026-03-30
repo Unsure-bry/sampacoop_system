@@ -476,7 +476,7 @@ export default function CertificatePreviewModal({
               </h3>
               
               <div className="grid grid-cols-6 gap-4">
-                {/* Full Name */}
+                {/* Full Name - Read Only */}
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Full Name
@@ -484,12 +484,12 @@ export default function CertificatePreviewModal({
                   <input
                     type="text"
                     value={certificateData.fullName}
-                    onChange={(e) => handleInputChange('fullName', e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-gray-900"
+                    disabled
+                    className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-700 cursor-not-allowed"
                   />
                 </div>
                 
-                {/* Number of Shares */}
+                {/* Number of Shares - Read Only */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Shares
@@ -499,35 +499,26 @@ export default function CertificatePreviewModal({
                     <input
                       type="text"
                       value={certificateData.shares ? Number(certificateData.shares).toLocaleString('en-PH') : ''}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9]/g, '');
-                        handleInputChange('shares', value);
-                      }}
-                      className="w-full pl-7 pr-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-gray-900"
+                      disabled
+                      className="w-full pl-7 pr-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-700 cursor-not-allowed"
                     />
                   </div>
                 </div>
                 
-                {/* Issue Date */}
+                {/* Issue Date - Read Only */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Issue Date
                   </label>
                   <input
-                    type="date"
-                    value={certificateData.issueDate}
-                    onChange={(e) => {
-                      const date = new Date(e.target.value);
-                      handleInputChange('issueDate', e.target.value);
-                      handleInputChange('day', date.getDate().toString());
-                      handleInputChange('month', date.toLocaleString('en-US', { month: 'long' }));
-                      handleInputChange('year', date.getFullYear().toString());
-                    }}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-gray-900"
+                    type="text"
+                    value={certificateData.issueDate ? new Date(certificateData.issueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                    disabled
+                    className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-700 cursor-not-allowed"
                   />
                 </div>
                 
-                {/* Secretary Name */}
+                {/* Secretary Name - Read Only */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Secretary
@@ -535,13 +526,12 @@ export default function CertificatePreviewModal({
                   <input
                     type="text"
                     value={certificateData.secretaryName}
-                    onChange={(e) => handleInputChange('secretaryName', e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-gray-900"
-                    placeholder="Name"
+                    disabled
+                    className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-700 cursor-not-allowed"
                   />
                 </div>
 
-                {/* Chairman Name */}
+                {/* Chairman Name - Read Only */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Chairman
@@ -549,9 +539,8 @@ export default function CertificatePreviewModal({
                   <input
                     type="text"
                     value={certificateData.chairmanName}
-                    onChange={(e) => handleInputChange('chairmanName', e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm text-gray-900"
-                    placeholder="Name"
+                    disabled
+                    className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-700 cursor-not-allowed"
                   />
                 </div>
               </div>

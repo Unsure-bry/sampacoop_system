@@ -23,6 +23,7 @@ interface LoanRequest {
   planName?: string;
   amount: number;
   term: number;
+  interestRate?: number; // Interest rate at time of application (snapshot)
   status: string;
   description?: string;
   createdAt: string;
@@ -129,13 +130,14 @@ export default function LoanRequestDetailsModal({
         });
       } else {
         // Fallback to basic data from request
+        // Use interestRate from loan request (stored at time of application)
         setContractData({
           date: formatContractDate(new Date()),
           borrowerName: request!.fullName || '',
           amount: request!.amount?.toString() || '',
           purpose: request!.description || '',
           role: request!.role || '',
-          interestRate: '',
+          interestRate: request!.interestRate ? `${request!.interestRate}%` : '',
           dateReceived: '',
           paymentStartDate: '',
           operatorName: '',

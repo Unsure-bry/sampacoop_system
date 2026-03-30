@@ -5,7 +5,7 @@ import { firestore, db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { usePermissions } from '@/lib/rolePermissions';
 import { formatCurrency } from '@/lib/settingsService';
-import { X, Plus, Calendar, Receipt, User, DollarSign } from 'lucide-react';
+import { X, Plus, Calendar, Receipt, User } from 'lucide-react';
 import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 interface CapitalShareData {
@@ -53,10 +53,18 @@ export default function CapitalSharesPage() {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [receiptNumber, setReceiptNumber] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [amountError, setAmountError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCapitalSharesData();
   }, []);
+  
+  // Refresh transactions when modal opens to ensure latest data
+  useEffect(() => {
+    if (showModal && selectedMember) {
+      fetchMemberTransactions(selectedMember.memberId);
+    }
+  }, [showModal, selectedMember?.memberId]);
 
   const fetchCapitalSharesData = async () => {
     try {
@@ -192,7 +200,7 @@ export default function CapitalSharesPage() {
     setShowPaymentForm(false);
   };
 
-  // Format currency input with commas
+  // Format currency input with commas and cents
   const formatCurrencyInput = (value: string): string => {
     // Remove non-numeric characters except decimal point
     let numericValue = value.replace(/[^0-9.]/g, '');
@@ -208,13 +216,59 @@ export default function CapitalSharesPage() {
       numericValue = parts[0] + '.' + parts[1].substring(0, 2);
     }
     
-    return numericValue;
+    // Add commas to the integer part
+    const [integerPart, decimalPart] = numericValue.split('.');
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    
+    return decimalPart !== undefined 
+      ? `${formattedInteger}.${decimalPart}` 
+      : formattedInteger;
   };
 
-  // Handle payment amount change
+  // Handle payment amount change with min/max validation
   const handlePaymentAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCurrencyInput(e.target.value);
+    const rawValue = e.target.value.replace(/,/g, ''); // Remove commas for storage
+    
+    // Parse the numeric value
+    const numericValue = parseFloat(rawValue) || 0;
+    
+    // Get the maximum allowed amount (remaining balance)
+    const totalPaid = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+    const maxAmount = Math.max(0, (selectedMember?.requiredCapitalShare || 10000) - totalPaid);
+    
+    // Validate and set error message
+    if (numericValue > 0 && numericValue < 100) {
+      setAmountError('Minimum payment amount is ₱100');
+    } else if (numericValue > maxAmount) {
+      setAmountError(`Maximum payment amount is ${formatCurrency(maxAmount)}`);
+    } else if (numericValue > 10000) {
+      setAmountError('Maximum payment amount is ₱10,000');
+    } else {
+      setAmountError(null);
+    }
+    
+    // Enforce maximum limits during input
+    let enforcedValue = rawValue;
+    if (numericValue > 0) {
+      if (numericValue > maxAmount) {
+        // Enforce maximum - don't allow input beyond max
+        enforcedValue = maxAmount.toString();
+        setAmountError(null); // Clear error since we enforced the limit
+      }
+      if (numericValue > 10000) {
+        // Enforce absolute maximum of ₱10,000
+        enforcedValue = '10000';
+        setAmountError(null);
+      }
+    }
+    
+    const formatted = formatCurrencyInput(enforcedValue);
     setPaymentAmount(formatted);
+  };
+  
+  // Parse payment amount for submission (remove commas)
+  const parsePaymentAmount = (value: string): number => {
+    return parseFloat(value.replace(/,/g, '')) || 0;
   };
 
   // Submit payment
@@ -223,9 +277,35 @@ export default function CapitalSharesPage() {
     
     if (!selectedMember) return;
     
-    const amount = parseFloat(paymentAmount);
+    // Check if there's a validation error
+    if (amountError) {
+      toast.error(amountError);
+      return;
+    }
+    
+    const amount = parsePaymentAmount(paymentAmount);
     if (isNaN(amount) || amount <= 0) {
       toast.error('Please enter a valid amount');
+      return;
+    }
+    
+    // Validate minimum amount (₱100)
+    if (amount < 100) {
+      toast.error('Minimum payment amount is ₱100');
+      return;
+    }
+    
+    // Validate maximum amount (₱10,000 - required capital share)
+    const totalPaidFromTransactions = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+    const remainingBalance = Math.max(0, selectedMember.requiredCapitalShare - totalPaidFromTransactions);
+    
+    if (amount > remainingBalance) {
+      toast.error(`Payment amount cannot exceed the remaining balance of ${formatCurrency(remainingBalance)}`);
+      return;
+    }
+    
+    if (amount > 10000) {
+      toast.error('Maximum payment amount is ₱10,000');
       return;
     }
     
@@ -266,19 +346,26 @@ export default function CapitalSharesPage() {
         
         toast.success('Payment recorded successfully!');
         
-        // Refresh data
-        fetchMemberTransactions(selectedMember.memberId);
-        fetchCapitalSharesData();
-        
-        // Reset form
+        // Reset form first
         setShowPaymentForm(false);
         setPaymentAmount('');
         setReceiptNumber('');
+        setAmountError(null);
         
-        // Update selected member data
+        // Refresh data and wait for completion
+        await fetchMemberTransactions(selectedMember.memberId);
+        await fetchCapitalSharesData();
+        
+        // Update selected member data based on fresh transaction data
+        const refreshedResult = await firestore.getCollection(`members/${selectedMember.memberId}/capitalShareTransactions`);
+        let totalPaid = amount; // Start with the new payment
+        if (refreshedResult.success && refreshedResult.data) {
+          totalPaid = refreshedResult.data.reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
+        }
+        
         const updatedMember = { ...selectedMember };
-        updatedMember.capitalShare += amount;
-        updatedMember.remainingBalance = Math.max(0, updatedMember.requiredCapitalShare - updatedMember.capitalShare);
+        updatedMember.capitalShare = totalPaid;
+        updatedMember.remainingBalance = Math.max(0, updatedMember.requiredCapitalShare - totalPaid);
         if (updatedMember.remainingBalance === 0) {
           updatedMember.status = 'Paid';
         } else if (updatedMember.capitalShare > 0) {
@@ -622,15 +709,27 @@ export default function CapitalSharesPage() {
                               value={paymentAmount}
                               onChange={handlePaymentAmountChange}
                               placeholder="0.00"
-                              className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                              className={`w-full pl-8 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                                amountError 
+                                  ? 'border-red-500 bg-red-50' 
+                                  : 'border-gray-300'
+                              }`}
                               required
                             />
                           </div>
-                          {paymentAmount && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              {formatCurrency(parseFloat(paymentAmount) || 0)}
+                          {amountError && (
+                            <p className="text-xs text-red-600 mt-1 font-medium">
+                              {amountError}
                             </p>
                           )}
+                          {paymentAmount && !amountError && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {formatCurrency(parsePaymentAmount(paymentAmount))}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-1">
+                            Min: ₱100 | Max: {formatCurrency(Math.max(0, selectedMember.requiredCapitalShare - transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0)))}
+                          </p>
                         </div>
 
                         {/* Receipt Number Input */}
@@ -697,7 +796,6 @@ export default function CapitalSharesPage() {
                               </>
                             ) : (
                               <>
-                                <DollarSign className="h-4 w-4" />
                                 Save Payment
                               </>
                             )}

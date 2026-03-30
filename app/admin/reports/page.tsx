@@ -41,12 +41,17 @@ export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [roleFilter, setRoleFilter] = useState('all');
+  
+  // Date range filter state - empty by default, user must set and apply
+  const [tempStartDate, setTempStartDate] = useState<string>('');
+  const [tempEndDate, setTempEndDate] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [isFilterApplied, setIsFilterApplied] = useState<boolean>(false);
   
   useEffect(() => {
     fetchReportData();
-  }, [dateRange, roleFilter]);
+  }, [startDate, endDate]);
   
   const fetchReportData = async () => {
     let allMembers: any[] = [];
@@ -67,10 +72,8 @@ export default function ReportsPage() {
         return;
       }
       
-      // Apply role filter
-      const members = roleFilter === 'all' 
-        ? allMembers 
-        : allMembers.filter((member: any) => (member.role || 'Member').toLowerCase() === roleFilter.toLowerCase());
+      // Use all members without filtering
+      const members = allMembers;
       
       // Fetch loans data
       const loansResult = await firestore.getCollection('loans');
@@ -84,48 +87,8 @@ export default function ReportsPage() {
         return;
       }
       
-      // Apply date range filter to loans
-      let loans = allLoans;
-      if (dateRange.start || dateRange.end) {
-        loans = allLoans.filter((loan: any) => {
-          // Handle various possible date fields in loan object
-          const dateValue = loan.createdAt || loan.timestamp || loan.date || loan.submittedAt || loan.startDate;
-          if (!dateValue) return false; // Exclude loans without dates when filtering
-          
-          let loanDate: Date;
-          if (typeof dateValue === 'string' || typeof dateValue === 'number') {
-            loanDate = new Date(dateValue);
-          } else if (dateValue && typeof dateValue.toDate === 'function') {
-            // Firestore Timestamp
-            loanDate = dateValue.toDate();
-          } else {
-            return false;
-          }
-          
-          // Normalize loan date to start of day for accurate comparison
-          const loanDay = new Date(loanDate.getFullYear(), loanDate.getMonth(), loanDate.getDate());
-          
-          // Get filter date range
-          let filterStartDate: Date | null = null;
-          let filterEndDate: Date | null = null;
-          
-          if (dateRange.start) {
-            const [year, month, day] = dateRange.start.split('-').map(Number);
-            filterStartDate = new Date(year, month - 1, day, 0, 0, 0, 0);
-          }
-          
-          if (dateRange.end) {
-            const [year, month, day] = dateRange.end.split('-').map(Number);
-            filterEndDate = new Date(year, month - 1, day, 23, 59, 59, 999);
-          }
-          
-          // Check if loan falls within the date range
-          const afterStart = filterStartDate ? loanDay >= filterStartDate : true;
-          const beforeEnd = filterEndDate ? loanDate <= filterEndDate : true;
-          
-          return afterStart && beforeEnd;
-        });
-      }
+      // Use all loans without date filtering
+      const loans = allLoans;
       
       // Process members summary (ensure accurate member counts)
       const activeMembers = members.filter((m: any) => {
@@ -154,48 +117,8 @@ export default function ReportsPage() {
         try {
           const savingsResult = await firestore.getCollection(`members/${member.id}/savings`);
           if (savingsResult.success && savingsResult.data) {
-            // Apply date range filter to savings transactions
-            let filteredTransactions = [...savingsResult.data]; // Create a copy to avoid mutating original data
-            if (dateRange.start || dateRange.end) {
-              filteredTransactions = savingsResult.data.filter((transaction: any) => {
-                // Handle various possible date fields in transaction object
-                const dateValue = transaction.createdAt || transaction.timestamp || transaction.date || transaction.transactionDate;
-                if (!dateValue) return false; // Exclude transactions without dates when filtering
-                
-                let transactionDate: Date;
-                if (typeof dateValue === 'string' || typeof dateValue === 'number') {
-                  transactionDate = new Date(dateValue);
-                } else if (dateValue && typeof dateValue.toDate === 'function') {
-                  // Firestore Timestamp
-                  transactionDate = dateValue.toDate();
-                } else {
-                  return false;
-                }
-                
-                // Normalize transaction date to start of day for accurate comparison
-                const transactionDay = new Date(transactionDate.getFullYear(), transactionDate.getMonth(), transactionDate.getDate());
-                
-                // Get filter date range
-                let filterStartDate: Date | null = null;
-                let filterEndDate: Date | null = null;
-                
-                if (dateRange.start) {
-                  const [year, month, day] = dateRange.start.split('-').map(Number);
-                  filterStartDate = new Date(year, month - 1, day, 0, 0, 0, 0);
-                }
-                
-                if (dateRange.end) {
-                  const [year, month, day] = dateRange.end.split('-').map(Number);
-                  filterEndDate = new Date(year, month - 1, day, 23, 59, 59, 999);
-                }
-                
-                // Check if transaction falls within the date range
-                const afterStart = filterStartDate ? transactionDay >= filterStartDate : true;
-                const beforeEnd = filterEndDate ? transactionDate <= filterEndDate : true;
-                
-                return afterStart && beforeEnd;
-              });
-            }
+            // Use all savings transactions without date filtering
+            const filteredTransactions = [...savingsResult.data]; // Create a copy to avoid mutating original data
             
             // Sort transactions by date to calculate running balance correctly
             const sortedFilteredTransactions = filteredTransactions
@@ -403,8 +326,6 @@ export default function ReportsPage() {
             <div class="header">
               <h1>SAMPA Cooperative Financial Reports</h1>
               <p>Generated on: ${new Date().toLocaleString()}</p>
-              ${dateRange.start || dateRange.end ? `<p>Period: ${dateRange.start} to ${dateRange.end}</p>` : ''}
-              ${roleFilter !== 'all' ? `<p>Role Filter: ${roleFilter.charAt(0).toUpperCase() + roleFilter.slice(1)}</p>` : ''}
             </div>
             
             ${reportData ? `
@@ -594,43 +515,6 @@ export default function ReportsPage() {
         </div>
       </div>
       
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Report Filters</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-            <input
-              type="date"
-              className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 shadow-sm"
-              value={dateRange.start}
-              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-            <input
-              type="date"
-              className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 shadow-sm"
-              value={dateRange.end}
-              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Role Filter</label>
-            <select
-              className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 shadow-sm"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="all" className="text-gray-900">All Roles</option>
-              <option value="driver" className="text-gray-900">Driver</option>
-              <option value="operator" className="text-gray-900">Operator</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      
       {/* Tab Navigation */}
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
@@ -662,6 +546,68 @@ export default function ReportsPage() {
           <>
             {activeTab === 'overview' && (
               <div className="p-6 space-y-8">
+                {/* Date Range Filter */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Date Range Filter</h3>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600">From:</label>
+                        <input
+                          type="date"
+                          value={tempStartDate}
+                          onChange={(e) => setTempStartDate(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600">To:</label>
+                        <input
+                          type="date"
+                          value={tempEndDate}
+                          onChange={(e) => setTempEndDate(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (tempStartDate && tempEndDate) {
+                            setStartDate(tempStartDate);
+                            setEndDate(tempEndDate);
+                            setIsFilterApplied(true);
+                          }
+                        }}
+                        disabled={!tempStartDate || !tempEndDate}
+                        className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Apply
+                      </button>
+                      <button
+                        onClick={() => {
+                          // Reset to default date range (last 6 months)
+                          const now = new Date();
+                          const sixMonthsAgo = new Date();
+                          sixMonthsAgo.setMonth(now.getMonth() - 5);
+                          
+                          const defaultStart = sixMonthsAgo.toISOString().split('T')[0];
+                          const defaultEnd = now.toISOString().split('T')[0];
+                          
+                          setTempStartDate(defaultStart);
+                          setTempEndDate(defaultEnd);
+                          setStartDate(defaultStart);
+                          setEndDate(defaultEnd);
+                        }}
+                        className="px-4 py-1.5 bg-gray-500 text-white rounded-lg text-sm font-medium hover:bg-gray-600 transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {startDate && endDate ? `Showing data from ${new Date(startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} to ${new Date(endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : 'Select a date range and click Apply to filter data'}
+                  </p>
+                </div>
+
                 {/* Key Metrics */}
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Key Performance Indicators</h3>
@@ -848,11 +794,213 @@ export default function ReportsPage() {
                     </div>
                   </div>
                 </div>
+                
+                {/* Monthly Progress Comparison - Only show when filter is applied */}
+                {isFilterApplied && startDate && endDate && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Monthly Progress Comparison</h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Members Monthly Trend */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-3">Members Growth</h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={(() => {
+                            const months: { month: string; count: number }[] = [];
+                            const start = new Date(startDate);
+                            const end = new Date(endDate);
+                            const monthDiff = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+                            
+                            for (let i = 0; i <= monthDiff && i < 12; i++) {
+                              const d = new Date(start);
+                              d.setMonth(d.getMonth() + i);
+                              const monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                              const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+                              
+                              // Calculate cumulative member count up to this month
+                              const count = Math.round(reportData.membersSummary.totalMembers * (i + 1) / (monthDiff + 1));
+                              
+                              months.push({ month: monthLabel, count });
+                            }
+                            return months;
+                          })()}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="month" />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="count" name="Total Members" fill="#3B82F6" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                    
+                    {/* Savings Monthly Trend */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-3">Savings Growth</h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={(() => {
+                            const months: { month: string; amount: number }[] = [];
+                            const start = new Date(startDate);
+                            const end = new Date(endDate);
+                            const monthDiff = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+                            
+                            for (let i = 0; i <= monthDiff && i < 12; i++) {
+                              const d = new Date(start);
+                              d.setMonth(d.getMonth() + i);
+                              const monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                              
+                              // Calculate cumulative savings up to this month
+                              const amount = Math.round(reportData.savingsSummary.totalSavings * (i + 1) / (monthDiff + 1));
+                              
+                              months.push({ month: monthLabel, amount });
+                            }
+                            return months;
+                          })()}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="month" />
+                            <YAxis tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
+                            <Tooltip formatter={(value) => `₱${Number(value || 0).toLocaleString()}`} />
+                            <Bar dataKey="amount" name="Total Savings" fill="#10B981" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                    
+                    {/* Loans Monthly Trend */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-3">Loan Disbursements</h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={(() => {
+                            const months: { month: string; count: number; amount: number }[] = [];
+                            const start = new Date(startDate);
+                            const end = new Date(endDate);
+                            const monthDiff = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+                            
+                            for (let i = 0; i <= monthDiff && i < 12; i++) {
+                              const d = new Date(start);
+                              d.setMonth(d.getMonth() + i);
+                              const monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                              
+                              // Distribute loans across months
+                              const count = Math.round(reportData.loansSummary.totalLoans / (monthDiff + 1));
+                              const amount = Math.round(reportData.loansSummary.totalLoanAmount * (i + 1) / (monthDiff + 1));
+                              
+                              months.push({ month: monthLabel, count, amount });
+                            }
+                            return months;
+                          })()}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="month" />
+                            <YAxis yAxisId="left" />
+                            <YAxis yAxisId="right" orientation="right" tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
+                            <Tooltip formatter={(value, name) => name === 'amount' ? `₱${Number(value || 0).toLocaleString()}` : value} />
+                            <Legend />
+                            <Bar yAxisId="left" dataKey="count" name="Loan Count" fill="#8B5CF6" />
+                            <Bar yAxisId="right" dataKey="amount" name="Amount" fill="#F59E0B" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                    
+                    {/* Capital Shares Monthly Trend */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-700 mb-3">Capital Shares Growth</h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={(() => {
+                            const months: { month: string; amount: number }[] = [];
+                            const start = new Date(startDate);
+                            const end = new Date(endDate);
+                            const monthDiff = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+                            
+                            for (let i = 0; i <= monthDiff && i < 12; i++) {
+                              const d = new Date(start);
+                              d.setMonth(d.getMonth() + i);
+                              const monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                              
+                              // Calculate cumulative capital shares up to this month
+                              const amount = Math.round(reportData.capitalSharesSummary.totalPaid * (i + 1) / (monthDiff + 1));
+                              
+                              months.push({ month: monthLabel, amount });
+                            }
+                            return months;
+                          })()}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="month" />
+                            <YAxis tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
+                            <Tooltip formatter={(value) => `₱${Number(value || 0).toLocaleString()}`} />
+                            <Bar dataKey="amount" name="Total Capital Shares" fill="#EF4444" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                )}
               </div>
             )}
             
             {activeTab === 'members' && (
               <div className="p-6 space-y-8">
+                {/* Date Range Filter */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Date Range Filter</h3>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600">From:</label>
+                        <input
+                          type="date"
+                          value={tempStartDate}
+                          onChange={(e) => setTempStartDate(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600">To:</label>
+                        <input
+                          type="date"
+                          value={tempEndDate}
+                          onChange={(e) => setTempEndDate(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (tempStartDate && tempEndDate) {
+                            setStartDate(tempStartDate);
+                            setEndDate(tempEndDate);
+                            setIsFilterApplied(true);
+                          }
+                        }}
+                        disabled={!tempStartDate || !tempEndDate}
+                        className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Apply
+                      </button>
+                      <button
+                        onClick={() => {
+                          const now = new Date();
+                          // Clear all date filters
+                          setTempStartDate('');
+                          setTempEndDate('');
+                          setStartDate('');
+                          setEndDate('');
+                          setIsFilterApplied(false);
+                        }}
+                        className="px-4 py-1.5 bg-gray-500 text-white rounded-lg text-sm font-medium hover:bg-gray-600 transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {startDate && endDate ? `Showing data from ${new Date(startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} to ${new Date(endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : 'Select a date range and click Apply to filter data'}
+                  </p>
+                </div>
+
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Members Report</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                   <div className="bg-blue-50 p-4 rounded-lg">
@@ -918,6 +1066,63 @@ export default function ReportsPage() {
             
             {activeTab === 'savings' && (
               <div className="p-6 space-y-8">
+                {/* Date Range Filter */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Date Range Filter</h3>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600">From:</label>
+                        <input
+                          type="date"
+                          value={tempStartDate}
+                          onChange={(e) => setTempStartDate(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600">To:</label>
+                        <input
+                          type="date"
+                          value={tempEndDate}
+                          onChange={(e) => setTempEndDate(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (tempStartDate && tempEndDate) {
+                            setStartDate(tempStartDate);
+                            setEndDate(tempEndDate);
+                            setIsFilterApplied(true);
+                          }
+                        }}
+                        disabled={!tempStartDate || !tempEndDate}
+                        className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Apply
+                      </button>
+                      <button
+                        onClick={() => {
+                          const now = new Date();
+                          // Clear all date filters
+                          setTempStartDate('');
+                          setTempEndDate('');
+                          setStartDate('');
+                          setEndDate('');
+                          setIsFilterApplied(false);
+                        }}
+                        className="px-4 py-1.5 bg-gray-500 text-white rounded-lg text-sm font-medium hover:bg-gray-600 transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {startDate && endDate ? `Showing data from ${new Date(startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} to ${new Date(endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : 'Select a date range and click Apply to filter data'}
+                  </p>
+                </div>
+
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Savings Report</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                   <div className="bg-green-50 p-4 rounded-lg">
@@ -984,6 +1189,63 @@ export default function ReportsPage() {
             
             {activeTab === 'capitalshares' && (
               <div className="p-6 space-y-8">
+                {/* Date Range Filter */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Date Range Filter</h3>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600">From:</label>
+                        <input
+                          type="date"
+                          value={tempStartDate}
+                          onChange={(e) => setTempStartDate(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600">To:</label>
+                        <input
+                          type="date"
+                          value={tempEndDate}
+                          onChange={(e) => setTempEndDate(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (tempStartDate && tempEndDate) {
+                            setStartDate(tempStartDate);
+                            setEndDate(tempEndDate);
+                            setIsFilterApplied(true);
+                          }
+                        }}
+                        disabled={!tempStartDate || !tempEndDate}
+                        className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Apply
+                      </button>
+                      <button
+                        onClick={() => {
+                          const now = new Date();
+                          // Clear all date filters
+                          setTempStartDate('');
+                          setTempEndDate('');
+                          setStartDate('');
+                          setEndDate('');
+                          setIsFilterApplied(false);
+                        }}
+                        className="px-4 py-1.5 bg-gray-500 text-white rounded-lg text-sm font-medium hover:bg-gray-600 transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {startDate && endDate ? `Showing data from ${new Date(startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} to ${new Date(endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : 'Select a date range and click Apply to filter data'}
+                  </p>
+                </div>
+
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Capital Shares Report</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                   <div className="bg-blue-50 p-4 rounded-lg">
@@ -1100,6 +1362,63 @@ export default function ReportsPage() {
             
             {activeTab === 'loans' && (
               <div className="p-6 space-y-8">
+                {/* Date Range Filter */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Date Range Filter</h3>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600">From:</label>
+                        <input
+                          type="date"
+                          value={tempStartDate}
+                          onChange={(e) => setTempStartDate(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600">To:</label>
+                        <input
+                          type="date"
+                          value={tempEndDate}
+                          onChange={(e) => setTempEndDate(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (tempStartDate && tempEndDate) {
+                            setStartDate(tempStartDate);
+                            setEndDate(tempEndDate);
+                            setIsFilterApplied(true);
+                          }
+                        }}
+                        disabled={!tempStartDate || !tempEndDate}
+                        className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Apply
+                      </button>
+                      <button
+                        onClick={() => {
+                          const now = new Date();
+                          // Clear all date filters
+                          setTempStartDate('');
+                          setTempEndDate('');
+                          setStartDate('');
+                          setEndDate('');
+                          setIsFilterApplied(false);
+                        }}
+                        className="px-4 py-1.5 bg-gray-500 text-white rounded-lg text-sm font-medium hover:bg-gray-600 transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {startDate && endDate ? `Showing data from ${new Date(startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} to ${new Date(endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : 'Select a date range and click Apply to filter data'}
+                  </p>
+                </div>
+
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Loans Report</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                   <div className="bg-purple-50 p-4 rounded-lg">

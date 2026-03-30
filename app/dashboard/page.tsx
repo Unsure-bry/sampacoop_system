@@ -653,10 +653,14 @@ Status: ${n.status || 'N/A'}
               <div className={`rounded-lg p-3 sm:p-4 ${capitalShare.isFullyPaid ? 'bg-green-100' : 'bg-orange-50 border border-orange-200'}`}>
                 <p className="text-xs sm:text-sm text-gray-600 mb-1">Capital Share Balance</p>
                 <p className={`text-xl sm:text-2xl font-bold ${capitalShare.isFullyPaid ? 'text-green-600' : 'text-orange-600'}`}>
-                  {formatCurrency(capitalShare.remainingBalance)}
+                  {capitalShare.isFullyPaid 
+                    ? formatCurrency(capitalShare.paidAmount) 
+                    : formatCurrency(capitalShare.remainingBalance)}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {capitalShare.isFullyPaid ? 'Fully Paid' : `${formatCurrency(capitalShare.paidAmount)} / ${formatCurrency(capitalShare.requiredAmount)}`}
+                  {capitalShare.isFullyPaid 
+                    ? `Fully Paid (${formatCurrency(capitalShare.paidAmount)} / ${formatCurrency(capitalShare.requiredAmount)})` 
+                    : `${formatCurrency(capitalShare.paidAmount)} / ${formatCurrency(capitalShare.requiredAmount)}`}
                 </p>
               </div>
             </div>

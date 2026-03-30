@@ -49,7 +49,31 @@ export default function ReportsAndAnalytics() {
   const [loanStatusData, setLoanStatusData] = useState<LoanStatusData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Fixed date range - last 6 months of data (calculated once)
+  const startDate = (() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 5);
+    return date.toISOString().split('T')[0];
+  })();
+  const endDate = (() => {
+    return new Date().toISOString().split('T')[0];
+  })();
+  
+  // Historical data for comparison
+  const [historicalData, setHistoricalData] = useState<{
+    members: { month: string; count: number }[];
+    loans: { month: string; count: number; amount: number }[];
+    savings: { month: string; amount: number }[];
+    capitalShares: { month: string; amount: number }[];
+  }>({
+    members: [],
+    loans: [],
+    savings: [],
+    capitalShares: []
+  });
 
+  // Initial load only - don't auto-refresh on date changes
   useEffect(() => {
     fetchReportData();
   }, []);
@@ -176,6 +200,67 @@ export default function ReportsAndAnalytics() {
         { name: 'Overdue', value: statusCounts.overdue, color: '#EF4444' },
         { name: 'Rejected', value: statusCounts.rejected, color: '#6B7280' }
       ]);
+      
+      // Calculate historical monthly data for all categories
+      const startDateObj = new Date(startDate);
+      const endDateObj = new Date(endDate);
+      const monthsDiff = Math.max(1, Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+      
+      const historyMonths: string[] = [];
+      const membersHistory: { month: string; count: number }[] = [];
+      const loansHistory: { month: string; count: number; amount: number }[] = [];
+      const savingsHistory: { month: string; amount: number }[] = [];
+      const capitalSharesHistory: { month: string; amount: number }[] = [];
+      
+      for (let i = 0; i <= monthsDiff; i++) {
+        const currentMonthDate = new Date(startDateObj);
+        currentMonthDate.setMonth(currentMonthDate.getMonth() + i);
+        const monthLabel = currentMonthDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        const monthEnd = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() + 1, 0);
+        
+        historyMonths.push(monthLabel);
+        
+        // Members count up to this month
+        const membersCount = members.filter((m: any) => {
+          const createdAt = m.createdAt ? new Date(m.createdAt) : null;
+          return createdAt && createdAt <= monthEnd;
+        }).length;
+        membersHistory.push({ month: monthLabel, count: membersCount });
+        
+        // Loans data for this month
+        const monthLoans = loans.filter((loan: any) => {
+          const loanDate = loan.createdAt ? new Date(loan.createdAt) : null;
+          return loanDate && loanDate.getMonth() === currentMonthDate.getMonth() && 
+                 loanDate.getFullYear() === currentMonthDate.getFullYear();
+        });
+        const loanAmount = monthLoans.reduce((sum: number, loan: any) => sum + (loan.amount || 0), 0);
+        loansHistory.push({ month: monthLabel, count: monthLoans.length, amount: loanAmount });
+        
+        // Savings data up to this month (cumulative)
+        const savingsAmount = savings
+          .filter((s: any) => {
+            const savingsDate = s.createdAt ? new Date(s.createdAt) : null;
+            return savingsDate && savingsDate <= monthEnd;
+          })
+          .reduce((sum: number, s: any) => sum + (s.amount || s.balance || 0), 0);
+        savingsHistory.push({ month: monthLabel, amount: savingsAmount });
+        
+        // Capital shares data up to this month (cumulative)
+        const capitalAmount = members
+          .filter((m: any) => {
+            const createdAt = m.createdAt ? new Date(m.createdAt) : null;
+            return createdAt && createdAt <= monthEnd;
+          })
+          .reduce((sum: number, m: any) => sum + (m.capitalShare || m.capitalShares || 0), 0);
+        capitalSharesHistory.push({ month: monthLabel, amount: capitalAmount });
+      }
+      
+      setHistoricalData({
+        members: membersHistory,
+        loans: loansHistory,
+        savings: savingsHistory,
+        capitalShares: capitalSharesHistory
+      });
 
     } catch (err) {
       console.error('Error fetching report data:', err);
@@ -281,51 +366,118 @@ export default function ReportsAndAnalytics() {
 
       </div>
 
-      {/* Charts Grid */}
+      {/* Historical Trends Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly Trends Chart */}
+        {/* Members Overview with Historical Data */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Monthly Trends (Last 6 Months)</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Members Overview</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyData}>
+              <BarChart data={historicalData.members}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="count" name="Total Members" fill="#3B82F6" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Cumulative member growth over selected period
+          </p>
+        </div>
+
+        {/* Loans Overview with Historical Data */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Loans Overview</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={historicalData.loans}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" tickFormatter={(value) => `₱${value / 1000}k`} />
+                <Tooltip formatter={(value, name) => {
+                  if (name === 'Amount') return formatCurrency(Number(value) || 0);
+                  return value;
+                }} />
+                <Legend />
+                <Bar yAxisId="left" dataKey="count" name="Loan Count" fill="#10B981" />
+                <Bar yAxisId="right" dataKey="amount" name="Amount" fill="#F59E0B" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Monthly loan disbursements over selected period
+          </p>
+        </div>
+
+        {/* Savings Overview with Historical Data */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Savings Overview</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={historicalData.savings}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(value) => `₱${value / 1000}k`} />
                 <Tooltip formatter={(value) => formatCurrency(Number(value) || 0)} />
                 <Legend />
-                <Bar dataKey="disbursed" name="Disbursed" fill="#3B82F6" />
-                <Bar dataKey="collected" name="Collected" fill="#10B981" />
+                <Bar dataKey="amount" name="Total Savings" fill="#8B5CF6" />
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Cumulative savings growth over selected period
+          </p>
         </div>
 
-        {/* Loan Status Distribution */}
+        {/* Capital Shares Overview with Historical Data */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Loan Status Distribution</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Capital Shares Overview</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={loanStatusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {loanStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
+              <BarChart data={historicalData.capitalShares}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value) => `₱${value / 1000}k`} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value) || 0)} />
                 <Legend />
-              </PieChart>
+                <Bar dataKey="amount" name="Total Capital Shares" fill="#EF4444" />
+              </BarChart>
             </ResponsiveContainer>
           </div>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Cumulative capital shares over selected period
+          </p>
+        </div>
+      </div>
+
+      {/* Loan Status Distribution */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Loan Status Distribution</h3>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={loanStatusData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(0)}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {loanStatusData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

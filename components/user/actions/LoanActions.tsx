@@ -216,6 +216,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
       const loanId = loanIdResult.loanId!;
       
       // Create loan request document with user info
+      // Store a snapshot of loan terms to prevent changes if admin modifies the plan later
       const loanRequest = {
         userId: user?.uid || '',
         email: user?.email || '',
@@ -223,6 +224,7 @@ export default function LoanActions({ loanPlans = [], onLoanApplied, hasActiveLo
         planName: selectedPlan.name,
         amount: amountValue,
         term: termValue,
+        interestRate: selectedPlan.interestRate, // Store interest rate at time of application
         status: 'pending' as const,
         createdAt: new Date().toISOString(),
         loanId: loanId, // Store the generated Loan ID

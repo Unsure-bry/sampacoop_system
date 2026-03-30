@@ -11,10 +11,11 @@
 - [app/admin/settings/permissions/page.tsx](file://app/admin/settings/permissions/page.tsx)
 - [app/admin/settings/system/page.tsx](file://app/admin/settings/system/page.tsx)
 - [app/admin/profile/activity/page.tsx](file://app/admin/profile/activity/page.tsx)
+- [app/admin/backup/page.tsx](file://app/admin/backup/page.tsx)
 - [lib/sidebarConfig.ts](file://lib/sidebarConfig.ts)
 - [lib/auth.tsx](file://lib/auth.tsx)
-- [lib/validators.ts](file://lib/validators.ts)
 - [lib/rolePermissions.tsx](file://lib/rolePermissions.tsx)
+- [lib/validators.ts](file://lib/validators.ts)
 - [lib/firebase.ts](file://lib/firebase.ts)
 - [middleware.ts](file://middleware.ts)
 - [app/admin/dashboard/page.tsx](file://app/admin/dashboard/page.tsx)
@@ -28,11 +29,12 @@
 
 ## Update Summary
 **Changes Made**
-- Updated administrative sidebar configuration to include new Capital Shares section under Members category
-- Documented the new Capital Shares management functionality with comprehensive member capital share tracking
-- Enhanced administrative navigation with direct access to capital shares management through unified sidebar
-- Added documentation for capital shares dashboard with search, filtering, and status tracking capabilities
-- Updated sidebar navigation to reflect the enhanced administrative features with improved member management
+- Added comprehensive backup management system to Admin Settings section with dedicated 'Backup' section
+- New 'Backup' section added with Database icon, requiring 'manageSettings' permission for access
+- Implemented complete backup/export functionality with Excel file generation and ZIP packaging
+- Added restore/import functionality with validation and confirmation dialogs
+- Enhanced administrative navigation with direct access to backup operations through unified sidebar
+- Updated sidebar configuration to include backup management alongside existing settings pages
 - Expanded role-based access control with comprehensive permission management across all administrative roles
 
 ## Table of Contents
@@ -42,16 +44,17 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Administrative Settings System](#administrative-settings-system)
-7. [Capital Shares Management](#capital-shares-management)
-8. [Dependency Analysis](#dependency-analysis)
-9. [Performance Considerations](#performance-considerations)
-10. [Troubleshooting Guide](#troubleshooting-guide)
-11. [Conclusion](#conclusion)
+7. [Backup Management System](#backup-management-system)
+8. [Capital Shares Management](#capital-shares-management)
+9. [Dependency Analysis](#dependency-analysis)
+10. [Performance Considerations](#performance-considerations)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the administrative features and dashboard functionality of the SAMPA Cooperative Management System. It focuses on the role-specific officer dashboards, the administrative sidebar navigation, administrative cards for metrics and activities, the administrative footer, report generation capabilities, user management features, workflows, customization options, and security measures including audit logging and compliance reporting. The system now includes a comprehensive administrative settings system for managing cooperative officers, role-based permissions, and system configuration, with centralized access through the new 'Admin Settings' section and enhanced member management capabilities including capital shares tracking.
+This document describes the administrative features and dashboard functionality of the SAMPA Cooperative Management System. It focuses on the role-specific officer dashboards, the administrative sidebar navigation, administrative cards for metrics and activities, the administrative footer, report generation capabilities, user management features, workflows, customization options, and security measures including audit logging and compliance reporting. The system now includes a comprehensive administrative settings system for managing cooperative officers, role-based permissions, and system configuration, with centralized access through the new 'Admin Settings' section and enhanced member management capabilities including capital shares tracking and backup management functionality.
 
-**Updated**: The administrative system has been significantly enhanced with expanded navigation capabilities, improved role-based access control, comprehensive settings management, and new capital shares management functionality that provides centralized administration across all user roles including Admin, Chairman, Vice Chairman, Secretary, Treasurer, and Manager positions.
+**Updated**: The administrative system has been significantly enhanced with expanded navigation capabilities, improved role-based access control, comprehensive settings management, backup operations, and new capital shares management functionality that provides centralized administration across all user roles including Admin, Chairman, Vice Chairman, Secretary, Treasurer, and Manager positions.
 
 ## Project Structure
 The administrative domain is organized around:
@@ -62,6 +65,7 @@ The administrative domain is organized around:
 - API routes for administrative tasks such as user creation and dashboard data initialization
 - Audit logging and action tracking utilities
 - **New**: Administrative settings system under app/admin/settings for managing officers, permissions, and system configuration through centralized navigation
+- **New**: Backup management system under app/admin/backup for exporting and importing system data with comprehensive Excel processing
 - **New**: Capital Shares management system under app/admin/capital-shares for tracking member capital share payments and statuses
 - **New**: Enhanced role-based access control with comprehensive permission management across all administrative roles
 
@@ -76,6 +80,7 @@ OD["Officer Dashboard<br/>components/admin/OfficerDashboard.tsx"]
 AD["Admin Dashboard<br/>app/admin/dashboard/page.tsx"]
 RPT["Reports Page<br/>app/admin/reports/page.tsx"]
 CS["Capital Shares<br/>app/admin/capital-shares/page.tsx"]
+BK["Backup Management<br/>app/admin/backup/page.tsx"]
 DDI["Dashboard Data Init<br/>app/api/dashboard/initialize/route.ts"]
 OS["Officer Management<br/>app/admin/settings/officers/page.tsx"]
 RP["Role Permissions<br/>app/admin/settings/permissions/page.tsx"]
@@ -102,6 +107,7 @@ L --> S
 L --> AD
 L --> RPT
 L --> CS
+L --> BK
 L --> DDI
 L --> OS
 L --> RP
@@ -112,6 +118,7 @@ AD --> AUTH
 OD --> AUTH
 RPT --> AUTH
 CS --> AUTH
+BK --> AUTH
 DDI --> AUTH
 OS --> FB
 RP --> RPV
@@ -133,11 +140,12 @@ API_INIT --> DDI
 - [app/admin/dashboard/page.tsx:1-799](file://app/admin/dashboard/page.tsx#L1-L799)
 - [app/admin/reports/page.tsx:1-737](file://app/admin/reports/page.tsx#L1-L737)
 - [app/admin/capital-shares/page.tsx:1-313](file://app/admin/capital-shares/page.tsx#L1-L313)
+- [app/admin/backup/page.tsx:1-434](file://app/admin/backup/page.tsx#L1-L434)
 - [app/admin/settings/officers/page.tsx:1-702](file://app/admin/settings/officers/page.tsx#L1-L702)
 - [app/admin/settings/permissions/page.tsx:1-486](file://app/admin/settings/permissions/page.tsx#L1-L486)
 - [app/admin/settings/system/page.tsx:1-843](file://app/admin/settings/system/page.tsx#L1-L843)
 - [app/admin/profile/activity/page.tsx:1-352](file://app/admin/profile/activity/page.tsx#L1-L352)
-- [lib/sidebarConfig.ts:1-465](file://lib/sidebarConfig.ts#L1-L465)
+- [lib/sidebarConfig.ts:1-473](file://lib/sidebarConfig.ts#L1-L473)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
 - [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-L226)
@@ -150,14 +158,14 @@ API_INIT --> DDI
 
 **Section sources**
 - [app/admin/layout.tsx:1-69](file://app/admin/layout.tsx#L1-L69)
-- [lib/sidebarConfig.ts:1-465](file://lib/sidebarConfig.ts#L1-L465)
+- [lib/sidebarConfig.ts:1-473](file://lib/sidebarConfig.ts#L1-L473)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
 - [middleware.ts:1-62](file://middleware.ts#L1-L62)
 
 ## Core Components
 - Admin Layout: Enforces authentication and role checks for admin routes, conditionally renders the sidebar, and handles redirects for unauthenticated or unauthorized users.
-- Admin Sidebar: Role-aware navigation with collapsible sections, dropdowns, active route highlighting, and a logout handler. Now includes new settings pages under the centralized 'Admin Settings' section and the new Capital Shares section under Members category.
+- Admin Sidebar: Role-aware navigation with collapsible sections, dropdowns, active route highlighting, and a logout handler. Now includes new settings pages under the centralized 'Admin Settings' section, the new Capital Shares section under Members category, and the new Backup section under Admin Settings.
 - Admin Card: Reusable card container for dashboard metrics and content.
 - Admin Footer: Fixed footer with copyright and version information.
 - Officer Dashboard: Role-specific dashboard rendering with metrics, recent activities, and quick actions.
@@ -168,10 +176,11 @@ API_INIT --> DDI
 - **New**: Role Permissions: Granular permission management system with role-based access control.
 - **New**: System Settings: Configuration management for membership fees, loan plans, and system policies.
 - **New**: Audit Logs: Centralized activity tracking and compliance monitoring through comprehensive logging infrastructure.
+- **New**: Backup Management: Complete system backup and restore functionality with Excel file processing and ZIP packaging.
 - **New**: Capital Shares Management: Comprehensive member capital share tracking with payment status monitoring, search functionality, and filtering capabilities.
 - Authentication and Validation: Centralized auth provider, route validators, and middleware enforcement.
 - Audit Logging and Action Tracking: Utilities to log user actions and maintain compliance.
-- **Updated**: Enhanced role-based access control: All administrative roles now have access to the unified Admin Settings section and Capital Shares management with appropriate permission controls.
+- **Updated**: Enhanced role-based access control: All administrative roles now have access to the unified Admin Settings section, Backup management, and Capital Shares management with appropriate permission controls.
 
 **Section sources**
 - [app/admin/layout.tsx:1-69](file://app/admin/layout.tsx#L1-L69)
@@ -182,19 +191,21 @@ API_INIT --> DDI
 - [app/admin/dashboard/page.tsx:1-799](file://app/admin/dashboard/page.tsx#L1-L799)
 - [app/admin/reports/page.tsx:1-737](file://app/admin/reports/page.tsx#L1-L737)
 - [app/admin/capital-shares/page.tsx:1-313](file://app/admin/capital-shares/page.tsx#L1-L313)
+- [app/admin/backup/page.tsx:1-434](file://app/admin/backup/page.tsx#L1-L434)
 - [app/admin/settings/officers/page.tsx:1-702](file://app/admin/settings/officers/page.tsx#L1-L702)
 - [app/admin/settings/permissions/page.tsx:1-486](file://app/admin/settings/permissions/page.tsx#L1-L486)
 - [app/admin/settings/system/page.tsx:1-843](file://app/admin/settings/system/page.tsx#L1-L843)
 - [app/admin/profile/activity/page.tsx:1-352](file://app/admin/profile/activity/page.tsx#L1-L352)
-- [lib/sidebarConfig.ts:1-465](file://lib/sidebarConfig.ts#L1-L465)
+- [lib/sidebarConfig.ts:1-473](file://lib/sidebarConfig.ts#L1-L473)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
+- [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-L226)
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
 - [middleware.ts:1-62](file://middleware.ts#L1-L62)
 - [lib/userActionTracker.ts:1-118](file://lib/userActionTracker.ts#L1-L118)
 - [lib/activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
 
 ## Architecture Overview
-The administrative system enforces role-based access control at both the UI and routing layers. The Admin Layout validates user roles and renders the Sidebar accordingly. Middleware intercepts requests to enforce route access and redirect unauthorized users. The Auth Provider centralizes authentication state and exposes helpers for role-based routing and dashboard selection. Reports and dashboard data pages rely on Firestore queries and provide filtering and printing capabilities. Audit logging captures user actions for compliance. **The new settings system integrates seamlessly with the existing architecture, using Firestore for persistent storage and role-based permissions for access control. The centralized 'Admin Settings' section provides unified access to all critical system configuration options across all administrative roles. The new Capital Shares management system provides comprehensive member capital share tracking with real-time status updates and filtering capabilities.**
+The administrative system enforces role-based access control at both the UI and routing layers. The Admin Layout validates user roles and renders the Sidebar accordingly. Middleware intercepts requests to enforce route access and redirect unauthorized users. The Auth Provider centralizes authentication state and exposes helpers for role-based routing and dashboard selection. Reports and dashboard data pages rely on Firestore queries and provide filtering and printing capabilities. Audit logging captures user actions for compliance. **The new settings system integrates seamlessly with the existing architecture, using Firestore for persistent storage and role-based permissions for access control. The centralized 'Admin Settings' section provides unified access to all critical system configuration options across all administrative roles. The new Capital Shares management system provides comprehensive member capital share tracking with real-time status updates and filtering capabilities. The new Backup Management system provides secure data export and import functionality with comprehensive Excel processing and validation.**
 
 ```mermaid
 sequenceDiagram
@@ -220,7 +231,7 @@ SB->>AUTH : getSidebarConfig(role)
 AUTH-->>SB : navigationSections
 SB->>FS : Filter by permissions
 FS-->>SB : Filtered sections
-SB-->>Browser : Render role-aware menu with Admin Settings and Capital Shares
+SB-->>Browser : Render role-aware menu with Admin Settings, Backup, and Capital Shares
 Browser->>FS : Fetch settings/data
 FS-->>Browser : Data for settings pages
 ```
@@ -263,8 +274,9 @@ RenderLayout --> End(["Ready"])
 - Role-aware navigation built from a centralized configuration.
 - Supports collapsible sections, dropdowns, and active route highlighting.
 - Provides a logout handler integrated with the Auth Provider.
-- **Updated**: Now includes new settings pages under the centralized 'Admin Settings' section with five distinct management options: Role Permissions, Officer Management, Audit Logs, and System Settings.
+- **Updated**: Now includes new settings pages under the centralized 'Admin Settings' section with six distinct management options: Role Permissions, Officer Management, Audit Logs, System Settings, Profile Management, and Backup.
 - **Updated**: Now includes new Capital Shares section under Members category with direct access to capital shares management functionality.
+- **Updated**: Now includes new Backup section under Admin Settings with Database icon and 'manageSettings' permission requirement.
 
 ```mermaid
 classDiagram
@@ -287,12 +299,12 @@ Sidebar --> AuthProvider : "calls logout"
 
 **Diagram sources**
 - [components/admin/Sidebar.tsx:1-310](file://components/admin/Sidebar.tsx#L1-L310)
-- [lib/sidebarConfig.ts:1-465](file://lib/sidebarConfig.ts#L1-L465)
+- [lib/sidebarConfig.ts:1-473](file://lib/sidebarConfig.ts#L1-L473)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 
 **Section sources**
 - [components/admin/Sidebar.tsx:1-310](file://components/admin/Sidebar.tsx#L1-L310)
-- [lib/sidebarConfig.ts:1-465](file://lib/sidebarConfig.ts#L1-L465)
+- [lib/sidebarConfig.ts:1-473](file://lib/sidebarConfig.ts#L1-L473)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 
 ### Administrative Cards and Dashboard Components
@@ -417,9 +429,10 @@ InitAPI-->>Admin : {success : true, message}
 - Filters and quick actions: Reports and Admin Dashboard support filtering and interactive navigation.
 - **Updated**: Centralized settings management: All administrative configuration is now accessible through the unified 'Admin Settings' section across all roles with appropriate permission controls.
 - **Updated**: Capital Shares management: Members can now track and manage capital share payments through the unified sidebar navigation.
+- **Updated**: Backup management: System administrators can now export and import complete system data through the unified sidebar navigation.
 
 **Section sources**
-- [lib/sidebarConfig.ts:1-465](file://lib/sidebarConfig.ts#L1-L465)
+- [lib/sidebarConfig.ts:1-473](file://lib/sidebarConfig.ts#L1-L473)
 - [app/admin/dashboard/page.tsx:1-799](file://app/admin/dashboard/page.tsx#L1-L799)
 - [app/admin/reports/page.tsx:1-737](file://app/admin/reports/page.tsx#L1-L737)
 
@@ -456,7 +469,7 @@ D --> E["getUserActivityLogs()<br/>getAllActivityLogs()<br/>getActivityLogsByDat
 The new 'Admin Settings' section provides centralized access to all critical system configuration through a unified navigation interface:
 
 - **Unified Access Point**: All administrative configuration is accessible from a single, well-organized section across all administrative roles
-- **Five Distinct Management Areas**: Role Permissions, Officer Management, Audit Logs, System Settings, and Profile Management
+- **Six Distinct Management Areas**: Role Permissions, Officer Management, Audit Logs, System Settings, Profile Management, and Backup
 - **Permission-Based Visibility**: Each subsection requires the 'manageSettings' permission for access
 - **Consistent Design Patterns**: All settings pages follow the same design and interaction patterns
 - **Cross-Role Compatibility**: The Admin Settings section is available to all administrative roles with appropriate permission controls
@@ -468,11 +481,14 @@ AdminSettings --> OfficerManagement["Officer Management<br/>Manage cooperative o
 AdminSettings --> AuditLogs["Audit Logs<br/>Monitor system activity"]
 AdminSettings --> SystemSettings["System Settings<br/>Configure policies and fees"]
 AdminSettings --> ProfileManagement["Profile Management<br/>Account settings and security"]
+AdminSettings --> Backup["Backup Management<br/>Export and import system data"]
 RolePermissions --> PermissionMatrix["Permission Matrix<br/>Enable/disable access flags"]
 OfficerManagement --> CRUDOperations["CRUD Operations<br/>Add, edit, delete officers"]
 AuditLogs --> ActivityTracking["Activity Tracking<br/>View and filter logs"]
 SystemSettings --> PolicyConfiguration["Policy Configuration<br/>Membership fees, loan plans"]
 ProfileManagement --> AccountSettings["Account Settings<br/>Personal and security preferences"]
+Backup --> ExportFunctionality["Export Functionality<br/>Download complete system data"]
+Backup --> ImportFunctionality["Import Functionality<br/>Upload and restore data"]
 ```
 
 **Diagram sources**
@@ -481,6 +497,7 @@ ProfileManagement --> AccountSettings["Account Settings<br/>Personal and securit
 - [lib/sidebarConfig.ts:194-202](file://lib/sidebarConfig.ts#L194-L202)
 - [lib/sidebarConfig.ts:250-258](file://lib/sidebarConfig.ts#L250-L258)
 - [lib/sidebarConfig.ts:310-318](file://lib/sidebarConfig.ts#L310-L318)
+- [lib/sidebarConfig.ts:81-87](file://lib/sidebarConfig.ts#L81-L87)
 
 **Section sources**
 - [lib/sidebarConfig.ts:81-89](file://lib/sidebarConfig.ts#L81-L89)
@@ -488,6 +505,7 @@ ProfileManagement --> AccountSettings["Account Settings<br/>Personal and securit
 - [lib/sidebarConfig.ts:194-202](file://lib/sidebarConfig.ts#L194-L202)
 - [lib/sidebarConfig.ts:250-258](file://lib/sidebarConfig.ts#L250-L258)
 - [lib/sidebarConfig.ts:310-318](file://lib/sidebarConfig.ts#L310-L318)
+- [lib/sidebarConfig.ts:81-87](file://lib/sidebarConfig.ts#L81-L87)
 
 ### Officer Management
 The Officer Management system provides comprehensive CRUD operations for managing cooperative officers with role hierarchy and validation:
@@ -654,6 +672,142 @@ The new settings pages are fully integrated into the administrative navigation s
 - [lib/sidebarConfig.ts:250-258](file://lib/sidebarConfig.ts#L250-L258)
 - [lib/sidebarConfig.ts:310-318](file://lib/sidebarConfig.ts#L310-L318)
 
+## Backup Management System
+
+### Comprehensive Backup and Restore Functionality
+The new Backup Management system provides complete system data export and import capabilities with advanced Excel processing and validation:
+
+- **Complete Data Export**: Export all system data including members, loans, loan requests, savings, and users in Excel format
+- **ZIP Packaging**: Bundle all Excel files into a single downloadable ZIP archive
+- **Excel Processing**: Utilize SheetJS library for robust Excel file generation and parsing
+- **Data Validation**: Comprehensive validation of backup files with record count verification
+- **Confirmation Dialogs**: User confirmation for destructive restore operations
+- **Permission Control**: Requires 'manageSettings' permission for access to backup functionality
+- **Cross-Role Compatibility**: Available to all administrative roles with appropriate permission controls
+
+```mermaid
+flowchart TD
+BackupSystem["Backup Management System"] --> Export["Export Backup"]
+BackupSystem --> Import["Import Backup"]
+Export --> FetchData["Fetch All Collections"]
+Export --> ProcessData["Process Data for Excel"]
+Export --> CreateExcel["Create Excel Files"]
+Export --> PackageZIP["Package as ZIP"]
+Import --> ValidateFile["Validate Backup File"]
+Import --> ParseExcel["Parse Excel Files"]
+Import --> ConfirmRestore["Confirm Restore Operation"]
+Import --> RestoreData["Restore Data to Firestore"]
+FetchData --> Members["Members Collection"]
+FetchData --> Loans["Loans Collection"]
+FetchData --> LoanRequests["Loan Requests Collection"]
+FetchData --> Savings["Savings Collection"]
+FetchData --> Users["Users Collection"]
+ProcessData --> TruncateLongValues["Truncate Long Values"]
+ProcessData --> JSONProcessing["JSON Processing"]
+CreateExcel --> SheetGeneration["Sheet Generation"]
+PackageZIP --> Download["Download ZIP Archive"]
+ValidateFile --> RecordCount["Verify Record Count"]
+ParseExcel --> DataExtraction["Data Extraction"]
+ConfirmRestore --> WarningDialog["Show Warning Dialog"]
+RestoreData --> FirestoreWrite["Write to Firestore"]
+```
+
+**Diagram sources**
+- [app/admin/backup/page.tsx:77-136](file://app/admin/backup/page.tsx#L77-L136)
+- [app/admin/backup/page.tsx:145-303](file://app/admin/backup/page.tsx#L145-L303)
+
+**Section sources**
+- [app/admin/backup/page.tsx:1-434](file://app/admin/backup/page.tsx#L1-L434)
+- [lib/sidebarConfig.ts:81-87](file://lib/sidebarConfig.ts#L81-L87)
+
+### Backup Export Functionality
+The export functionality provides comprehensive system data backup with advanced processing capabilities:
+
+- **Multi-Collection Fetching**: Concurrently fetch data from all system collections (members, loans, loan requests, savings, users)
+- **Excel Generation**: Convert fetched data to Excel format with SheetJS library
+- **Long Value Truncation**: Automatic truncation of values exceeding Excel cell limits (32,767 characters)
+- **ZIP Packaging**: Bundle all Excel files into a single downloadable ZIP archive
+- **Loading States**: Comprehensive loading states with toast notifications for user feedback
+- **Error Handling**: Robust error handling with user-friendly error messages
+
+```mermaid
+sequenceDiagram
+participant User as "Admin User"
+participant Backup as "Backup Page"
+participant Firestore as "Firestore"
+participant Excel as "Excel Processor"
+participant Zip as "ZIP Generator"
+User->>Backup : Click Export Backup
+Backup->>Backup : Check manageSettings permission
+Backup->>Backup : Set isExporting = true
+Backup->>Firestore : Fetch members, loans, loan requests, savings, users
+Firestore-->>Backup : Return collection data
+Backup->>Excel : Process data with truncation
+Excel-->>Backup : Return Excel arrays
+Backup->>Zip : Create ZIP with Excel files
+Zip-->>Backup : Return ZIP blob
+Backup->>User : Download ZIP file
+Backup->>Backup : Set isExporting = false
+```
+
+**Diagram sources**
+- [app/admin/backup/page.tsx:77-136](file://app/admin/backup/page.tsx#L77-L136)
+
+**Section sources**
+- [app/admin/backup/page.tsx:77-136](file://app/admin/backup/page.tsx#L77-L136)
+
+### Backup Import/Restore Functionality
+The import functionality provides secure data restoration with validation and confirmation:
+
+- **File Upload**: Support for .zip backup files with validation
+- **ZIP Processing**: Extract Excel files from uploaded ZIP archives
+- **Excel Parsing**: Parse Excel files using SheetJS library
+- **Data Validation**: Verify backup file integrity and record counts
+- **Confirmation Dialog**: Warning dialog with detailed restore information
+- **Bulk Operations**: Efficient bulk write operations to Firestore
+- **Error Recovery**: Comprehensive error handling and recovery mechanisms
+
+```mermaid
+sequenceDiagram
+participant User as "Admin User"
+participant Backup as "Backup Page"
+participant Zip as "ZIP Processor"
+participant Excel as "Excel Parser"
+participant Firestore as "Firestore"
+User->>Backup : Upload Backup File
+Backup->>Backup : Set isImporting = true
+Backup->>Zip : Load ZIP file
+Zip-->>Backup : Return file entries
+Backup->>Excel : Parse Excel files
+Excel-->>Backup : Return parsed data
+Backup->>Backup : Validate backup data
+Backup->>User : Show confirmation dialog
+User->>Backup : Confirm restore
+Backup->>Firestore : Write data to collections
+Firestore-->>Backup : Confirm writes
+Backup->>User : Show success message
+Backup->>Backup : Set isImporting = false
+```
+
+**Diagram sources**
+- [app/admin/backup/page.tsx:145-303](file://app/admin/backup/page.tsx#L145-L303)
+
+**Section sources**
+- [app/admin/backup/page.tsx:145-303](file://app/admin/backup/page.tsx#L145-L303)
+
+### Backup Management Integration with Sidebar
+The Backup Management section is seamlessly integrated into the administrative sidebar navigation:
+
+- **Admin Settings Category**: Backup is placed under the Admin Settings category alongside other settings pages
+- **Permission Requirement**: Requires 'manageSettings' permission for access, ensuring appropriate security controls
+- **Database Icon**: Uses the Database icon to visually represent backup and restore functionality
+- **Direct Access**: Provides direct navigation to the Backup Management page from the sidebar
+- **Role-based Visibility**: Visible to all administrative roles that have the required permission level
+
+**Section sources**
+- [lib/sidebarConfig.ts:81-87](file://lib/sidebarConfig.ts#L81-L87)
+- [components/admin/Sidebar.tsx:81-87](file://components/admin/Sidebar.tsx#L81-L87)
+
 ## Capital Shares Management
 
 ### Enhanced Member Management with Capital Shares Tracking
@@ -743,12 +897,13 @@ The Capital Shares section is seamlessly integrated into the administrative side
 - [components/admin/Sidebar.tsx:63-70](file://components/admin/Sidebar.tsx#L63-L70)
 
 ## Dependency Analysis
-The administrative system exhibits clear separation of concerns with enhanced integration for the new settings system and Capital Shares management:
+The administrative system exhibits clear separation of concerns with enhanced integration for the new settings system, Backup Management, and Capital Shares management:
 - UI components depend on shared Admin Card and Sidebar components.
-- Sidebar depends on roleSidebarConfig for dynamic navigation including new settings pages and Capital Shares section.
+- Sidebar depends on roleSidebarConfig for dynamic navigation including new settings pages, Backup section, and Capital Shares section.
 - Auth Provider integrates with validators and middleware for access control.
 - Reports and dashboard pages depend on Firestore for data retrieval.
 - **New**: Settings pages integrate with Firestore for persistent storage and rolePermissions for access control.
+- **New**: Backup Management integrates with Firestore for data export and import operations with Excel processing libraries.
 - **New**: Capital Shares management integrates with Firestore for member data retrieval and payment status tracking.
 - **New**: Audit logging system provides centralized activity tracking with comprehensive querying capabilities.
 - Audit logging is decoupled and used by action tracking utilities.
@@ -767,6 +922,7 @@ SB --> SC["Sidebar Config<br/>lib/sidebarConfig.ts"]
 AD["Admin Dashboard<br/>app/admin/dashboard/page.tsx"] --> AUTH
 RPT["Reports Page<br/>app/admin/reports/page.tsx"] --> AUTH
 CS["Capital Shares<br/>app/admin/capital-shares/page.tsx"] --> AUTH
+BK["Backup Management<br/>app/admin/backup/page.tsx"] --> AUTH
 DDI["Dashboard Data Init<br/>app/api/dashboard/initialize/route.ts"] --> AUTH
 OS["Officer Management<br/>app/admin/settings/officers/page.tsx"] --> FB["Firebase Service<br/>lib/firebase.ts"]
 RP["Role Permissions<br/>app/admin/settings/permissions/page.tsx"] --> RPV
@@ -787,10 +943,11 @@ ACT --> ACTLOGS["Activity Logs Collection"]
 - [middleware.ts:1-62](file://middleware.ts#L1-L62)
 - [app/admin/layout.tsx:1-69](file://app/admin/layout.tsx#L1-L69)
 - [components/admin/Sidebar.tsx:1-310](file://components/admin/Sidebar.tsx#L1-L310)
-- [lib/sidebarConfig.ts:1-465](file://lib/sidebarConfig.ts#L1-L465)
+- [lib/sidebarConfig.ts:1-473](file://lib/sidebarConfig.ts#L1-L473)
 - [app/admin/dashboard/page.tsx:1-799](file://app/admin/dashboard/page.tsx#L1-L799)
 - [app/admin/reports/page.tsx:1-737](file://app/admin/reports/page.tsx#L1-L737)
 - [app/admin/capital-shares/page.tsx:1-313](file://app/admin/capital-shares/page.tsx#L1-L313)
+- [app/admin/backup/page.tsx:1-434](file://app/admin/backup/page.tsx#L1-L434)
 - [app/admin/settings/officers/page.tsx:1-702](file://app/admin/settings/officers/page.tsx#L1-L702)
 - [app/admin/settings/permissions/page.tsx:1-486](file://app/admin/settings/permissions/page.tsx#L1-L486)
 - [app/admin/settings/system/page.tsx:1-843](file://app/admin/settings/system/page.tsx#L1-L843)
@@ -798,7 +955,7 @@ ACT --> ACTLOGS["Activity Logs Collection"]
 - [app/api/dashboard/initialize/route.ts:1-186](file://app/api/dashboard/initialize/route.ts#L1-L186)
 
 **Section sources**
-- [lib/sidebarConfig.ts:1-465](file://lib/sidebarConfig.ts#L1-L465)
+- [lib/sidebarConfig.ts:1-473](file://lib/sidebarConfig.ts#L1-L473)
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
 - [middleware.ts:1-62](file://middleware.ts#L1-L62)
@@ -807,6 +964,7 @@ ACT --> ACTLOGS["Activity Logs Collection"]
 - [app/admin/dashboard/page.tsx:1-799](file://app/admin/dashboard/page.tsx#L1-L799)
 - [app/admin/reports/page.tsx:1-737](file://app/admin/reports/page.tsx#L1-L737)
 - [app/admin/capital-shares/page.tsx:1-313](file://app/admin/capital-shares/page.tsx#L1-L313)
+- [app/admin/backup/page.tsx:1-434](file://app/admin/backup/page.tsx#L1-L434)
 - [app/admin/settings/officers/page.tsx:1-702](file://app/admin/settings/officers/page.tsx#L1-L702)
 - [app/admin/settings/permissions/page.tsx:1-486](file://app/admin/settings/permissions/page.tsx#L1-L486)
 - [app/admin/settings/system/page.tsx:1-843](file://app/admin/settings/system/page.tsx#L1-L843)
@@ -823,6 +981,7 @@ ACT --> ACTLOGS["Activity Logs Collection"]
 - **New**: Settings pages implement efficient Firestore queries with proper error handling and loading states.
 - **New**: Role permissions are cached locally to reduce Firestore calls and improve performance.
 - **New**: Capital Shares management implements efficient data processing with real-time filtering and search capabilities.
+- **New**: Backup Management system optimizes data export with concurrent collection fetching and efficient Excel processing.
 - **New**: Audit logging system optimized for real-time performance with batch operations and efficient querying.
 - **Updated**: Enhanced performance with role-based access control optimizations across all administrative roles.
 
@@ -839,19 +998,23 @@ ACT --> ACTLOGS["Activity Logs Collection"]
 - **New**: Admin Settings navigation problems: Ensure 'manageSettings' permission is granted to users accessing the Admin Settings section.
 - **New**: Capital Shares management issues: Verify 'viewMembers' permission is granted; check Firestore collections for member data; ensure paymentInfo fields exist.
 - **New**: Capital Shares data loading errors: Validate Firestore security rules allow read access to members collection; check for proper paymentInfo structure.
+- **New**: Backup Management issues: Verify 'manageSettings' permission is granted; check browser support for File APIs; ensure sufficient memory for large exports.
+- **New**: Backup export errors: Validate Firestore security rules allow read access to all collections; check browser JavaScript heap size limits.
+- **New**: Backup import errors: Verify backup file integrity; check Excel file format compatibility; ensure sufficient memory for large imports.
 - **Updated**: Role-based access control issues: Verify permission checks are working correctly across all administrative roles; ensure rolePermissions hook is functioning properly.
 
 **Section sources**
 - [lib/auth.tsx:1-682](file://lib/auth.tsx#L1-L682)
 - [lib/validators.ts:1-236](file://lib/validators.ts#L1-L236)
-- [lib/sidebarConfig.ts:1-465](file://lib/sidebarConfig.ts#L1-L465)
+- [lib/sidebarConfig.ts:1-473](file://lib/sidebarConfig.ts#L1-L473)
 - [lib/activityLogger.ts:1-165](file://lib/activityLogger.ts#L1-L165)
 - [app/admin/reports/page.tsx:1-737](file://app/admin/reports/page.tsx#L1-L737)
 - [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-L226)
 - [lib/firebase.ts:1-345](file://lib/firebase.ts#L1-L345)
 - [app/admin/capital-shares/page.tsx:1-313](file://app/admin/capital-shares/page.tsx#L1-L313)
+- [app/admin/backup/page.tsx:1-434](file://app/admin/backup/page.tsx#L1-L434)
 
 ## Conclusion
-The SAMPA Cooperative Management System's administrative features provide a robust, role-aware interface with comprehensive dashboards, navigation, reporting, and auditing capabilities. The modular design, centralized configuration, and strict access control ensure maintainability and scalability. **The new administrative settings system significantly enhances the platform's functionality by providing comprehensive officer management, granular role permissions, flexible system configuration, and centralized audit logging through the unified 'Admin Settings' section. The new Capital Shares management system adds powerful member capital share tracking capabilities with real-time status monitoring, search functionality, and comprehensive reporting features.** Administrators benefit from powerful analytics, customizable dashboards, compliance-ready audit logs, and a complete administrative toolkit for managing cooperative operations. The middleware and validators protect against unauthorized access, while the new settings system and Capital Shares management ensure proper governance and operational control across all cooperative functions. The centralized navigation approach improves usability and reduces cognitive load for administrators managing complex cooperative operations.
+The SAMPA Cooperative Management System's administrative features provide a robust, role-aware interface with comprehensive dashboards, navigation, reporting, and auditing capabilities. The modular design, centralized configuration, and strict access control ensure maintainability and scalability. **The new administrative settings system significantly enhances the platform's functionality by providing comprehensive officer management, granular role permissions, flexible system configuration, centralized audit logging, and complete backup management through the unified 'Admin Settings' section. The new Capital Shares management system adds powerful member capital share tracking capabilities with real-time status monitoring, search functionality, and comprehensive reporting features. The new Backup Management system provides secure data export and import functionality with comprehensive Excel processing and validation.** Administrators benefit from powerful analytics, customizable dashboards, compliance-ready audit logs, and a complete administrative toolkit for managing cooperative operations. The middleware and validators protect against unauthorized access, while the new settings system, Capital Shares management, and Backup Management ensure proper governance and operational control across all cooperative functions. The centralized navigation approach improves usability and reduces cognitive load for administrators managing complex cooperative operations.
 
-**Updated**: The enhanced administrative system now provides comprehensive role-based access control across all administrative roles including Admin, Chairman, Vice Chairman, Secretary, Treasurer, and Manager positions, with centralized settings management, Capital Shares tracking, and improved security measures ensuring proper governance and operational control across all cooperative functions.
+**Updated**: The enhanced administrative system now provides comprehensive role-based access control across all administrative roles including Admin, Chairman, Vice Chairman, Secretary, Treasurer, and Manager positions, with centralized settings management, Capital Shares tracking, Backup Management, and improved security measures ensuring proper governance and operational control across all cooperative functions.

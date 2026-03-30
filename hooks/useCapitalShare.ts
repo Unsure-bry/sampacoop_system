@@ -59,11 +59,26 @@ export function useCapitalShare(userId: string | undefined): UseCapitalShareRetu
 
       // Fetch member data to get capital share info
       const memberResult = await firestore.getDocument('members', memberId);
+      
+      // Fetch capital share transactions for accurate calculation
+      const transactionsResult = await firestore.getCollection(`members/${memberId}/capitalShareTransactions`);
+      
+      // Calculate paid amount from transactions (more accurate)
+      let paidAmountFromTransactions = 0;
+      if (transactionsResult.success && transactionsResult.data) {
+        paidAmountFromTransactions = transactionsResult.data.reduce(
+          (sum: number, tx: any) => sum + (tx.amount || 0), 
+          0
+        );
+      }
 
       if (memberResult.success && memberResult.data) {
         const memberData = memberResult.data as any;
         const paymentInfo = memberData.paymentInfo || {};
-        const paidAmount = paymentInfo.capitalShare || 0;
+        const paidAmountFromMember = paymentInfo.capitalShare || 0;
+        
+        // Use the higher of the two values (transactions or member record)
+        const paidAmount = Math.max(paidAmountFromTransactions, paidAmountFromMember);
         const remainingBalance = Math.max(0, REQUIRED_CAPITAL_SHARE - paidAmount);
 
         let status: 'Paid' | 'Partial' | 'Pending';
@@ -83,12 +98,25 @@ export function useCapitalShare(userId: string | undefined): UseCapitalShareRetu
           status
         });
       } else {
+        // Use transactions data even if member data not found
+        const paidAmount = paidAmountFromTransactions;
+        const remainingBalance = Math.max(0, REQUIRED_CAPITAL_SHARE - paidAmount);
+        
+        let status: 'Paid' | 'Partial' | 'Pending';
+        if (paidAmount >= REQUIRED_CAPITAL_SHARE) {
+          status = 'Paid';
+        } else if (paidAmount > 0) {
+          status = 'Partial';
+        } else {
+          status = 'Pending';
+        }
+        
         setCapitalShare({
           requiredAmount: REQUIRED_CAPITAL_SHARE,
-          paidAmount: 0,
-          remainingBalance: REQUIRED_CAPITAL_SHARE,
-          isFullyPaid: false,
-          status: 'Pending'
+          paidAmount,
+          remainingBalance,
+          isFullyPaid: paidAmount >= REQUIRED_CAPITAL_SHARE,
+          status
         });
       }
     } catch (err) {
