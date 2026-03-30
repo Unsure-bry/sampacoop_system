@@ -14,12 +14,12 @@
 
 ## Update Summary
 **Changes Made**
-- Integrated automatic notification email system for certificate generation workflow
-- Enhanced certificate generation service with email notification functionality
-- Added comprehensive email delivery tracking with status updates
-- Implemented production-safe URL generation for certificate downloads
-- Enhanced certificate storage with delivery status tracking
-- Updated certificate preview modal with improved notification handling
+- Enhanced certificate preview functionality with comprehensive error handling and user feedback mechanisms
+- Improved certificate generation workflow with better validation, loading states, and confirmation dialogs
+- Added robust toast notification system for user feedback across all certificate operations
+- Enhanced production URL handling with fallback mechanisms for certificate downloads
+- Improved certificate storage with better error handling and status tracking
+- Enhanced certificate preview modal with improved notification handling and user experience
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -42,7 +42,7 @@
 ## Introduction
 This document describes the Certificate Generation System responsible for creating PDF share certificates for cooperative members. The system features an enhanced certificate preview modal with improved UI elements, better responsive design, PDF generation capabilities, dynamic officer name fetching, integrated capital share information display, and automatic notification email delivery. It explains the certificate template system, dynamic content injection, PDF generation workflow using jsPDF library, certificate data validation and formatting, styling options, API integration with the member management system, certificate storage and retrieval, and customization options for print-ready formats.
 
-**Updated** The certificate generation system now includes comprehensive automatic notification email functionality, ensuring members receive immediate confirmation when certificates are successfully generated and ready for download. The system maintains robust certificate generation, storage, and delivery capabilities while introducing advanced user interaction features, production-ready URL handling for Vercel deployment, and comprehensive capital share integration for displaying member investment levels.
+**Updated** The certificate generation system now includes comprehensive automatic notification email functionality, ensuring members receive immediate confirmation when certificates are successfully generated and ready for download. The system maintains robust certificate generation, storage, and delivery capabilities while introducing advanced user interaction features, production-ready URL handling for Vercel deployment, and comprehensive capital share integration for displaying member investment levels. Recent enhancements include improved error handling, user feedback mechanisms, and a more streamlined certificate generation workflow.
 
 ## Project Structure
 The certificate system now encompasses seven primary areas with enhanced functionality:
@@ -63,6 +63,7 @@ HTML2["html2canvas"]
 JSPDF["jsPDF"]
 CapitalShare["Capital Share Integration<br/>Dynamic Investment Display"]
 Notifications["Automatic Notification System<br/>Email Delivery Tracking"]
+Toast["Toast Notification System<br/>Enhanced User Feedback"]
 End
 subgraph "Certificate Generation"
 Service["certificateService.ts"]
@@ -96,6 +97,7 @@ Preview --> HTML2
 Preview --> JSPDF
 Preview --> CapitalShare
 Preview --> Notifications
+Preview --> Toast
 Service --> JS
 Service --> ProductionURL
 Service --> EmailIntegration
@@ -108,7 +110,7 @@ Email --> StatusTracking
 ```
 
 **Diagram sources**
-- [CertificatePreviewModal.tsx:1-672](file://components/admin/CertificatePreviewModal.tsx#L1-L672)
+- [CertificatePreviewModal.tsx:1-661](file://components/admin/CertificatePreviewModal.tsx#L1-L661)
 - [certificateService.ts:12-410](file://lib/certificateService.ts#L12-L410)
 - [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
 - [MemberDetailsModal.tsx:232-389](file://components/admin/MemberDetailsModal.tsx#L232-L389)
@@ -118,7 +120,7 @@ Email --> StatusTracking
 - [member.ts:27-68](file://lib/types/member.ts#L27-L68)
 
 **Section sources**
-- [CertificatePreviewModal.tsx:1-672](file://components/admin/CertificatePreviewModal.tsx#L1-L672)
+- [CertificatePreviewModal.tsx:1-661](file://components/admin/CertificatePreviewModal.tsx#L1-L661)
 - [certificateService.ts:12-410](file://lib/certificateService.ts#L12-L410)
 - [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
 - [MemberDetailsModal.tsx:232-389](file://components/admin/MemberDetailsModal.tsx#L232-L389)
@@ -128,7 +130,7 @@ Email --> StatusTracking
 - [member.ts:27-68](file://lib/types/member.ts#L27-L68)
 
 ## Core Components
-- **Enhanced Certificate Preview Modal**: Features real-time certificate generation, interactive editing, responsive design, PDF download capabilities, dynamic capital share display, and automatic notification system integration
+- **Enhanced Certificate Preview Modal**: Features real-time certificate generation, interactive editing, responsive design, PDF download capabilities, dynamic capital share display, and automatic notification system integration with comprehensive error handling and user feedback
 - **Advanced Certificate Generation Service**: Creates share certificates using customized jsPDF templates with dynamic content injection, comprehensive storage mechanisms, production-ready URL handling, capital share processing, and integrated email notification functionality
 - **API Endpoint**: Retrieves stored certificate data URLs from Firestore and streams PDFs to clients with enhanced error handling, HTTPS support, and production URL handling
 - **Frontend Integration**: Offers certificate display and management through MemberDetailsModal with certificate visualization, capital share information, and notification status tracking
@@ -149,12 +151,12 @@ Key responsibilities:
 - Capital share integration from member registration to certificate display
 - Dynamic investment amount formatting and display optimization
 - Enhanced notification system with delivery status tracking and production URL handling
-- Comprehensive certificate generation workflow with automatic email delivery
+- Comprehensive certificate generation workflow with automatic email delivery and robust error handling
 
-**Updated** The system now features comprehensive automatic notification email functionality, ensuring members receive immediate confirmation when certificates are successfully generated and ready for download, with enhanced delivery status tracking and production-ready URL handling.
+**Updated** The system now features comprehensive automatic notification email functionality, ensuring members receive immediate confirmation when certificates are successfully generated and ready for download, with enhanced delivery status tracking and production-ready URL handling. Recent improvements include enhanced error handling throughout the certificate generation workflow, comprehensive user feedback mechanisms, and a more streamlined certificate creation process.
 
 **Section sources**
-- [CertificatePreviewModal.tsx:1-672](file://components/admin/CertificatePreviewModal.tsx#L1-L672)
+- [CertificatePreviewModal.tsx:1-661](file://components/admin/CertificatePreviewModal.tsx#L1-L661)
 - [certificateService.ts:12-410](file://lib/certificateService.ts#L12-L410)
 - [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
 - [MemberDetailsModal.tsx:232-389](file://components/admin/MemberDetailsModal.tsx#L232-L389)
@@ -164,10 +166,10 @@ Key responsibilities:
 
 ## Architecture Overview
 The enhanced system follows a comprehensive separation of concerns with certificate preview, generation, delivery, and notification, now including automatic email delivery:
-- Certificate preview modal captures user input, capital share information, and generates real-time previews with notification integration
-- Advanced certificate generation service creates PDFs with appropriate templates, capital share processing, persists them with tracking, and sends automatic email notifications
-- API endpoint validates membership, fetches certificate data URL from Firestore with HTTPS support
-- Frontend displays certificates via embedded visualization or download functionality with investment information and notification status
+- Certificate preview modal captures user input, capital share information, and generates real-time previews with notification integration and comprehensive error handling
+- Advanced certificate generation service creates PDFs with appropriate templates, capital share processing, persists them with tracking, and sends automatic email notifications with robust error handling
+- API endpoint validates membership, fetches certificate data URL from Firestore with HTTPS support and enhanced error handling
+- Frontend displays certificates via embedded visualization or download functionality with investment information and notification status tracking
 - Enhanced email service handles automated notifications for certificate delivery with production-safe URLs using the corrected domain and comprehensive delivery tracking
 - Backend processes certificate generation and retrieval with enhanced validation, capital share tracking, and notification system integration
 - Member registration captures capital share data for certificate generation and integrates with notification workflow
@@ -186,6 +188,7 @@ Registration->>Registration : Store capital share in member data
 Registration->>Preview : Pass memberData with capitalShare
 Preview->>Preview : Initialize certificate with capital share
 Preview->>Preview : Real-time preview generation with investment display
+Preview->>Preview : Show confirmation dialog with loading states
 Preview->>Service : onConfirm(certificateData with shares)
 Service->>FS : Store certificate with capital share tracking
 Service->>Email : sendCertificateNotificationEmail()
@@ -194,7 +197,7 @@ Email->>Client : Send email notification with certificate link
 API->>FS : getDocument(members/ : memberId)
 FS-->>API : Member data with certificateUrl and capital share
 API->>API : Parse base64 from data URL
-API-->>Client : 200 PDF stream (inline)
+API-->>Client : 200 PDF stream (inline) with error handling
 ```
 
 **Diagram sources**
@@ -206,8 +209,8 @@ API-->>Client : 200 PDF stream (inline)
 
 ## Enhanced Certificate Preview Modal
 
-### Real-Time Certificate Generation with Capital Share Integration and Notification System
-The CertificatePreviewModal provides a sophisticated preview experience with real-time certificate generation, dynamic capital share display, and integrated notification system:
+### Real-Time Certificate Generation with Capital Share Integration and Enhanced User Feedback
+The CertificatePreviewModal provides a sophisticated preview experience with real-time certificate generation, dynamic capital share display, and integrated notification system with comprehensive error handling:
 
 **Interactive Editing Features**:
 - Live certificate preview with immediate visual feedback and investment amount display
@@ -217,6 +220,9 @@ The CertificatePreviewModal provides a sophisticated preview experience with rea
 - Interactive certificate customization with live preview and capital share editing
 - Currency formatting for investment amounts with proper Philippine peso display
 - Automatic notification system integration for certificate delivery confirmation
+- Comprehensive error handling with toast notifications for all failure scenarios
+- Loading states and progress indicators throughout the certificate generation process
+- Confirmation dialogs with detailed certificate information review
 
 **Advanced Rendering Capabilities**:
 - Uses html2canvas for high-quality certificate capture with investment overlays
@@ -224,12 +230,13 @@ The CertificatePreviewModal provides a sophisticated preview experience with rea
 - Supports both print dialog and PDF download functionality with investment data
 - Automatic popup blocking detection with user guidance
 - Color scheme optimization for print quality with investment emphasis
+- Enhanced error handling for image capture failures and PDF generation errors
 
 **Dynamic Officer Name Fetching**:
 - Automatic retrieval of active secretary and chairman names
 - Real-time officer name updates in certificate preview
 - Firestore integration for officer data management
-- Graceful fallback handling for missing officer data
+- Graceful fallback handling for missing officer data with user notifications
 
 **Enhanced User Interface**:
 - Modern gradient header with professional styling
@@ -239,6 +246,7 @@ The CertificatePreviewModal provides a sophisticated preview experience with rea
 - Loading states and error handling throughout
 - Capital share input with currency formatting and validation
 - Notification status indicators for certificate delivery
+- Comprehensive toast notification system for user feedback
 
 **Capital Share Integration**:
 - Dynamic display of member investment amounts on certificate preview
@@ -247,11 +255,20 @@ The CertificatePreviewModal provides a sophisticated preview experience with rea
 - Investment amount display optimization for certificate layout
 - Currency symbol placement and formatting consistency
 
-**Notification System Integration**:
+**Enhanced Notification System Integration**:
 - Automatic notification status tracking for certificate delivery
 - Production-ready URL generation for certificate downloads
 - Enhanced user feedback for notification delivery confirmation
 - Integration with email notification system for immediate member communication
+- Comprehensive error handling for notification failures
+
+**Robust Error Handling and User Feedback**:
+- Comprehensive error handling for certificate generation failures
+- Toast notifications for all success and failure scenarios
+- User-friendly error messages with actionable guidance
+- Graceful degradation when services are unavailable
+- Loading states to indicate ongoing operations
+- Confirmation dialogs to prevent accidental certificate generation
 
 ```mermaid
 flowchart TD
@@ -263,19 +280,25 @@ Preview --> Edit["User edits certificate fields<br/>including capital share<br/>
 Edit --> Validate["Validate input fields<br/>and formatting<br/>including currency validation"]
 Validate --> Update["Update certificate preview<br/>immediately with investment<br/>amount formatting"]
 Update --> Actions["User selects action:<br/>Print | Download PDF | Save"]
-Actions --> Generate["Generate certificate<br/>via onConfirm callback<br/>with capital share data"]
+Actions --> Confirm["Show confirmation dialog<br/>with loading states<br/>and user feedback"]
+Confirm --> Generate["Generate certificate<br/>via onConfirm callback<br/>with capital share data"]
 Generate --> Store["Store in Firestore<br/>with tracking<br/>including investment data"]
 Store --> Notify["Send notification email<br/>with production URL<br/>including delivery tracking"]
 Notify --> Complete["Complete certificate generation<br/>with automatic notification<br/>and capital share integration"]
+Complete --> Success["Show success toast<br/>notification"]
+Success --> Error["Handle any errors<br/>with user feedback"]
+Error --> Retry["Allow user to retry<br/>or cancel operation"]
 ```
 
 **Diagram sources**
 - [CertificatePreviewModal.tsx:116-143](file://components/admin/CertificatePreviewModal.tsx#L116-L143)
 - [CertificatePreviewModal.tsx:170-263](file://components/admin/CertificatePreviewModal.tsx#L170-L263)
 - [CertificatePreviewModal.tsx:265-323](file://components/admin/CertificatePreviewModal.tsx#L265-L323)
+- [CertificatePreviewModal.tsx:160-172](file://components/admin/CertificatePreviewModal.tsx#L160-L172)
+- [CertificatePreviewModal.tsx:269-327](file://components/admin/CertificatePreviewModal.tsx#L269-L327)
 
 **Section sources**
-- [CertificatePreviewModal.tsx:1-672](file://components/admin/CertificatePreviewModal.tsx#L1-L672)
+- [CertificatePreviewModal.tsx:1-661](file://components/admin/CertificatePreviewModal.tsx#L1-L661)
 
 ## Certificate Generation Service
 The service now focuses on streamlined certificate generation with enhanced template systems, production-ready URL handling, comprehensive capital share integration, and automatic notification email functionality:
@@ -313,6 +336,13 @@ The service now focuses on streamlined certificate generation with enhanced temp
 - Provides comprehensive error handling for email delivery failures
 - Updates certificate records with delivery timestamps and status
 
+**Robust Error Handling**:
+- Comprehensive error handling for certificate generation failures
+- Detailed error messages with specific failure points
+- Graceful degradation when services are unavailable
+- Logging of all certificate generation attempts
+- Recovery mechanisms for partial failures
+
 Processing logic highlights:
 - Uses jsPDF with custom styling for different certificate types with investment emphasis
 - Implements comprehensive certificate data validation including capital share validation
@@ -322,6 +352,7 @@ Processing logic highlights:
 - Processes and formats capital share amounts for display and storage
 - Integrates automatic email notification system with delivery status tracking
 - Maintains comprehensive audit trail for certificate generation and delivery
+- Implements comprehensive error handling throughout the certificate generation workflow
 
 ```mermaid
 flowchart TD
@@ -336,6 +367,10 @@ Sign --> Store["Store certificate with tracking<br/>member_certificates collecti
 Store --> Email["Send email notification<br/>with HTTPS download link<br/>using corrected domain"]
 Email --> Status["Update Firestore status<br/>to 'sent' with delivery tracking"]
 Status --> Return(["Return success with certificateUrl<br/>and investment information"])
+Return --> Error["Handle any errors<br/>with detailed error messages"]
+Error --> Log["Log error details<br/>for debugging"]
+Log --> Retry["Attempt recovery<br/>or notify user"]
+Retry --> Complete["Complete with error<br/>status and user feedback"]
 ```
 
 **Diagram sources**
@@ -359,6 +394,7 @@ Responsibilities:
 - Supports HTTPS protocol for production deployments
 - Integrates capital share information in certificate data retrieval
 - Provides production-ready URL handling for certificate downloads
+- Implements comprehensive error handling for all failure scenarios
 
 Enhanced behavioral notes:
 - Supports both inline viewing and file download via Content-Disposition
@@ -369,6 +405,7 @@ Enhanced behavioral notes:
 - Processes and validates capital share data during retrieval
 - Maintains investment information integrity in certificate delivery
 - Uses production-safe URLs for certificate download links
+- Implements comprehensive error handling with detailed error messages
 
 ```mermaid
 sequenceDiagram
@@ -381,9 +418,11 @@ API->>API : Decode memberId
 API->>FS : getDocument(members/ : memberId)
 FS-->>API : Member with certificate data<br/>including capital share
 API->>API : Validate certificate exists
+API->>API : Check certificate format
 API->>Util : Extract base64 from data URL
 Util-->>API : Buffer with fallback handling
 API-->>Client : 200 PDF with headers & HTTPS<br/>including investment information<br/>and production URL handling
+API-->>Client : Error response with<br/>detailed error message<br/>for any failures
 ```
 
 **Diagram sources**
@@ -419,12 +458,19 @@ The frontend provides comprehensive certificate management through MemberDetails
 - Integrates investment information into certificate visualization
 - Tracks notification delivery status for certificate confirmation
 
+**Enhanced User Experience**:
+- Shows certificate generation status with visual indicators
+- Provides clear feedback for certificate availability
+- Implements responsive design for certificate display
+- Handles loading states gracefully
+- Integrates with toast notification system for user feedback
+
 **Section sources**
 - [MemberDetailsModal.tsx:232-389](file://components/admin/MemberDetailsModal.tsx#L232-L389)
 
 ## Enhanced Certificate Features
 
-### Multiple Certificate Types with Capital Share Integration and Notification System
+### Multiple Certificate Types with Capital Share Integration and Enhanced Notification System
 The system now supports certificate types with specialized templates, investment display, and automatic notification functionality:
 
 **Share Certificate**:
@@ -434,6 +480,7 @@ The system now supports certificate types with specialized templates, investment
 - Comprehensive shareholding information display with capital share integration
 - Dynamic investment amount formatting and display optimization
 - Automatic notification email delivery upon generation completion
+- Comprehensive error handling and user feedback mechanisms
 
 **Certificate Data Management**:
 - Separate storage in `member_certificates` collection with investment tracking and delivery status
@@ -457,13 +504,22 @@ The system now supports certificate types with specialized templates, investment
 - Delivery status tracking in Firestore with timestamp recording
 - Error handling for failed email deliveries with investment data persistence
 - Integration with certificate storage for comprehensive audit trail
+- Comprehensive user feedback for notification delivery status
+
+**Enhanced Error Handling**:
+- Comprehensive error handling throughout the certificate generation workflow
+- Detailed error messages with actionable guidance for users
+- Graceful degradation when services are unavailable
+- Logging of all certificate generation attempts for debugging
+- Recovery mechanisms for partial failures
+- User-friendly error messages with resolution steps
 
 **Section sources**
 - [certificateService.ts:12-277](file://lib/certificateService.ts#L12-L277)
 - [certificateService.ts:284-309](file://lib/certificateService.ts#L284-L309)
 - [certificateService.ts:317-410](file://lib/certificateService.ts#L317-L410)
 
-### Enhanced Certificate Data Validation with Capital Share Processing and Notification Tracking
+### Enhanced Certificate Data Validation with Capital Share Processing and Comprehensive Error Handling
 The system implements comprehensive validation mechanisms including investment data and notification tracking:
 
 **Input Validation**:
@@ -499,20 +555,29 @@ The system implements comprehensive validation mechanisms including investment d
 - Investment tracking and audit trail maintenance
 - Notification delivery validation and tracking
 
+**Enhanced Error Handling**:
+- Comprehensive error handling for all certificate operations
+- Detailed error messages with specific failure points
+- Graceful degradation when services are unavailable
+- User-friendly error messages with resolution steps
+- Logging of all certificate generation attempts
+- Recovery mechanisms for partial failures
+
 **Notification System Validation**:
 - Email delivery validation and tracking
 - Production URL validation for certificate downloads
 - Delivery status timestamp validation
 - Error handling for notification failures
 - Integration with certificate storage validation
+- Comprehensive user feedback for notification status
 
 **Section sources**
 - [certificateService.ts:25-277](file://lib/certificateService.ts#L25-L277)
 - [certificateService.ts:284-309](file://lib/certificateService.ts#L284-L309)
 - [certificateService.ts:317-410](file://lib/certificateService.ts#L317-L410)
 
-### Advanced Rendering Features with Investment Display and Notification Integration
-The system provides enhanced rendering capabilities with dynamic capital share display and notification system integration:
+### Advanced Rendering Features with Investment Display and Enhanced User Feedback
+The system provides enhanced rendering capabilities with dynamic capital share display and comprehensive user feedback mechanisms:
 
 **Responsive Design**:
 - Adaptive certificate layout for different screen sizes with investment emphasis
@@ -520,6 +585,7 @@ The system provides enhanced rendering capabilities with dynamic capital share d
 - Flexible grid system for certificate details with investment information
 - Optimized print dialog with automatic sizing and investment display
 - Notification status indicators for certificate delivery confirmation
+- Comprehensive error handling with user-friendly messages
 
 **Quality Optimization**:
 - High-resolution certificate generation with 300 DPI and investment clarity
@@ -528,6 +594,7 @@ The system provides enhanced rendering capabilities with dynamic capital share d
 - Enhanced form controls with focused styling and visual hierarchy including investment input
 - Investment amount optimization for both screen and print output
 - Notification system integration for real-time delivery status updates
+- Comprehensive toast notification system for user feedback
 
 **Interactive Elements**:
 - Real-time certificate preview with immediate updates and investment display
@@ -536,6 +603,7 @@ The system provides enhanced rendering capabilities with dynamic capital share d
 - User-friendly confirmation dialogs for certificate actions with investment review
 - Capital share editing with proper validation and formatting
 - Notification status tracking for certificate delivery confirmation
+- Loading states and progress indicators throughout operations
 
 **Investment Display Optimization**:
 - Dynamic investment amount formatting with Philippine peso currency
@@ -544,12 +612,13 @@ The system provides enhanced rendering capabilities with dynamic capital share d
 - Investment data validation and error handling
 - Investment display optimization for different certificate sizes and orientations
 
-**Notification Display Optimization**:
-- Real-time notification status indicators for certificate delivery
-- Production URL display for certificate download links
-- Delivery confirmation messaging for user feedback
-- Error handling and recovery for notification failures
-- Integration with certificate display for comprehensive user experience
+**Enhanced User Feedback System**:
+- Comprehensive toast notification system for all certificate operations
+- Real-time validation feedback with immediate user guidance
+- Loading states to indicate ongoing operations
+- Error handling with user-friendly messages and resolution steps
+- Success notifications for completed operations
+- Progress indicators for long-running operations
 
 **Section sources**
 - [CertificatePreviewModal.tsx:170-323](file://components/admin/CertificatePreviewModal.tsx#L170-L323)
@@ -557,7 +626,7 @@ The system provides enhanced rendering capabilities with dynamic capital share d
 
 ## Email Notification Integration
 
-### Automated Certificate Delivery with Investment Information and Production URL Handling
+### Automated Certificate Delivery with Investment Information and Enhanced Production URL Handling
 The system integrates with EmailJS for automated certificate notifications with enhanced investment data and production URL handling:
 
 **Email Template System**:
@@ -567,12 +636,13 @@ The system integrates with EmailJS for automated certificate notifications with 
 - Automatic download link generation with HTTPS protocol using the corrected domain
 - Delivery status tracking integration for comprehensive notification system
 
-**Production URL Handling**:
+**Enhanced Production URL Handling**:
 - Uses `window.location.origin` for development environments
 - Falls back to `'https://sampacoop-system.vercel.app'` for production environments (corrected domain)
 - Ensures secure HTTPS delivery of certificate links
 - Maintains backward compatibility across deployment environments
 - Integrates with certificate storage for production URL validation
+- Comprehensive error handling for URL generation failures
 
 **Delivery Workflow**:
 - Certificate generation triggers email notification with investment data
@@ -580,6 +650,7 @@ The system integrates with EmailJS for automated certificate notifications with 
 - Status tracking in Firestore for delivery confirmation with investment records
 - Error handling for failed email deliveries with investment data persistence
 - Integration with certificate storage for comprehensive audit trail
+- Comprehensive user feedback for notification delivery status
 
 **Enhanced Configuration Requirements**:
 - EmailJS public key configuration
@@ -588,13 +659,15 @@ The system integrates with EmailJS for automated certificate notifications with 
 - Client-side initialization with fallback handling
 - Investment data template integration
 - Production URL configuration for certificate downloads
+- Comprehensive error handling for configuration failures
 
-**Delivery Status Tracking**:
+**Enhanced Delivery Status Tracking**:
 - Automatic status updates in Firestore for certificate delivery
 - Timestamp recording for delivery confirmation
 - Error handling and recovery for failed deliveries
 - Integration with certificate storage for comprehensive tracking
 - User notification system for delivery confirmation status
+- Comprehensive logging for all delivery attempts
 
 ```mermaid
 flowchart TD
@@ -604,7 +677,10 @@ Email --> Template["Process Email Template<br/>with dynamic content<br/>includin
 Template --> URL["Generate HTTPS Download URL<br/>sampacoop-system.vercel.app<br/>with investment data"]
 URL --> Send["Send via EmailJS<br/>with investment details<br/>and delivery tracking"]
 Send --> Track["Update Firestore Status<br/>to 'sent'<br/>with investment tracking<br/>and timestamp recording"]
-Track --> Complete["Delivery Complete<br/>with investment information<br/>and status confirmation"]
+Track --> Success["Show success toast<br/>notification to user"]
+Success --> Error["Handle any errors<br/>with user feedback"]
+Error --> Retry["Allow user to retry<br/>or check status"]
+Retry --> Complete["Complete with error<br/>status and user feedback"]
 ```
 
 **Diagram sources**
@@ -617,7 +693,7 @@ Track --> Complete["Delivery Complete<br/>with investment information<br/>and st
 
 ## Certificate Data Management
 
-### Firestore Integration with Capital Share Tracking and Delivery Status
+### Firestore Integration with Capital Share Tracking and Enhanced Delivery Status
 The system provides comprehensive certificate data management with investment information and delivery status tracking:
 
 **Certificate Storage**:
@@ -656,6 +732,15 @@ The system provides comprehensive certificate data management with investment in
 - Timestamp preservation for delivery confirmation
 - Error handling and recovery for delivery failures
 - Integration with notification system for comprehensive tracking
+- Comprehensive logging for all delivery attempts
+
+**Enhanced Error Handling**:
+- Comprehensive error handling for all Firestore operations
+- Detailed error messages with specific failure points
+- Graceful degradation when Firestore is unavailable
+- User-friendly error messages with resolution steps
+- Logging of all certificate operations for debugging
+- Recovery mechanisms for partial failures
 
 **Section sources**
 - [certificateService.ts:236-286](file://lib/certificateService.ts#L236-L286)
@@ -683,6 +768,13 @@ The enhanced system exhibits clear boundaries and focused dependencies with capi
 - Member registration integrates with certificate generation workflow, capital share data, and notification system
 - Firestore collections support certificate tracking, member data, investment records, and delivery status
 
+**Enhanced Error Handling Dependencies**:
+- Toast notification system for user feedback
+- Comprehensive error handling throughout all components
+- Graceful degradation mechanisms for service failures
+- Logging infrastructure for debugging and monitoring
+- User-friendly error messages and resolution guidance
+
 ```mermaid
 graph LR
 Preview["CertificatePreviewModal.tsx"] --> HTML2["html2canvas"]
@@ -690,30 +782,36 @@ Preview --> JSPDF["jsPDF"]
 Preview --> FS["Firestore"]
 Preview --> CapitalShare["Capital Share Data"]
 Preview --> Notifications["Notification System"]
+Preview --> Toast["Toast Notification System"]
 Service["certificateService.ts"] --> JS["jsPDF"]
 Service --> FS
 Service --> ProdURL["Production URL Handler<br/>sampacoop-system.vercel.app"]
 Service --> CapitalShare
 Service --> EmailIntegration["Email Notification Integration"]
+Service --> ErrorHandler["Enhanced Error Handling"]
 API["/api/certificate/[memberId]/route.ts"] --> FS
 API --> HTTPS["HTTPS Protocol"]
 API --> CapitalShare
+API --> ErrorHandler
 MemberDetails["MemberDetailsModal.tsx"] --> API
 MemberDetails --> CapitalShare
 MemberDetails --> Notifications
+MemberDetails --> Toast
 MemberRegistration["MemberRegistrationModal.tsx"] --> CapitalShare
 Email["emailService.ts"] --> Service
 Email --> FS
 Email --> ProdEmail["Production Email URLs<br/>sampacoop-system.vercel.app"]
 Email --> StatusTracking["Delivery Status Tracking"]
+Email --> ErrorHandler
 Types["member.ts"] --> Service
 Types --> API
 Types --> MemberDetails
 Types --> MemberRegistration
+ErrorHandler --> Toast
 ```
 
 **Diagram sources**
-- [CertificatePreviewModal.tsx:1-672](file://components/admin/CertificatePreviewModal.tsx#L1-L672)
+- [CertificatePreviewModal.tsx:1-661](file://components/admin/CertificatePreviewModal.tsx#L1-L661)
 - [certificateService.ts:12-410](file://lib/certificateService.ts#L12-L410)
 - [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
 - [MemberDetailsModal.tsx:232-389](file://components/admin/MemberDetailsModal.tsx#L232-L389)
@@ -722,7 +820,7 @@ Types --> MemberRegistration
 - [member.ts:27-68](file://lib/types/member.ts#L27-L68)
 
 **Section sources**
-- [CertificatePreviewModal.tsx:1-672](file://components/admin/CertificatePreviewModal.tsx#L1-L672)
+- [CertificatePreviewModal.tsx:1-661](file://components/admin/CertificatePreviewModal.tsx#L1-L661)
 - [certificateService.ts:12-410](file://lib/certificateService.ts#L12-L410)
 - [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
 - [MemberDetailsModal.tsx:232-389](file://components/admin/MemberDetailsModal.tsx#L232-L389)
@@ -740,6 +838,7 @@ Enhanced performance considerations for the comprehensive certificate system wit
 - Asynchronous processing for email notifications with investment data
 - Efficient Firestore queries with selective field retrieval including capital share data
 - Enhanced notification system performance with delivery status tracking
+- Comprehensive error handling with minimal performance impact
 
 **Storage Optimization**:
 - Separate collections for different certificate types with investment tracking
@@ -764,6 +863,7 @@ Enhanced performance considerations for the comprehensive certificate system wit
 - Error boundaries prevent system-wide failures including investment data errors
 - Capital share input validation and formatting optimization
 - Enhanced notification system provides immediate user feedback for certificate delivery
+- Comprehensive toast notification system for all user interactions
 
 **Enhanced Rendering Performance**:
 - html2canvas efficient image capture with optimized scaling and investment display
@@ -773,6 +873,7 @@ Enhanced performance considerations for the comprehensive certificate system wit
 - Popup blocking detection with graceful fallback handling including investment display
 - Investment amount optimization for both screen and print output
 - Notification system integration optimization for real-time delivery status updates
+- Comprehensive error handling with minimal performance impact
 
 **Production URL Performance**:
 - HTTPS protocol ensures secure certificate delivery with investment information
@@ -797,6 +898,15 @@ Enhanced performance considerations for the comprehensive certificate system wit
 - Error handling and recovery optimization for notification failures
 - Integration with certificate storage for efficient data access
 - User feedback optimization for notification delivery confirmation
+- Comprehensive error handling with minimal performance impact
+
+**Enhanced Error Handling Performance**:
+- Efficient error handling with minimal performance impact
+- User-friendly error messages with resolution steps
+- Graceful degradation when services are unavailable
+- Logging infrastructure for debugging without performance impact
+- Recovery mechanisms for partial failures
+- Comprehensive error handling throughout the system
 
 **Section sources**
 - [CertificatePreviewModal.tsx:170-323](file://components/admin/CertificatePreviewModal.tsx#L170-L323)
@@ -813,6 +923,8 @@ Comprehensive troubleshooting for the enhanced certificate system with capital s
 - PDF generation failures: Verify jsPDF configuration, image capture quality, and investment display rendering
 - Capital share not displaying: Check member capital share data, formatting, and display logic
 - Notification system not working: Verify email configuration, production URL handling, and delivery status tracking
+- Toast notifications not appearing: Check react-hot-toast configuration and import statements
+- Loading states not showing: Verify isGenerating prop and loading state management
 
 **Certificate Generation Issues**:
 - Member not found: Verify member ID and Firestore membership document existence
@@ -821,6 +933,7 @@ Comprehensive troubleshooting for the enhanced certificate system with capital s
 - Validation errors: Review certificate data format, required field validation, and investment amount validation
 - Capital share processing errors: Verify investment amount formatting and processing logic
 - Email notification failures: Check EmailJS configuration, production URL generation, and delivery status tracking
+- Error handling not working: Verify error boundaries and toast notification integration
 
 **PDF Generation Issues**:
 - Certificate PDF generation failures: Verify jsPDF template rendering, base64 encoding, and investment data inclusion
@@ -828,6 +941,7 @@ Comprehensive troubleshooting for the enhanced certificate system with capital s
 - Quality issues: Adjust jsPDF compression settings, rendering parameters, and investment display optimization
 - Investment display issues: Check currency formatting, positioning, and display optimization
 - Production URL generation issues: Verify domain configuration and URL generation logic
+- Error handling for PDF generation: Check error boundaries and user feedback mechanisms
 
 **Email Delivery Problems**:
 - EmailJS configuration: Verify public key, service ID, and template ID setup
@@ -836,6 +950,7 @@ Comprehensive troubleshooting for the enhanced certificate system with capital s
 - Tracking errors: Ensure Firestore write permissions for member_certificates collection with investment data
 - Production URL errors: Verify domain configuration and URL generation for certificate downloads
 - Delivery status tracking failures: Check Firestore permissions and status update logic
+- Error handling for email delivery: Verify error boundaries and user feedback mechanisms
 
 **API and Integration Issues**:
 - Certificate retrieval failures: Verify certificate data URL format, base64 encoding, and investment data format
@@ -844,6 +959,7 @@ Comprehensive troubleshooting for the enhanced certificate system with capital s
 - HTTPS protocol errors: Verify SSL certificate and HTTPS configuration
 - Investment data retrieval issues: Check capital share data format and retrieval logic
 - Notification system integration issues: Verify email service integration and delivery status tracking
+- Error handling for API failures: Check error boundaries and user feedback mechanisms
 
 **Production URL Issues**:
 - Development vs Production URL conflicts: Check `window.location.origin` vs hardcoded Vercel URL
@@ -851,6 +967,7 @@ Comprehensive troubleshooting for the enhanced certificate system with capital s
 - Environment detection failures: Verify production environment detection logic
 - Fallback URL errors: Check hardcoded Vercel URL accessibility using 'sampacoop-system.vercel.app'
 - Domain configuration errors: Verify production domain setup for certificate downloads
+- Error handling for URL generation: Check error boundaries and user feedback mechanisms
 
 **Capital Share Integration Issues**:
 - Capital share not captured: Verify member registration form and capital share input
@@ -859,6 +976,7 @@ Comprehensive troubleshooting for the enhanced certificate system with capital s
 - Investment display optimization issues: Check investment amount positioning and sizing
 - Capital share storage and retrieval problems: Verify Firestore integration and data persistence
 - Investment data tracking failures: Check Firestore permissions and data synchronization
+- Error handling for capital share processing: Check error boundaries and user feedback mechanisms
 
 **Enhanced Notification System Issues**:
 - Notification not sending: Verify EmailJS configuration and production URL handling
@@ -867,6 +985,15 @@ Comprehensive troubleshooting for the enhanced certificate system with capital s
 - Email template integration issues: Check template variables and investment data inclusion
 - Delivery confirmation failures: Verify notification system integration and user feedback
 - Error handling and recovery issues: Check notification system error handling and recovery mechanisms
+- Toast notification failures: Verify react-hot-toast configuration and integration
+
+**Enhanced Error Handling Issues**:
+- Error boundaries not working: Verify error boundary implementation and integration
+- Toast notifications not appearing: Check react-hot-toast configuration and import statements
+- User feedback not provided: Verify error handling implementation and user feedback mechanisms
+- Logging not working: Check console logging and error tracking implementation
+- Recovery mechanisms failing: Verify error recovery implementation and user guidance
+- Performance impact from error handling: Check error handling efficiency and optimization
 
 **Operational Checks**:
 - Validate EmailJS configuration and environment variables
@@ -888,6 +1015,9 @@ Comprehensive troubleshooting for the enhanced certificate system with capital s
 - Check delivery status tracking and production URL handling
 - Validate email template integration and investment data inclusion
 - Test notification system error handling and recovery mechanisms
+- Verify enhanced error handling throughout the system
+- Test toast notification system for all user interactions
+- Verify graceful degradation when services are unavailable
 
 **Section sources**
 - [CertificatePreviewModal.tsx:170-323](file://components/admin/CertificatePreviewModal.tsx#L170-L323)
@@ -898,9 +1028,11 @@ Comprehensive troubleshooting for the enhanced certificate system with capital s
 - [firebase.ts:90-113](file://lib/firebase.ts#L90-L113)
 
 ## Conclusion
-The enhanced Certificate Generation System provides a comprehensive, scalable solution for producing share certificates for cooperative members with integrated capital share information and automatic notification email functionality. The system features a sophisticated preview modal with real-time certificate generation, interactive editing capabilities, seamless integration with the member management system, dynamic capital share display, and automatic notification system integration. The enhanced frontend provides certificate display and management through MemberDetailsModal, integrating seamlessly with the member management system, investment tracking, and notification status tracking. The system's comprehensive architecture maintains robust certificate generation, storage, and delivery capabilities while introducing advanced user interaction features, production-ready URL handling for Vercel deployment, comprehensive capital share integration for displaying member investment levels, and automatic notification email delivery ensuring members receive immediate confirmation when certificates are successfully generated and ready for download.
+The enhanced Certificate Generation System provides a comprehensive, scalable solution for producing share certificates for cooperative members with integrated capital share information and automatic notification email functionality. The system features a sophisticated preview modal with real-time certificate generation, interactive editing capabilities, seamless integration with the member management system, dynamic capital share display, and automatic notification system integration with comprehensive error handling and user feedback mechanisms. The enhanced frontend provides certificate display and management through MemberDetailsModal, integrating seamlessly with the member management system, investment tracking, and notification status tracking. The system's comprehensive architecture maintains robust certificate generation, storage, and delivery capabilities while introducing advanced user interaction features, production-ready URL handling for Vercel deployment, comprehensive capital share integration for displaying member investment levels, and automatic notification email delivery ensuring members receive immediate confirmation when certificates are successfully generated and ready for download.
 
-The recent update ensures proper certificate delivery in live environments by implementing production-safe URL generation with HTTPS protocol support using the corrected 'sampacoop-system.vercel.app' domain, while maintaining backward compatibility for development environments. The integration of automatic notification email functionality enables immediate member confirmation when certificates are generated, with comprehensive delivery status tracking and production-ready URL handling. The integration of capital share information enables dynamic display of member investment levels on certificates, providing a complete financial representation of member ownership within the cooperative structure. Extending the system to support additional certificate types involves adding new generation functions, templates, and API routes while reusing the existing storage, delivery, validation patterns, production URL handling mechanisms, capital share integration capabilities, and automatic notification email system.
+The recent update ensures proper certificate delivery in live environments by implementing production-safe URL generation with HTTPS protocol support using the corrected 'sampacoop-system.vercel.app' domain, while maintaining backward compatibility for development environments. The integration of automatic notification email functionality enables immediate member confirmation when certificates are generated, with comprehensive delivery status tracking and production-ready URL handling. The integration of capital share information enables dynamic display of member investment levels on certificates, providing a complete financial representation of member ownership within the cooperative structure. Extending the system to support additional certificate types involves adding new generation functions, templates, and API routes while reusing the existing storage, delivery, validation patterns, production URL handling mechanisms, capital share integration capabilities, and automatic notification email system with enhanced error handling.
+
+The enhanced certificate generation workflow now includes comprehensive error handling throughout the entire process, from initial certificate preview to final delivery, with user-friendly feedback mechanisms and graceful degradation when services are unavailable. The system's robust architecture ensures reliable certificate generation and delivery while providing excellent user experience through comprehensive toast notifications, loading states, and confirmation dialogs.
 
 ## Appendices
 
@@ -911,6 +1043,7 @@ The recent update ensures proper certificate delivery in live environments by im
 - Comprehensive shareholding information and transfer restrictions with investment amount display
 - Dynamic capital share integration from member registration to certificate display
 - Automatic notification email delivery upon generation completion
+- Comprehensive error handling and user feedback mechanisms
 
 **Implementation Pattern**:
 - Add new generation functions mirroring existing certificate workflows with capital share processing
@@ -919,6 +1052,7 @@ The recent update ensures proper certificate delivery in live environments by im
 - Implement specialized preview modals for complex certificate types with investment display
 - Integrate capital share data processing and formatting for all certificate types
 - Add notification system integration for automatic email delivery
+- Implement comprehensive error handling and user feedback mechanisms
 
 ### Customization Options
 **Template Customization**:
@@ -940,6 +1074,7 @@ The recent update ensures proper certificate delivery in live environments by im
 - Mobile-responsive certificate viewing and downloading with investment display
 - Investment data export and reporting capabilities
 - Enhanced notification system integration for delivery status tracking
+- Comprehensive error handling and user feedback mechanisms
 
 **Security and Validation**:
 - Comprehensive input validation and sanitization including investment amount validation
@@ -948,6 +1083,7 @@ The recent update ensures proper certificate delivery in live environments by im
 - Digital signature placeholders for authenticity with investment verification
 - Investment data security and privacy protection measures
 - Enhanced notification system security and validation
+- Comprehensive error handling throughout the system
 
 **Enhanced User Interface Features**:
 - Real-time certificate preview with html2canvas rendering and investment display
@@ -960,6 +1096,9 @@ The recent update ensures proper certificate delivery in live environments by im
 - Production-ready URL handling for certificate downloads using corrected domain
 - Capital share input validation and formatting optimization
 - Enhanced notification system with delivery status tracking and user feedback
+- Comprehensive toast notification system for all user interactions
+- Graceful degradation when services are unavailable
+- Error boundaries preventing system-wide failures
 
 **Advanced Rendering Features**:
 - jsPDF conversion with precise A4 dimensions and investment positioning
@@ -970,6 +1109,7 @@ The recent update ensures proper certificate delivery in live environments by im
 - Automatic popup blocking detection and user guidance with investment display
 - HTTPS protocol support for secure certificate delivery with investment information
 - Enhanced notification system integration for real-time delivery status updates
+- Comprehensive error handling with minimal performance impact
 
 **Production Deployment Features**:
 - Environment-aware URL generation using `window.location.origin`
@@ -979,6 +1119,7 @@ The recent update ensures proper certificate delivery in live environments by im
 - Mixed content prevention for secure certificate links using correct domain
 - Investment data caching and optimization for production environments
 - Enhanced notification system deployment with production URL handling
+- Comprehensive error handling for production environments
 
 **Capital Share Integration Features**:
 - Dynamic capital share capture from member registration
@@ -989,6 +1130,7 @@ The recent update ensures proper certificate delivery in live environments by im
 - Investment amount optimization for different display contexts
 - Capital share security and privacy protection measures
 - Delivery status tracking for investment-related operations
+- Comprehensive error handling for capital share processing
 
 **Enhanced Notification System Features**:
 - Automatic email notification upon certificate generation completion
@@ -999,8 +1141,20 @@ The recent update ensures proper certificate delivery in live environments by im
 - User feedback system for notification delivery confirmation
 - Enhanced notification system security and validation
 - Delivery status recovery and error handling mechanisms
+- Comprehensive error handling throughout the notification workflow
+
+**Enhanced Error Handling Features**:
+- Comprehensive error handling throughout the entire certificate generation workflow
+- User-friendly error messages with actionable guidance
+- Graceful degradation when services are unavailable
+- Loading states and progress indicators for long-running operations
+- Toast notification system for all user interactions
+- Error boundaries preventing system-wide failures
+- Logging infrastructure for debugging and monitoring
+- Recovery mechanisms for partial failures
+- Performance optimization for error handling operations
 
 **Section sources**
-- [CertificatePreviewModal.tsx:1-672](file://components/admin/CertificatePreviewModal.tsx#L1-L672)
+- [CertificatePreviewModal.tsx:1-661](file://components/admin/CertificatePreviewModal.tsx#L1-L661)
 - [certificateService.ts:12-277](file://lib/certificateService.ts#L12-L277)
 - [emailService.ts:178-213](file://lib/emailService.ts#L178-L213)

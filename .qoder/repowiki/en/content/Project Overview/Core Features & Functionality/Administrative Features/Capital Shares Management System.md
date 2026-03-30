@@ -16,7 +16,6 @@
 - [lib/certificateService.ts](file://lib/certificateService.ts)
 - [app/api/members/route.ts](file://app/api/members/route.ts)
 - [lib/auth.tsx](file://lib/auth.tsx)
-- [lib/userMemberService.ts](file://lib/userMemberService.ts)
 - [app/dashboard/page.tsx](file://app/dashboard/page.tsx)
 - [app/loan/page.tsx](file://app/loan/page.tsx)
 - [middleware.ts](file://middleware.ts)
@@ -24,12 +23,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced capital share configuration system with centralized system settings management
-- Implemented maximum capital share limits enforcement with real-time validation
-- Improved validation logic with dynamic capital share amount configuration
-- Added comprehensive capital share management interface with real-time system integration
-- Enhanced member registration workflow with configurable capital share requirements
-- Integrated real-time validation and currency formatting throughout the capital share workflow
+- Enhanced capital shares payment system with comprehensive input validation (₱100 minimum, ₱10,000 maximum), dynamic currency formatting with thousands separators, color-coded border feedback, real-time transaction refresh, and improved member registration workflow with dynamic validation based on system settings
+- Implemented real-time currency formatting throughout the payment workflow with automatic thousand separators and decimal precision
+- Added comprehensive input validation with immediate visual feedback including red/green border validation and contextual error messaging
+- Enhanced member registration with dynamic capital share validation based on system settings with real-time maximum amount enforcement
+- Improved loan application restrictions with real-time capital share status monitoring and automatic form disabling
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -53,7 +51,7 @@
 
 The Capital Shares Management System is a comprehensive cooperative management platform built with Next.js and Firebase. This system manages member capital shares, financial transactions, member registration, and administrative workflows for SAMPA Transport Service Cooperative. The platform provides a centralized solution for managing cooperative member relationships, financial obligations, and operational activities.
 
-**Updated** The system has been significantly enhanced with a comprehensive capital share configuration system that allows administrators to dynamically set and manage capital share requirements through centralized system settings. The new implementation features real-time validation, configurable capital share limits, and enhanced member registration workflow with dynamic validation based on system policies.
+**Updated** The system has been significantly enhanced with a comprehensive capital share configuration system that allows administrators to dynamically set and manage capital share requirements through centralized system settings. The new implementation features real-time validation, configurable capital share limits, and enhanced member registration workflow with dynamic validation based on system policies. Key improvements include real-time currency formatting, comprehensive input validation (₱100-₱10,000), dynamic maximum amount calculation, color-coded borders, and immediate visual feedback throughout the payment workflow.
 
 ## System Architecture
 
@@ -74,6 +72,10 @@ LoanInterface[Loan Application Interface]
 AdminCapitalShares[Admin Capital Shares Interface]
 MemberModal[Member Payment Modal]
 TransactionTracking[Transaction Tracking]
+RealTimeValidation[Real-Time Validation]
+CurrencyFormatting[Currency Formatting]
+InputValidation[Input Validation]
+ColorFeedback[Color-Coded Feedback]
 end
 subgraph "Real-Time Monitoring"
 RealTime[Real-Time Listeners]
@@ -128,6 +130,10 @@ API --> Email
 Components --> PDF
 Components --> Validation
 Components --> Toast
+Components --> RealTimeValidation
+Components --> CurrencyFormatting
+Components --> InputValidation
+Components --> ColorFeedback
 Firestore --> Collections
 Collections --> Subcollections
 Subcollections --> PaymentInfo
@@ -139,10 +145,10 @@ SystemSettingsDoc --> SystemSettings
 - [lib/firebase.ts:1-384](file://lib/firebase.ts#L1-384)
 - [lib/auth.tsx:1-706](file://lib/auth.tsx#L1-706)
 - [lib/rolePermissions.tsx:1-226](file://lib/rolePermissions.tsx#L1-226)
-- [hooks/useCapitalShare.ts:1-115](file://hooks/useCapitalShare.ts#L1-115)
+- [hooks/useCapitalShare.ts:1-143](file://hooks/useCapitalShare.ts#L1-143)
 - [lib/settingsService.ts:1-56](file://lib/settingsService.ts#L1-56)
 - [app/admin/settings/system/page.tsx:1-873](file://app/admin/settings/system/page.tsx#L1-873)
-- [components/admin/MemberRegistrationModal.tsx:1500-1699](file://components/admin/MemberRegistrationModal.tsx#L1500-1699)
+- [components/admin/MemberRegistrationModal.tsx:1500-1734](file://components/admin/MemberRegistrationModal.tsx#L1500-1734)
 
 The architecture consists of several key layers with enhanced real-time monitoring and centralized configuration management:
 
@@ -154,11 +160,12 @@ The architecture consists of several key layers with enhanced real-time monitori
 - **Security Layer**: Authentication and authorization mechanisms with dynamic restrictions
 - **Integration Layer**: Email services, external libraries, and notification systems
 - **Payment Processing Layer**: Modal-based payment management with transaction tracking and member-specific collections
+- **Enhanced Validation Layer**: Real-time input validation with currency formatting and visual feedback
 
 **Section sources**
 - [lib/firebase.ts:1-384](file://lib/firebase.ts#L1-384)
 - [lib/auth.tsx:1-706](file://lib/auth.tsx#L1-706)
-- [hooks/useCapitalShare.ts:1-115](file://hooks/useCapitalShare.ts#L1-115)
+- [hooks/useCapitalShare.ts:1-143](file://hooks/useCapitalShare.ts#L1-143)
 - [lib/settingsService.ts:1-56](file://lib/settingsService.ts#L1-56)
 
 ## Core Components
@@ -297,6 +304,10 @@ LoanInterface --> CapitalShareRestrictions[Capital Share Restrictions]
 MemberModal --> PaymentProcessing[Payment Processing Engine]
 MemberModal --> TransactionTracking[Transaction Tracking]
 MemberModal --> MemberCollections[Member Collections]
+MemberModal --> RealTimeValidation[Real-Time Validation]
+MemberModal --> CurrencyFormatting[Currency Formatting]
+MemberModal --> InputValidation[Input Validation]
+MemberModal --> ColorFeedback[Color-Coded Feedback]
 ```
 
 **Diagram sources**
@@ -310,7 +321,7 @@ MemberModal --> MemberCollections[Member Collections]
 **Section sources**
 - [lib/types/savings.ts:1-22](file://lib/types/savings.ts#L1-22)
 - [app/admin/dashboard/page.tsx:88-796](file://app/admin/dashboard/page.tsx#L88-796)
-- [hooks/useCapitalShare.ts:1-115](file://hooks/useCapitalShare.ts#L1-115)
+- [hooks/useCapitalShare.ts:1-143](file://hooks/useCapitalShare.ts#L1-143)
 - [lib/settingsService.ts:1-56](file://lib/settingsService.ts#L1-56)
 
 ## Capital Shares Management
@@ -397,9 +408,37 @@ The capital shares table now displays four additional columns for comprehensive 
 
 **Updated** The table now includes color-coded visual indicators that provide immediate financial insight, with red text for outstanding balances and green text for fully paid amounts, all updated in real-time through the useCapitalShare hook. Each row now includes a payment button for quick transaction recording.
 
+### Real-Time Currency Formatting and Input Validation
+
+**New Feature** The system now features comprehensive real-time currency formatting and input validation throughout the payment workflow:
+
+#### Currency Input Formatting
+- **Real-time formatting**: Amounts automatically formatted with thousand separators and decimal precision
+- **Currency symbol integration**: PHP peso symbol (₱) displayed consistently across all inputs
+- **Decimal validation**: Automatic limiting to 2 decimal places with proper rounding
+- **Range validation**: Input validation for minimum (₱100) and maximum (₱10,000) amounts
+
+#### Dynamic Maximum Amount Calculation
+- **Remaining balance calculation**: Maximum payment amount dynamically calculated based on outstanding balance
+- **Real-time enforcement**: Input automatically limited to remaining balance amount
+- **Visual feedback**: Immediate indication of maximum allowable amount
+- **Error prevention**: Prevention of overpayments and invalid amounts
+
+#### Color-Coded Border Feedback
+- **Green borders**: Valid input states with proper formatting
+- **Red borders**: Invalid input states with validation errors
+- **Background highlighting**: Error states with light red background for emphasis
+- **Immediate visual cues**: Real-time border color changes as user types
+
+#### Immediate Visual Feedback
+- **Real-time validation**: Instant validation feedback as users type
+- **Error messaging**: Clear, specific error messages for validation failures
+- **Success indicators**: Visual confirmation for successful validations
+- **Progressive disclosure**: Contextual help and guidance based on current state
+
 **Section sources**
 - [app/admin/capital-shares/page.tsx:18-313](file://app/admin/capital-shares/page.tsx#L18-313)
-- [hooks/useCapitalShare.ts:22-92](file://hooks/useCapitalShare.ts#L22-92)
+- [hooks/useCapitalShare.ts:22-143](file://hooks/useCapitalShare.ts#L22-143)
 
 ## System Settings Configuration
 
@@ -540,6 +579,34 @@ UpdateDisplay --> End
 
 **Diagram sources**
 - [components/admin/MemberRegistrationModal.tsx:1562-1610](file://components/admin/MemberRegistrationModal.tsx#L1562-1610)
+
+### Enhanced Input Validation with Real-Time Feedback
+
+**New Feature** The member registration system now features comprehensive real-time validation with immediate visual feedback:
+
+#### Real-Time Currency Formatting
+- **Automatic formatting**: Numbers automatically formatted with thousand separators
+- **Currency symbol display**: PHP peso symbol (₱) shown consistently
+- **Decimal precision**: Automatic limiting to 2 decimal places
+- **Input sanitization**: Non-numeric characters automatically removed
+
+#### Dynamic Maximum Validation
+- **System settings integration**: Maximum capital share amount from system settings
+- **Real-time calculation**: Maximum amount dynamically calculated based on remaining balance
+- **Immediate enforcement**: Input automatically limited to valid range
+- **Visual boundary indication**: Clear indication of maximum allowable amount
+
+#### Color-Coded Visual Feedback
+- **Green validation**: Valid input with proper formatting
+- **Red validation**: Invalid input with error state
+- **Background highlighting**: Error states with light red background
+- **Border color changes**: Immediate visual feedback as user types
+
+#### Immediate Error Messaging
+- **Specific error messages**: Clear, actionable error messages
+- **Contextual guidance**: Help text based on current validation state
+- **Progressive disclosure**: Additional guidance revealed as needed
+- **Success confirmation**: Visual confirmation for valid inputs
 
 ### User-Member Linkage System
 
@@ -913,7 +980,7 @@ UpdateStatus --> UpdateUI
 ```
 
 **Diagram sources**
-- [hooks/useCapitalShare.ts:24-112](file://hooks/useCapitalShare.ts#L24-112)
+- [hooks/useCapitalShare.ts:24-143](file://hooks/useCapitalShare.ts#L24-143)
 
 ### Real-Time Dashboard Integration
 
@@ -949,7 +1016,7 @@ The real-time monitoring system provides comprehensive capital share tracking wi
 **Updated** The real-time monitoring system ensures that all capital share status changes are immediately reflected across the entire system, providing users with accurate, up-to-date information about their financial obligations. The new modal interface provides comprehensive transaction tracking with real-time updates.
 
 **Section sources**
-- [hooks/useCapitalShare.ts:1-115](file://hooks/useCapitalShare.ts#L1-115)
+- [hooks/useCapitalShare.ts:1-143](file://hooks/useCapitalShare.ts#L1-143)
 - [app/dashboard/page.tsx:530-729](file://app/dashboard/page.tsx#L530-729)
 
 ## Loan Application Restrictions
@@ -1100,6 +1167,14 @@ The frontend implements performance best practices with enhanced UI components a
 - **Issue**: Capital share amounts exceeding system limits not being validated
 - **Solution**: Verify systemSettingsService integration, check real-time validation logic, confirm error handling
 
+**Enhanced Input Validation Issues**
+- **Issue**: Real-time currency formatting not working properly
+- **Solution**: Verify formatCurrencyInput function, check handlePaymentAmountChange logic, confirm error state management
+
+**Color-Coded Feedback Issues**
+- **Issue**: Input validation borders not changing color
+- **Solution**: Verify amountError state handling, check CSS class binding logic, confirm real-time state updates
+
 **Section sources**
 - [lib/auth.tsx:366-372](file://lib/auth.tsx#L366-372)
 - [lib/userMemberService.ts:101-200](file://lib/userMemberService.ts#L101-200)
@@ -1123,6 +1198,10 @@ The Capital Shares Management System provides a comprehensive solution for coope
 - **Real-Time Transaction Updates**: Live updates of payment history and status changes
 - **Member-Specific Collections**: Efficient querying and management of individual member transactions
 - **System Settings Integration**: Real-time adaptation to configuration changes across all system components
+- **Real-Time Currency Formatting**: Comprehensive currency formatting with automatic thousand separators and decimal precision
+- **Comprehensive Input Validation**: Dynamic maximum amount calculation with ₱100-₱10,000 validation limits
+- **Color-Coded Borders**: Immediate visual feedback with green/red borders for valid/invalid input states
+- **Immediate Visual Feedback**: Real-time validation errors and success indicators throughout the payment workflow
 
 Key strengths of the system include:
 
@@ -1137,5 +1216,8 @@ Key strengths of the system include:
 - **Efficient Data Management**: Member-specific collections enable scalable transaction management
 - **Seamless Integration**: Cohesive experience across all system interfaces with real-time synchronization
 - **Centralized Policy Management**: Single source of truth for all financial policies and requirements
+- **Enhanced Input Validation**: Comprehensive real-time validation prevents errors and improves data quality
+- **Professional User Interface**: Color-coded feedback and immediate visual cues enhance user experience
+- **Robust Error Handling**: Comprehensive error handling with clear user-friendly messages
 
 The system provides a solid foundation for SAMPA Transport Service Cooperative's operational needs while maintaining flexibility for future enhancements and feature additions. The enhanced capital share management capabilities ensure fair treatment of all members while providing administrators with comprehensive tools for financial oversight and reporting. The real-time monitoring and dynamic restriction features create a seamless user experience that promotes compliance and financial responsibility among cooperative members. The new modal-based payment management system with transaction tracking provides administrators with complete visibility into member financial activities while maintaining data integrity and security.

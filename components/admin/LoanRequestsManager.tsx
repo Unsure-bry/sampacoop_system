@@ -731,7 +731,7 @@ export default function LoanRequestsManager() {
                         planName: request.planName || 'General Loan',
                         amount: request.amount,
                         term: request.term,
-                        interestRate: 5, // Default interest rate, will be fetched from plan
+                        interestRate: request.interestRate || 3, // Use interest rate from loan request (stored at time of application)
                         borrowerName: fullName,
                         borrowerRole: request.role || 'Member',
                         email: request.email || ''

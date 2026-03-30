@@ -29,13 +29,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced dashboard with unified overview across all tabs (Members, Savings, Loans, Capital Shares) replacing individual tab-specific analytics
-- Added new chart implementations including Members Overview, Savings Overview, Loans Overview, and Capital Shares Overview sections with enhanced data visualization
-- Updated ReportsAndAnalytics component to include total capital shares and total loans metrics
-- Enhanced Admin Dashboard with unified metrics visualization system
-- Updated Reports Page with unified overview functionality and enhanced data visualization across all tabs
-- Improved color coding system with consistent blue (#3B82F6), green (#10B981), purple (#8B5CF6), and orange (#F59E0B) themes
-- Added comprehensive capital shares reporting with status distribution and payment analytics
+- Enhanced reporting capabilities with sophisticated chart types including bar charts for monthly trends, pie charts for status distributions, and line charts for historical data
+- Implemented advanced filtering with six-month date ranges and unified overview functionality across all reporting tabs
+- Expanded capital shares reporting with comprehensive payment analytics and status tracking
+- Added comprehensive historical data visualization with cumulative trend analysis
+- Enhanced unified overview system providing professional dashboard functionality across Members, Savings, Loans, and Capital Shares domains
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -49,9 +47,9 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the SAMPA Cooperative Management System's comprehensive reporting and analytics capabilities. The system now features an enhanced dashboard analytics system with advanced business intelligence capabilities for Board of Directors, Managers, and Secretaries, including real-time data visualization, interactive charts, savings leaderboards, comprehensive financial reporting with unified tabbed interfaces, and **enhanced unified overview functionality across all reporting tabs**.
+This document explains the SAMPA Cooperative Management System's comprehensive reporting and analytics capabilities. The system now features an enhanced dashboard analytics system with advanced business intelligence capabilities for Board of Directors, Managers, and Secretaries, including real-time data visualization, interactive charts, savings leaderboards, comprehensive financial reporting with unified tabbed interfaces, and enhanced unified overview functionality across all reporting tabs.
 
-**Enhanced Unified Overview System** provides sophisticated financial analytics through a comprehensive implementation with real-time data processing and interactive visualizations, now including **unified overview tabs with dedicated chart sections for Members, Savings, Loans, and Capital Shares**.
+**Enhanced Unified Overview System** provides sophisticated financial analytics through a comprehensive implementation with real-time data processing and interactive visualizations, now including unified overview tabs with dedicated chart sections for Members, Savings, Loans, and Capital Shares.
 
 Key capabilities include:
 - **Unified Tab Overview**: Comprehensive overview tab replacing individual tab-specific analytics with unified dashboard functionality
@@ -65,9 +63,10 @@ Key capabilities include:
 - **Real-time Data Processing**: Live calculation of financial indicators with responsive design and skeleton loading states
 - **Enhanced Color Coding**: Consistent blue, green, purple, and orange color scheme for improved data visualization
 - **Unified Overview Charts**: Professional chart sections for Members Overview, Savings Overview, Loans Overview, and Capital Shares Overview
+- **Historical Data Visualization**: Comprehensive monthly trend analysis with cumulative growth tracking
 
 ## Project Structure
-The enhanced reporting system consists of multiple complementary components integrated with supporting libraries and role-based navigation, now featuring **unified overview functionality across all reporting tabs**:
+The enhanced reporting system consists of multiple complementary components integrated with supporting libraries and role-based navigation, now featuring unified overview functionality across all reporting tabs:
 
 ```mermaid
 graph TB
@@ -119,34 +118,34 @@ UOS --> LR
 ```
 
 **Diagram sources**
-- [ReportsAndAnalytics Component:1-356](file://components/admin/ReportsAndAnalytics.tsx#L1-L356)
+- [ReportsAndAnalytics Component:1-508](file://components/admin/ReportsAndAnalytics.tsx#L1-L508)
 - [SavingsLeaderboard Component:1-213](file://components/admin/SavingsLeaderboard.tsx#L1-L213)
-- [Capital Shares Page:1-778](file://app/admin/capital-shares/page.tsx#L1-L778)
+- [Capital Shares Page:1-876](file://app/admin/capital-shares/page.tsx#L1-L876)
 - [useCapitalShare Hook:1-115](file://hooks/useCapitalShare.ts#L1-L115)
-- [Admin Dashboard:1-874](file://app/admin/dashboard/page.tsx#L1-L874)
+- [Admin Dashboard:1-969](file://app/admin/dashboard/page.tsx#L1-L969)
 - [BOD Dashboard:1-366](file://app/admin/bod/home/page.tsx#L1-L366)
 - [Manager Dashboard:1-673](file://app/admin/manager/home/page.tsx#L1-L673)
 - [Secretary Dashboard:1-663](file://app/admin/secretary/home/page.tsx#L1-L663)
 - [Dashboard Data Generator:1-468](file://app/admin/dashboard-data/page.tsx#L1-L468)
 - [Dashboard API Route:1-186](file://app/api/dashboard/initialize/route.ts#L1-L186)
-- [Reports Page:1-1238](file://app/admin/reports/page.tsx#L1-L1238)
+- [Reports Page:1-1572](file://app/admin/reports/page.tsx#L1-L1572)
 - [Activity Logger:1-165](file://lib/activityLogger.ts#L1-L165)
 - [User Action Tracker:1-118](file://lib/userActionTracker.ts#L1-L118)
 - [Firebase Utils:1-309](file://lib/firebase.ts#L1-L309)
 - [Package Dependencies:16-39](file://package.json#L16-L39)
 
 **Section sources**
-- [ReportsAndAnalytics Component:1-356](file://components/admin/ReportsAndAnalytics.tsx#L1-L356)
+- [ReportsAndAnalytics Component:1-508](file://components/admin/ReportsAndAnalytics.tsx#L1-L508)
 - [SavingsLeaderboard Component:1-213](file://components/admin/SavingsLeaderboard.tsx#L1-L213)
-- [Capital Shares Page:1-778](file://app/admin/capital-shares/page.tsx#L1-L778)
+- [Capital Shares Page:1-876](file://app/admin/capital-shares/page.tsx#L1-L876)
 - [useCapitalShare Hook:1-115](file://hooks/useCapitalShare.ts#L1-L115)
-- [Admin Dashboard:1-874](file://app/admin/dashboard/page.tsx#L1-L874)
+- [Admin Dashboard:1-969](file://app/admin/dashboard/page.tsx#L1-L969)
 - [BOD Dashboard:1-366](file://app/admin/bod/home/page.tsx#L1-L366)
 - [Manager Dashboard:1-673](file://app/admin/manager/home/page.tsx#L1-L673)
 - [Secretary Dashboard:1-663](file://app/admin/secretary/home/page.tsx#L1-L663)
 - [Dashboard Data Generator:1-468](file://app/admin/dashboard-data/page.tsx#L1-L468)
 - [Dashboard API Route:1-186](file://app/api/dashboard/initialize/route.ts#L1-L186)
-- [Reports Page:1-1238](file://app/admin/reports/page.tsx#L1-L1238)
+- [Reports Page:1-1572](file://app/admin/reports/page.tsx#L1-L1572)
 - [Activity Logger:1-165](file://lib/activityLogger.ts#L1-L165)
 - [User Action Tracker:1-118](file://lib/userActionTracker.ts#L1-L118)
 - [Firebase Utils:1-309](file://lib/firebase.ts#L1-L309)
@@ -155,7 +154,7 @@ UOS --> LR
 ## Core Components
 
 ### Enhanced ReportsAndAnalytics Component
-The flagship component provides comprehensive financial analytics with real-time data processing and advanced visualization capabilities, now including **unified metrics visualization system** with enhanced financial metrics.
+The flagship component provides comprehensive financial analytics with real-time data processing and advanced visualization capabilities, now including unified metrics visualization system with enhanced financial metrics.
 
 **Enhanced Features:**
 - **Unified Financial Metrics**: Live calculation of total members, total savings, total loans, and total capital shares with consistent color coding
@@ -170,9 +169,10 @@ The flagship component provides comprehensive financial analytics with real-time
 - **Loan Status Distribution**: Real-time breakdown of active, completed, pending, overdue, and rejected loans with color-coded visualization
 - **Financial Overview**: Comprehensive summary of receivables, pending approvals, and overdue payments with Lucide React icons
 - **Unified Metrics Visualization**: Consistent color coding system with blue (#3B82F6), green (#10B981), purple (#8B5CF6), and orange (#F59E0B) themes
+- **Historical Data Processing**: Comprehensive monthly trend analysis with cumulative growth tracking for all four domains
 
 ### Enhanced Admin Dashboard
-The comprehensive administrative dashboard that integrates multiple analytics components into a unified interface with **enhanced unified metrics visualization system**, now including capital shares management.
+The comprehensive administrative dashboard that integrates multiple analytics components into a unified interface with enhanced unified metrics visualization system, now including capital shares management.
 
 **Enhanced Features:**
 - **Unified Metrics Overview**: Professional bar chart visualization of total members, total savings, total loans, and capital shares with custom color coding
@@ -190,11 +190,11 @@ The comprehensive administrative dashboard that integrates multiple analytics co
 - **Interactive Tooltips**: Detailed tooltip formatting with currency display for monetary values
 
 ### Enhanced Reports Page
-The traditional Reports Page maintains backward compatibility while adding **enhanced unified overview functionality** across all tabs, now including comprehensive capital shares reporting with **unified overview sections**:
+The traditional Reports Page maintains backward compatibility while adding enhanced unified overview functionality across all tabs, now including comprehensive capital shares reporting with unified overview sections:
 
 **Enhanced Features:**
 - **Unified Overview Tab**: New Overview tab providing comprehensive dashboard functionality across all four main areas
-- **Enhanced Tabbed Interface**: Overview, Members, Savings, Loans, and Capital Shares tabs with **unified overview functionality**
+- **Enhanced Tabbed Interface**: Overview, Members, Savings, Loans, and Capital Shares tabs with unified overview functionality
 - **Advanced Filtering**: Date range and role-based filtering with real-time computation
 - **Printable Reports**: Comprehensive HTML print functionality with detailed styling and export options
 - **Data Visualization Placeholders**: Charts and graphs ready for implementation with Recharts integration
@@ -216,12 +216,12 @@ The traditional Reports Page maintains backward compatibility while adding **enh
 - **Status Breakdown Table**: Detailed table showing status counts and percentages
 
 **Section sources**
-- [ReportsAndAnalytics Component:31-356](file://components/admin/ReportsAndAnalytics.tsx#L31-L356)
+- [ReportsAndAnalytics Component:31-508](file://components/admin/ReportsAndAnalytics.tsx#L31-L508)
 - [Admin Dashboard:538-752](file://app/admin/dashboard/page.tsx#L538-L752)
 - [Reports Page:634-852](file://app/admin/reports/page.tsx#L634-L852)
 
 ## Architecture Overview
-The enhanced reporting system integrates modern dashboard components with traditional reporting interfaces, featuring **unified overview functionality across all reporting tabs** with real-time data visualization and comprehensive analytics through a sophisticated data processing pipeline with role-specific dashboards and **enhanced capital shares management**.
+The enhanced reporting system integrates modern dashboard components with traditional reporting interfaces, featuring unified overview functionality across all reporting tabs with real-time data visualization and comprehensive analytics through a sophisticated data processing pipeline with role-specific dashboards and enhanced capital shares management.
 
 ```mermaid
 sequenceDiagram
@@ -261,7 +261,7 @@ RP-->>U : Unified overview across all report tabs
 ## Detailed Component Analysis
 
 ### Enhanced Unified Overview System
-The unified overview system provides comprehensive dashboard functionality across all reporting tabs with **professional chart sections for each domain area**.
+The unified overview system provides comprehensive dashboard functionality across all reporting tabs with professional chart sections for each domain area.
 
 **Core Architecture:**
 - **Unified Dashboard Layout**: Professional key performance indicators with consistent color coding
@@ -301,14 +301,14 @@ PaymentStatus --> PieChart
 - [ReportsAndAnalytics Component:114-125](file://components/admin/ReportsAndAnalytics.tsx#L114-L125)
 
 ### Enhanced ReportsAndAnalytics Component
-The ReportsAndAnalytics component serves as the cornerstone of the enhanced reporting system, providing sophisticated financial analytics through a comprehensive implementation with **enhanced unified metrics visualization system** and advanced real-time data processing capabilities.
+The ReportsAndAnalytics component serves as the cornerstone of the enhanced reporting system, providing sophisticated financial analytics through a comprehensive implementation with enhanced unified metrics visualization system and advanced real-time data processing capabilities.
 
 **Enhanced Core Architecture:**
 - **State Management**: Manages dashboard statistics, monthly data, loan status data, loading states, and error handling
 - **Real-time Data Processing**: Fetches and processes data from Firestore collections with comprehensive error handling
-- **Enhanced Financial Calculations**: Performs complex calculations for receivables, loan status distributions, monthly trends, and **unified metrics processing**
+- **Enhanced Financial Calculations**: Performs complex calculations for receivables, loan status distributions, monthly trends, and unified metrics processing
 - **Responsive Design**: Implements mobile-first responsive layout with grid-based card system
-- **Advanced Visualization**: Integrates Recharts for professional-grade data visualization with **unified metrics support**
+- **Advanced Visualization**: Integrates Recharts for professional-grade data visualization with unified metrics support
 
 **Enhanced Data Processing Pipeline:**
 ```mermaid
@@ -342,12 +342,13 @@ Summary --> Ready["Dashboard Ready"]
 - **Loan Status Distribution**: Real-time breakdown of active, completed, pending, overdue, and rejected loans with color-coded visualization
 - **Financial Overview**: Comprehensive summary of receivables, pending approvals, and overdue payments with Lucide React icons
 - **Unified Metrics Processing**: Consistent color coding system with blue, green, purple, and orange themes for improved data visualization
+- **Historical Data Processing**: Comprehensive monthly trend analysis with cumulative growth tracking for all four domains
 
 **Section sources**
-- [ReportsAndAnalytics Component:31-356](file://components/admin/ReportsAndAnalytics.tsx#L31-L356)
+- [ReportsAndAnalytics Component:31-508](file://components/admin/ReportsAndAnalytics.tsx#L31-L508)
 
 ### Enhanced Admin Dashboard
-The comprehensive administrative dashboard that integrates multiple analytics components into a unified interface with **advanced unified metrics visualization system**, now including capital shares management.
+The comprehensive administrative dashboard that integrates multiple analytics components into a unified interface with enhanced unified metrics visualization system, now including capital shares management.
 
 **Enhanced Core Architecture:**
 - **Parallel Data Fetching**: Uses Promise.all for efficient data loading
@@ -392,11 +393,11 @@ Unified --> Render["Render Dashboard with Unified Visualization"]
 - [Admin Dashboard:170-556](file://app/admin/dashboard/page.tsx#L170-L556)
 
 ### Enhanced Reports Page
-The traditional Reports Page maintains backward compatibility while adding **enhanced unified overview functionality** across all tabs, now including comprehensive capital shares reporting with **unified overview sections**:
+The traditional Reports Page maintains backward compatibility while adding enhanced unified overview functionality across all tabs, now including comprehensive capital shares reporting with unified overview sections:
 
 **Enhanced Key Features:**
 - **Unified Overview Tab**: New Overview tab providing comprehensive dashboard functionality across all four main areas
-- **Enhanced Tabbed Interface**: Overview, Members, Savings, Loans, and Capital Shares tabs with **unified overview functionality**
+- **Enhanced Tabbed Interface**: Overview, Members, Savings, Loans, and Capital Shares tabs with unified overview functionality
 - **Advanced Filtering**: Date range and role-based filtering with real-time computation
 - **Printable Reports**: Comprehensive HTML print functionality with detailed styling and export options
 - **Data Visualization Placeholders**: Charts and graphs ready for implementation with Recharts integration
@@ -430,7 +431,7 @@ The traditional Reports Page maintains backward compatibility while adding **enh
 - [Reports Page:985-1099](file://app/admin/reports/page.tsx#L985-L1099)
 
 ### Enhanced SavingsLeaderboard Component
-The SavingsLeaderboard component provides an interactive ranking system for top savers with real-time updates and comprehensive filtering capabilities, now integrated with the **unified overview functionality**.
+The SavingsLeaderboard component provides an interactive ranking system for top savers with real-time updates and comprehensive filtering capabilities, now integrated with unified overview functionality.
 
 **Enhanced Core Architecture:**
 - **State Management**: Manages leaderboard data, loading states, and error handling
@@ -452,7 +453,7 @@ The SavingsLeaderboard component provides an interactive ranking system for top 
 - [SavingsLeaderboard Component:32-213](file://components/admin/SavingsLeaderboard.tsx#L32-L213)
 
 ### Enhanced Capital Shares Management System
-The Capital Shares Management System provides comprehensive tracking and reporting for member capital share payments, serving as a cornerstone of the enhanced reporting system with **enhanced unified overview functionality**.
+The Capital Shares Management System provides comprehensive tracking and reporting for member capital share payments, serving as a cornerstone of the enhanced reporting system with enhanced unified overview functionality.
 
 **Enhanced Core Architecture:**
 - **State Management**: Manages capital shares data, search filters, status filters, and loading states
@@ -461,7 +462,7 @@ The Capital Shares Management System provides comprehensive tracking and reporti
 - **Transaction Tracking**: Maintains detailed payment history with receipts and timestamps
 - **Individual Member View**: Provides detailed view of member capital shares with payment form integration
 - **Responsive Design**: Implements mobile-first responsive layout with grid-based card system
-- **Enhanced Visualization**: Integrates Recharts for professional-grade capital shares status visualization with **custom color coding**
+- **Enhanced Visualization**: Integrates Recharts for professional-grade capital shares status visualization with custom color coding
 
 **Enhanced Data Processing Pipeline:**
 ```mermaid
@@ -485,7 +486,7 @@ Update --> Reload["Reload Dashboard Data"]
 - **Payment History**: Complete transaction history with receipts and payment dates
 - **Individual Member Tracking**: Personalized capital shares view with payment form integration
 - **Search and Filter**: Advanced filtering by member name, ID, and status
-- **Enhanced Status Visualization**: Color-coded status indicators with progress tracking using **custom color coding**
+- **Enhanced Status Visualization**: Color-coded status indicators with progress tracking using custom color coding
 - **Transaction-based Analytics**: Accurate calculation based on actual payment transactions
 
 **Enhanced Data Processing Capabilities:**
@@ -495,10 +496,10 @@ Update --> Reload["Reload Dashboard Data"]
 - **Payment History**: Complete audit trail of all capital share transactions
 
 **Section sources**
-- [Capital Shares Page:31-778](file://app/admin/capital-shares/page.tsx#L31-L778)
+- [Capital Shares Page:31-876](file://app/admin/capital-shares/page.tsx#L31-L876)
 
 ### Enhanced useCapitalShare Hook
-The useCapitalShare hook provides individual member capital shares tracking and management capabilities, enabling personalized capital shares information retrieval with **enhanced integration** into the unified overview system.
+The useCapitalShare hook provides individual member capital shares tracking and management capabilities, enabling personalized capital shares information retrieval with enhanced integration into the unified overview system.
 
 **Enhanced Core Architecture:**
 - **State Management**: Manages capital shares information, loading states, and error handling
@@ -535,28 +536,28 @@ CalculateStatus --> ReturnData["Return Capital Shares Info"]
 - [useCapitalShare Hook:24-115](file://hooks/useCapitalShare.ts#L24-L115)
 
 ### Enhanced Role-specific Dashboards
-Enhanced dashboards tailored for different cooperative roles with specialized analytics and filtering capabilities, now including **enhanced unified overview functionality**.
+Enhanced dashboards tailored for different cooperative roles with specialized analytics and filtering capabilities, now including enhanced unified overview functionality.
 
 **Enhanced Board of Directors Dashboard:**
 - **Strategic Focus**: Emphasizes financial overview and savings leadership
 - **Business Metrics**: Displays total members, total loans, active loans, and total savings
 - **Savings Leadership**: Comprehensive leaderboard with all-time rankings
 - **Business Overview**: Bar chart visualization of key business metrics
-- **Enhanced Capital Shares Strategy**: Strategic view of capital shares status and distribution with **unified overview integration**
+- **Enhanced Capital Shares Strategy**: Strategic view of capital shares status and distribution with unified overview integration
 
 **Enhanced Manager Dashboard:**
 - **Operational Focus**: Emphasizes pending requests, active loans, and savings performance
 - **Interactive Filtering**: Savings leaderboard with monthly/yearly filtering options
 - **Real-time Metrics**: Live updates for pending requests and active loans
 - **Business Analytics**: Bar chart with member, loan, and savings metrics
-- **Enhanced Capital Shares Operations**: Operational view of capital shares tracking and management with **unified overview integration**
+- **Enhanced Capital Shares Operations**: Operational view of capital shares tracking and management with unified overview integration
 
 **Enhanced Secretary Dashboard:**
 - **Administrative Focus**: Emphasizes member records and loan requests
 - **Savings Performance**: Leaderboard with configurable filtering
 - **Business Overview**: Bar chart with operational metrics
 - **Navigation Integration**: Direct links to member and loan management pages
-- **Enhanced Capital Shares Administration**: Administrative view of capital shares management with **unified overview integration**
+- **Enhanced Capital Shares Administration**: Administrative view of capital shares management with unified overview integration
 
 **Section sources**
 - [BOD Dashboard:27-366](file://app/admin/bod/home/page.tsx#L27-L366)
@@ -564,7 +565,7 @@ Enhanced dashboards tailored for different cooperative roles with specialized an
 - [Secretary Dashboard:76-663](file://app/admin/secretary/home/page.tsx#L76-L663)
 
 ### Enhanced Activity Logging System
-The activity logging system provides comprehensive audit trail functionality with **enhanced integration** into the unified overview system.
+The activity logging system provides comprehensive audit trail functionality with enhanced integration into the unified overview system.
 
 **Enhanced Core Functionality:**
 - **Structured Logging**: Creates activity log entries with user metadata, action descriptions, and timestamps
@@ -600,7 +601,7 @@ ActivityLogger --> ActivityLog : "creates"
 - [Activity Logger:1-165](file://lib/activityLogger.ts#L1-L165)
 
 ### Enhanced User Action Tracking
-The user action tracker provides automated logging for system actions with **enhanced integration** into the unified overview system.
+The user action tracker provides automated logging for system actions with enhanced integration into the unified overview system.
 
 **Enhanced Core Functionality:**
 - **Automatic Logging**: Wraps actions with automatic logging and client info capture
@@ -627,7 +628,7 @@ UAT-->>C : boolean
 - [User Action Tracker:1-118](file://lib/userActionTracker.ts#L1-L118)
 
 ### Enhanced Role-Based Reporting Interfaces
-Role-specific dashboards and navigation enable tailored access, now including **enhanced unified overview functionality**:
+Role-specific dashboards and navigation enable tailored access, now including enhanced unified overview functionality:
 
 **Enhanced Core Functionality:**
 - **Role-based Sidebar Configuration**: Defines menu items and access paths for different cooperative roles
@@ -651,19 +652,19 @@ CapitalShares --> CAP["Capital Shares Page"]
 **Diagram sources**
 - [Role Sidebar Config:52-56](file://lib/sidebarConfig.ts#L52-L56)
 - [Officer Dashboard:14-72](file://components/admin/OfficerDashboard.tsx#L14-L72)
-- [Reports Page:29-1238](file://app/admin/reports/page.tsx#L29-L1238)
+- [Reports Page:29-1572](file://app/admin/reports/page.tsx#L29-L1572)
 - [ReportsAndAnalytics Component:31-48](file://components/admin/ReportsAndAnalytics.tsx#L31-L48)
 - [Capital Shares Page:31-143](file://app/admin/capital-shares/page.tsx#L31-L143)
 
 **Section sources**
 - [Role Sidebar Config:29-262](file://lib/sidebarConfig.ts#L29-L262)
 - [Officer Dashboard:1-198](file://components/admin/OfficerDashboard.tsx#L1-L198)
-- [Reports Page:29-1238](file://app/admin/reports/page.tsx#L29-L1238)
+- [Reports Page:29-1572](file://app/admin/reports/page.tsx#L29-L1572)
 - [ReportsAndAnalytics Component:31-48](file://components/admin/ReportsAndAnalytics.tsx#L31-L48)
 - [Capital Shares Page:31-143](file://app/admin/capital-shares/page.tsx#L31-L143)
 
 ### Enhanced Data Visualization and Summary Tables
-**Enhanced Visualization Capabilities:**
+Enhanced Visualization Capabilities:
 - **Modern Dashboard**: Four summary cards with Lucide React icons (Users, DollarSign, Activity, TrendingUp)
 - **Interactive Charts**: Recharts integration for bar charts (monthly trends) and pie charts (loan status distribution)
 - **Enhanced Unified Overview**: Professional dashboard with unified metrics across all four reporting areas
@@ -672,28 +673,29 @@ CapitalShares --> CAP["Capital Shares Page"]
 - **Real-time Currency Formatting**: Philippine Peso formatting with proper localization
 - **Savings Leaderboards**: Interactive ranking system with podium-style display
 - **Business Overview**: Bar charts with color-coded metrics for strategic insights
-- **Enhanced Capital Shares Visualization**: Professional-grade charts for capital shares status distribution and payment analytics with **custom color coding**
+- **Enhanced Capital Shares Visualization**: Professional-grade charts for capital shares status distribution and payment analytics with custom color coding
+- **Historical Data Charts**: Comprehensive monthly trend analysis with cumulative growth tracking for all four domains
 
-**Enhanced Legacy Visualization:**
+Enhanced Legacy Visualization:
 - Overview tab displays KPIs and dedicated chart sections for unified analytics across all four reporting areas
 - Members tab shows role distribution with percentages and professional bar charts
 - Savings tab lists top savers and highlights totals and averages with professional bar charts
 - Loans tab presents status distribution and key portfolio metrics with comprehensive color coding
-- **Enhanced Capital Shares tab**: Dedicated tab for capital shares reporting with status distribution and payment analytics using **unified overview functionality**
+- Enhanced Capital Shares tab: Dedicated tab for capital shares reporting with status distribution and payment analytics using unified overview functionality
 
 **Section sources**
-- [ReportsAndAnalytics Component:212-356](file://components/admin/ReportsAndAnalytics.tsx#L212-L356)
+- [ReportsAndAnalytics Component:212-508](file://components/admin/ReportsAndAnalytics.tsx#L212-L508)
 - [SavingsLeaderboard Component:159-213](file://components/admin/SavingsLeaderboard.tsx#L159-L213)
 - [Reports Page:634-852](file://app/admin/reports/page.tsx#L634-L852)
 - [Reports Page:985-1099](file://app/admin/reports/page.tsx#L985-L1099)
 - [Capital Shares Page:916-994](file://app/admin/capital-shares/page.tsx#L916-L994)
 
 ### Enhanced Automated Report Generation and Printing
-**Enhanced Printing System:**
+Enhanced Printing System:
 - **Modern Dashboard Printing**: Printable HTML reports from the enhanced dashboard with comprehensive styling
 - **Enhanced Legacy Print Functionality**: Comprehensive HTML print functionality with detailed styling and export options
 - **Export Options**: PDF export capabilities through jspdf and jspdf-autotable libraries
-- **Enhanced Unified Overview Reports**: Dedicated printable reports for unified analytics across all four reporting areas using **unified overview functionality**
+- **Enhanced Unified Overview Reports**: Dedicated printable reports for unified analytics across all four reporting areas using unified overview functionality
 
 **Section sources**
 - [ReportsAndAnalytics Component:233-454](file://components/admin/ReportsAndAnalytics.tsx#L233-L454)
@@ -701,11 +703,11 @@ CapitalShares --> CAP["Capital Shares Page"]
 - [Capital Shares Page:233-454](file://app/admin/capital-shares/page.tsx#L233-L454)
 
 ### Enhanced Export Functionality
-**Enhanced Current Export Capabilities:**
+Enhanced Current Export Capabilities:
 - **Print Mechanism**: Both dashboard and legacy report printing with comprehensive styling
 - **PDF Export Pattern**: Demonstrated in loan details modal with jspdf integration
 - **Future Enhancement Potential**: Ready infrastructure for CSV/Excel exports with proper formatting
-- **Enhanced Unified Overview Export**: Dedicated export functionality for unified analytics reports and payment history using **unified overview system**
+- **Enhanced Unified Overview Export**: Dedicated export functionality for unified analytics reports and payment history using unified overview system
 
 **Section sources**
 - [ReportsAndAnalytics Component:233-454](file://components/admin/ReportsAndAnalytics.tsx#L233-L454)
@@ -713,7 +715,7 @@ CapitalShares --> CAP["Capital Shares Page"]
 - [Capital Shares Page:233-454](file://app/admin/capital-shares/page.tsx#L233-L454)
 
 ### Enhanced Examples, Customization, and Filtering
-**Enhanced Filtering Options:**
+Enhanced Filtering Options:
 - **Date Range Filtering**: Applied to loans and savings transactions in both components
 - **Role-Based Filtering**: Member role filtering in the legacy reports page
 - **Real-time Updates**: Dashboard updates immediately when filters change
@@ -721,7 +723,7 @@ CapitalShares --> CAP["Capital Shares Page"]
 - **Savings Filtering**: Monthly and yearly filtering for savings leaderboard
 - **Enhanced Capital Shares Filtering**: Search by member name/ID and status filtering for capital shares management
 - **Individual Member Tracking**: Personalized capital shares view with payment form integration
-- **Unified Overview Filtering**: Consistent filtering across all dashboard components using **unified overview system**
+- **Unified Overview Filtering**: Consistent filtering across all dashboard components using unified overview system
 
 **Section sources**
 - [ReportsAndAnalytics Component:46-186](file://components/admin/ReportsAndAnalytics.tsx#L46-L186)
@@ -734,13 +736,13 @@ CapitalShares --> CAP["Capital Shares Page"]
 - **Scheduling**: Not implemented in the current codebase; can be considered for future development
 - **Distribution**: Printing and export provide internal distribution; external sharing can be achieved via saved PDFs
 - **External Accounting Systems**: The system does not include direct integrations; future work could add APIs or batch exports for third-party systems
-- **Enhanced Unified Overview Integration**: Ready infrastructure for integrating unified overview data with external accounting systems using **unified overview system**
+- **Enhanced Unified Overview Integration**: Ready infrastructure for integrating unified overview data with external accounting systems using unified overview system
 
 ## Dependency Analysis
-The enhanced reporting system depends on a comprehensive set of modern libraries and frameworks with **enhanced Recharts integration**:
+The enhanced reporting system depends on a comprehensive set of modern libraries and frameworks with enhanced Recharts integration:
 
 **Core Dependencies:**
-- **Recharts v3.3.0**: Advanced data visualization and chart rendering with responsive container support and **enhanced unified overview support**
+- **Recharts v3.3.0**: Advanced data visualization and chart rendering with responsive container support and enhanced unified overview support
 - **Lucide React v0.554.0**: Modern iconography with 554 available icons for dashboard components
 - **React 19.2.0**: Latest React version with concurrent features and improved performance
 - **Next.js 16.0.1**: Server-side rendering with enhanced performance and developer experience
@@ -820,22 +822,23 @@ FS --> FSC["Firestore Utils"]
 - [Package Dependencies:16-39](file://package.json#L16-L39)
 
 ## Performance Considerations
-The enhanced reporting system incorporates several performance optimizations with **enhanced unified overview functionality**:
+The enhanced reporting system incorporates several performance optimizations with enhanced unified overview functionality:
 
 - **Client-side Filtering and Computation**: Efficient processing of filtered datasets with memoization
 - **Real-time Data Updates**: Firestore real-time listeners for immediate data synchronization
 - **Responsive Design**: Mobile-first approach with adaptive grid layouts reducing layout thrashing
 - **Skeleton Loading States**: Improved perceived performance during data loading
-- **Enhanced Chart Optimization**: Recharts components optimized for large datasets with virtualization support and **unified overview rendering**
+- **Enhanced Chart Optimization**: Recharts components optimized for large datasets with virtualization support and unified overview rendering
 - **Error Boundaries**: Comprehensive error handling preventing cascading failures
 - **Memory Management**: Proper cleanup of Firestore listeners and event handlers
 - **Parallel Data Fetching**: Promise.all for efficient multi-source data loading
 - **Conditional Rendering**: Only renders components when data is available
 - **Enhanced Capital Shares Optimization**: Dedicated data processing for capital shares to prevent performance bottlenecks
 - **Unified Overview Caching**: Consistent color coding and data structure for improved rendering performance
+- **Historical Data Processing**: Efficient monthly trend calculations with optimized database queries
 
 ## Troubleshooting Guide
-Common issues and resolutions for the enhanced reporting system with **unified overview functionality**:
+Common issues and resolutions for the enhanced reporting system with unified overview functionality:
 
 **Dashboard Component Issues:**
 - **Empty or missing data**: Verify Firestore collections exist and documents are properly structured
@@ -870,6 +873,7 @@ Common issues and resolutions for the enhanced reporting system with **unified o
 - **Missing member/savings data**: Ensure proper nested collection structure in Firestore
 - **Capital shares calculation errors**: Verify paymentInfo structure and required amount configuration
 - **Unified overview processing errors**: Verify color coding consistency and data structure validation
+- **Historical data processing errors**: Check monthly calculation logic and date boundary conditions
 
 **Enhanced Unified Overview Issues:**
 - **Chart rendering problems**: Verify chart data consistency and color coding system
@@ -885,17 +889,18 @@ Common issues and resolutions for the enhanced reporting system with **unified o
 - [Activity Logger:39-42](file://lib/activityLogger.ts#L39-L42)
 
 ## Conclusion
-The SAMPA Cooperative Management System provides a robust foundation for comprehensive reporting and analytics with **enhanced unified overview functionality**:
+The SAMPA Cooperative Management System provides a robust foundation for comprehensive reporting and analytics with enhanced unified overview functionality:
 
 **Enhanced Unified Overview System:**
-- **Modern Dashboard**: Sophisticated component with real-time financial metrics and Recharts integration including **unified overview dashboard with professional chart sections**
+- **Modern Dashboard**: Sophisticated component with real-time financial metrics and Recharts integration including unified overview dashboard with professional chart sections
 - **Interactive Leaderboards**: Comprehensive component with real-time ranking and filtering
 - **Enhanced Capital Shares Management**: Dedicated interface for tracking member capital shares with payment history and status tracking
 - **Individual Member Tracking**: Personalized capital shares view with hook integration
 - **Role-specific Interfaces**: Tailored dashboards for Board of Directors, Managers, and Secretaries with specialized analytics
-- **Advanced Data Visualization**: Professional-grade charts with responsive containers and interactive tooltips using **consistent color coding system**
+- **Advanced Data Visualization**: Professional-grade charts with responsive containers and interactive tooltips using consistent color coding system
 - **Real-time Processing**: Live calculation and display of financial indicators with skeleton loading states
 - **Unified Overview Charts**: Professional chart sections for Members Overview, Savings Overview, Loans Overview, and Capital Shares Overview
+- **Historical Data Analysis**: Comprehensive monthly trend visualization with cumulative growth tracking
 
 **Enhanced Comprehensive Analytics:**
 - **Unified Tab Overview**: Complete replacement of individual tab-specific analytics with comprehensive unified dashboard functionality
@@ -914,16 +919,17 @@ The SAMPA Cooperative Management System provides a robust foundation for compreh
 - **Unified Overview Audit Trail**: Comprehensive tracking of unified overview data access and modifications
 
 **Enhanced Technical Excellence:**
-- **Modern Dependencies**: Latest versions of React, Next.js, and supporting libraries with **enhanced Recharts integration**
+- **Modern Dependencies**: Latest versions of React, Next.js, and supporting libraries with enhanced Recharts integration
 - **Performance Optimizations**: Responsive design, skeleton loading, and efficient data processing
 - **Type Safety**: Comprehensive TypeScript integration with domain-specific interfaces
 - **Real-time Data Processing**: Live updates with proper error handling and loading states
 - **Scalable Architecture**: Modular design supporting future enhancements and feature additions
 - **Consistent Color Coding**: Professional color scheme with blue, green, purple, orange, and red themes for improved data visualization
 - **Unified Overview Infrastructure**: Solid foundation for comprehensive reporting across all cooperative domains
+- **Historical Data Processing**: Sophisticated monthly trend analysis with cumulative growth tracking
 
-The system successfully bridges traditional reporting needs with modern dashboard capabilities, providing both familiar interfaces for existing users and innovative features for enhanced analytics. The **enhanced unified overview functionality**, the new component, and the **enhanced Capital Shares Management System** serve as the cornerstones of this enhanced functionality, delivering real-time financial insights, interactive rankings, and **dedicated capital shares tracking** through sophisticated data visualization and comprehensive analytics.
+The system successfully bridges traditional reporting needs with modern dashboard capabilities, providing both familiar interfaces for existing users and innovative features for enhanced analytics. The enhanced unified overview functionality, the new component, and the enhanced Capital Shares Management System serve as the cornerstones of this enhanced functionality, delivering real-time financial insights, interactive rankings, and dedicated capital shares tracking through sophisticated data visualization and comprehensive analytics.
 
-The addition of **unified overview functionality** significantly enhances the system's ability to manage cooperative membership finances, providing both administrative oversight and member transparency. The **professional chart sections** for Members Overview, Savings Overview, Loans Overview, and Capital Shares Overview demonstrate the system's commitment to providing complete financial management solutions for cooperative organizations.
+The addition of unified overview functionality significantly enhances the system's ability to manage cooperative membership finances, providing both administrative oversight and member transparency. The professional chart sections for Members Overview, Savings Overview, Loans Overview, and Capital Shares Overview demonstrate the system's commitment to providing complete financial management solutions for cooperative organizations.
 
-Future enhancements can include automated report scheduling, expanded export formats, and deeper integration with external accounting systems, building upon the solid foundation established by this comprehensive reporting architecture with advanced business intelligence capabilities and **enhanced unified overview functionality**.
+Future enhancements can include automated report scheduling, expanded export formats, and deeper integration with external accounting systems, building upon the solid foundation established by this comprehensive reporting architecture with advanced business intelligence capabilities and enhanced unified overview functionality.

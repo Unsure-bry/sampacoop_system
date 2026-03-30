@@ -39,16 +39,16 @@
 - [loan.ts](file://lib/types/loan.ts)
 - [system.tsx](file://app/admin/settings/system/page.tsx)
 - [route.ts](file://app/api/certificate/[memberId]/route.ts)
+- [fix-loan-calculations.js](file://scripts/fix-loan-calculations.js)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced LoanRequestsManager with comprehensive email notifications for loan approvals and rejections
-- Improved member data retrieval with email addresses for automated communication
-- Streamlined administrative workflows with integrated approval/rejection processes
-- Added detailed documentation for expanded approval/rejection processes
-- Introduced refactored LoanRequestsManager using custom hooks for better performance
-- Enhanced email service integration with dedicated loan approval and rejection templates
+- Enhanced interest rate calculation consistency by implementing snapshot storage of interest rates at loan application time
+- Added critical improvements to prevent calculation discrepancies when administrators modify loan plans later
+- Implemented comprehensive loan calculation correction script for legacy data migration
+- Updated loan request management to store interest rate snapshots for historical accuracy
+- Enhanced payment processing with consistent rate application throughout loan lifecycle
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -60,21 +60,24 @@
 7. [Enhanced Loan Request Management](#enhanced-loan-request-management)
 8. [Enhanced Loan Application Process](#enhanced-loan-application-process)
 9. [Role-Based Loan Plan Filtering](#role-based-loan-plan-filtering)
-10. [Comprehensive Loan Contract Management](#comprehensive-loan-contract-management)
-11. [Field Positioning and Customization Tools](#field-positioning-and-customization-tools)
-12. [PDF Generation and Contract Creation](#pdf-generation-and-contract-creation)
-13. [Certificate Integration](#certificate-integration)
-14. [Enhanced Email Notification System](#enhanced-email-notification-system)
-15. [Real-time Status Synchronization](#real-time-status-synchronization)
-16. [Loan Tracking and Monitoring](#loan-tracking-and-monitoring)
-17. [Automated Payment Processing](#automated-payment-processing)
-18. [Administrative Loan Management](#administrative-loan-management)
-19. [Performance Considerations](#performance-considerations)
-20. [Troubleshooting Guide](#troubleshooting-guide)
-21. [Conclusion](#conclusion)
+10. [Critical Interest Rate Calculation Improvements](#critical-interest-rate-calculation-improvements)
+11. [Comprehensive Loan Contract Management](#comprehensive-loan-contract-management)
+12. [Field Positioning and Customization Tools](#field-positioning-and-customization-tools)
+13. [PDF Generation and Contract Creation](#pdf-generation-and-contract-creation)
+14. [Certificate Integration](#certificate-integration)
+15. [Enhanced Email Notification System](#enhanced-email-notification-system)
+16. [Real-time Status Synchronization](#real-time-status-synchronization)
+17. [Loan Tracking and Monitoring](#loan-tracking-and-monitoring)
+18. [Automated Payment Processing](#automated-payment-processing)
+19. [Administrative Loan Management](#administrative-loan-management)
+20. [Performance Considerations](#performance-considerations)
+21. [Troubleshooting Guide](#troubleshooting-guide)
+22. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the SAMPA Cooperative Management System's enhanced loan management functionality featuring a comprehensive tabbed interface system, improved loan application processes, sophisticated real-time status monitoring, advanced loan contract management capabilities, and comprehensive email notification system. The system now provides a unified platform for members to manage their loan applications, track active loans, and monitor completed loan history through an intuitive three-tab interface. A significant enhancement is the role-based loan plan filtering system that ensures members only see loan plans relevant to their membership category (Driver, Operator, or All Members). Additionally, the system now includes a comprehensive loan contract management system with field positioning tools, PDF generation capabilities, certificate integration, and an enhanced email notification system that automatically communicates loan approval and rejection decisions to applicants.
+
+**Updated** The system now implements critical improvements to ensure consistency and accuracy in interest rate calculations by storing interest rates as snapshots at the time of loan application, preventing discrepancies if administrators modify loan plans later.
 
 ## Project Structure
 The loan management system is implemented as a Next.js application with role-based admin pages, shared React components, and enhanced loan contract management infrastructure. The enhanced structure supports seamless navigation between loan applications, active loans, and completed loan history, with intelligent role-based filtering of available loan plans, comprehensive contract management capabilities, and automated email notification workflows.
@@ -87,6 +90,7 @@ LOANACTION["LoanActions.tsx<br/>Enhanced Modal + Verification"]
 APPROVAL["Approval Flow<br/>Real-time Status Updates"]
 ROLEFILTER["Role-based Filtering<br/>Driver/Operator/All Members"]
 EMAILNOTIF["Email Notification System<br/>Approval/Rejection Emails"]
+INTERESTSNAPSHOT["Interest Rate Snapshot<br/>Consistent Calculations"]
 end
 subgraph "Enhanced Admin Components"
 REQUESTMAN["LoanRequestsManager.tsx<br/>Tabbed Admin Interface + Contract Management + Email Integration"]
@@ -99,6 +103,7 @@ CONTRACTPREVIEW["ContractPreview.tsx<br/>Field Positioning + Template Rendering"
 POSITIONTOOL["ContractPositioningTool.tsx<br/>Custom Field Positioning"]
 CERTIFICATE["Certificate Integration<br/>PDF Generation + Email Notification"]
 EMAILSERVICE["EmailService.ts<br/>Dedicated Templates + Configuration"]
+FIXSCRIPT["Fix Loan Calculations<br/>Legacy Data Migration"]
 end
 subgraph "Supporting Components"
 LAYOUT["LoanLayout.tsx<br/>Responsive Layout"]
@@ -119,6 +124,7 @@ PLANCONFIG --> TYPES
 CERTIFICATE --> REQUESTMAN
 EMAILSERVICE --> APPROVAL
 EMAILSERVICE --> REJECTION
+FIXSCRIPT --> INTERESTSNAPSHOT
 ```
 
 **Diagram sources**
@@ -132,6 +138,7 @@ EMAILSERVICE --> REJECTION
 - [loan.ts:8](file://lib/types/loan.ts#L8)
 - [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
 - [useFirestoreData.ts:1-182](file://hooks/useFirestoreData.ts#L1-L182)
+- [fix-loan-calculations.js:1-68](file://scripts/fix-loan-calculations.js#L1-L68)
 
 ## Core Components
 - **LoanPage**: Enhanced main interface featuring three-tab navigation (My Loan Applications, Active Loans, Completed Loans) with real-time status synchronization, role-based loan plan filtering, and enhanced user interaction patterns.
@@ -146,6 +153,7 @@ EMAILSERVICE --> REJECTION
 - **LoanPlan Types**: Enhanced type definitions supporting the 'applicableTo' field with 'Driver', 'Operator', and 'All Members' enum values for role-based filtering.
 - **EmailService**: Comprehensive email service with dedicated templates for loan approvals and rejections, EmailJS integration, and automated notification workflows.
 - **useFirestoreData**: Custom hooks for Firestore data management with client-side sorting, real-time updates, and performance optimization.
+- **Fix Loan Calculations Script**: Migration script for correcting legacy loan calculations that were previously computed with incorrect formulas.
 
 **Section sources**
 - [LoanPage.tsx:15-101](file://app/loan/page.tsx#L15-L101)
@@ -159,6 +167,7 @@ EMAILSERVICE --> REJECTION
 - [loan.ts:8](file://lib/types/loan.ts#L8)
 - [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
 - [useFirestoreData.ts:19-182](file://hooks/useFirestoreData.ts#L19-L182)
+- [fix-loan-calculations.js:1-68](file://scripts/fix-loan-calculations.js#L1-L68)
 
 ## Architecture Overview
 The system follows a modular architecture with enhanced real-time synchronization, role-based filtering, comprehensive contract management, certificate integration, and comprehensive email notification system:
@@ -169,6 +178,7 @@ The system follows a modular architecture with enhanced real-time synchronizatio
 - **Administration Layer**: Comprehensive loan request management with role-based access, enhanced modal interactions, configurable loan plan filtering, contract management capabilities, and integrated email notification workflows.
 - **Contract Management Layer**: New infrastructure for loan contract creation, field positioning, PDF generation, and certificate integration with html2canvas and jsPDF libraries.
 - **Email Notification Layer**: Comprehensive email service with dedicated templates for loan approvals and rejections, EmailJS integration, automated notification workflows, and member communication automation.
+- **Interest Rate Management Layer**: Critical enhancement ensuring interest rates are captured as snapshots at application time to prevent calculation discrepancies.
 - **User Experience Layer**: Streamlined application process with integrated verification, role-aware plan selection, enhanced contract creation workflow, improved user feedback mechanisms, and automated email notifications.
 - **Performance Layer**: Custom hooks and optimized data fetching with client-side sorting, real-time updates without composite indexes, and improved user experience.
 
@@ -177,11 +187,13 @@ graph TB
 MEMBER["Member Interface<br/>Three-tab Navigation + Role Filtering + Email Notifications"] --> LOANPAGE["LoanPage.tsx"]
 MEMBER --> LOANACTION["LoanActions.tsx"]
 MEMBER --> ROLEFILTER["Role-based Filtering Logic"]
+MEMBER --> INTERESTSNAPSHOT["Interest Rate Snapshots<br/>Consistent Calculations"]
 ADMIN["Admin Interface<br/>Tabbed Management + Contract Management + Email Integration"] --> REQUESTMAN["LoanRequestsManager.tsx"]
 ADMIN --> REFMAN["LoanRequestsManagerRefactored.tsx"]
 ADMIN --> DETAILSMODAL["LoanRequestDetailsModal.tsx"]
 ADMIN --> CONTRACTMODAL["LoanContractModal.tsx"]
 ADMIN --> EMAILSERVICE["EmailService.ts"]
+ADMIN --> FIXSCRIPT["Fix Loan Calculations Script"]
 REQUESTMAN --> DETAILSMODAL
 REQUESTMAN --> CONTRACTMODAL
 REQUESTMAN --> EMAILSERVICE
@@ -194,6 +206,8 @@ CERTIFICATE --> REQUESTMAN
 EMAILSERVICE --> APPROVAL["Loan Approval Emails"]
 EMAILSERVICE --> REJECTION["Loan Rejection Emails"]
 EMAILSERVICE --> CONFIG["EmailJS Configuration"]
+FIXSCRIPT --> INTERESTSNAPSHOT
+INTERESTSNAPSHOT --> CALCULATIONS["Accurate Payment Calculations"]
 ```
 
 **Diagram sources**
@@ -207,6 +221,7 @@ EMAILSERVICE --> CONFIG["EmailJS Configuration"]
 - [loan.ts:8](file://lib/types/loan.ts#L8)
 - [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
 - [useFirestoreData.ts:154-165](file://hooks/useFirestoreData.ts#L154-L165)
+- [fix-loan-calculations.js:1-68](file://scripts/fix-loan-calculations.js#L1-L68)
 
 ## Enhanced Tabbed Interface System
 The system now features a comprehensive three-tab interface for seamless loan management with enhanced role-based filtering and email notification capabilities:
@@ -240,7 +255,7 @@ The enhanced system provides comprehensive loan lifecycle management through int
 
 ### Active Loan Management
 - **Active Status Tracking**: Real-time monitoring of active loans with payment status indicators, role-specific loan information, and automated payment reminder emails
-- **Loan Details**: Complete loan information including principal amount, interest rate, loan term, current status, role-based plan details, and payment schedule notifications
+- **Loan Details**: Complete loan information including principal amount, interest rate snapshot, loan term, current status, role-based plan details, and payment schedule notifications
 - **Payment Scheduling**: Detailed payment schedule with daily payment breakdown, remaining balance tracking, role-aware payment processing, and automated payment confirmation emails
 - **Contract Management**: Integrated loan contract creation and management with field positioning tools, PDF generation, and certificate integration workflow
 
@@ -350,6 +365,50 @@ EMAILSERVICE["Email Service<br/>Template-based Delivery"] --> DISPLAY
 - [LoanPage.tsx:156-182](file://app/loan/page.tsx#L156-L182)
 - [LoanPage.tsx:184-187](file://app/loan/page.tsx#L184-L187)
 - [loan.ts:8](file://lib/types/loan.ts#L8)
+
+## Critical Interest Rate Calculation Improvements
+
+**Updated** The system now implements critical improvements to ensure consistency and accuracy in interest rate calculations by storing interest rates as snapshots at the time of loan application, preventing discrepancies if administrators modify loan plans later.
+
+### Interest Rate Snapshot Storage
+- **Application-time Capture**: Interest rates are captured and stored as snapshots when loan applications are submitted, ensuring historical accuracy regardless of future plan modifications
+- **Loan Request Enhancement**: The LoanRequest interface now includes an optional interestRate field that stores the rate applicable at application time
+- **Admin Interface Integration**: LoanRequestsManager displays stored interest rates for approved and rejected requests, maintaining calculation consistency
+
+### Legacy Data Correction
+- **Migration Script**: A comprehensive script (fix-loan-calculations.js) has been implemented to correct existing loan calculations that were computed with incorrect formulas
+- **Formula Correction**: The script converts from the old incorrect formula (interest = amount × (rate/100)) to the correct formula (interest = amount × (rate/100) × term)
+- **Batch Processing**: The script processes all existing loans, recalculating correct totals and updating payment schedules while preserving historical data integrity
+
+### Calculation Consistency
+- **Payment Processing**: All payment calculations consistently use the stored interest rate snapshot, ensuring accurate daily payment amounts throughout the loan term
+- **Contract Management**: Approved loan contracts reference the original interest rate snapshot, maintaining legal and financial accuracy
+- **Reporting Accuracy**: Historical reporting reflects the actual rates that applied at loan origination, providing transparent financial records
+
+### Implementation Details
+- **Data Model Enhancement**: LoanRequest interface extended to include interestRate field for snapshot storage
+- **API Integration**: Loan creation APIs capture and store interest rate snapshots alongside application data
+- **Frontend Display**: Loan details pages display the stored interest rate snapshot for transparency and accuracy
+
+```mermaid
+graph TB
+APPLICATION["Loan Application<br/>Rate Snapshot Capture"] --> SNAPSHOT["Interest Rate Snapshot<br/>Stored in Firestore"]
+SNAPSHOT --> LEGACY["Legacy Loans<br/>Migration Script"]
+LEGACY --> CORRECTED["Corrected Calculations<br/>Updated Totals & Schedules"]
+SNAPSHOT --> PAYMENTS["Payment Processing<br/>Consistent Daily Amounts"]
+PAYMENTS --> CONTRACTS["Contract Management<br/>Legal Accuracy"]
+PAYMENTS --> REPORTING["Financial Reporting<br/>Transparent Records"]
+```
+
+**Diagram sources**
+- [LoanRequestsManager.tsx:52](file://components/admin/LoanRequestsManager.tsx#L52)
+- [fix-loan-calculations.js:20-68](file://scripts/fix-loan-calculations.js#L20-L68)
+- [LoanTable.tsx:97-112](file://components/admin/LoanTable.tsx#L97-L112)
+
+**Section sources**
+- [LoanRequestsManager.tsx:52](file://components/admin/LoanRequestsManager.tsx#L52)
+- [fix-loan-calculations.js:1-68](file://scripts/fix-loan-calculations.js#L1-L68)
+- [LoanTable.tsx:97-112](file://components/admin/LoanTable.tsx#L97-L112)
 
 ## Comprehensive Loan Contract Management
 The system now includes a comprehensive loan contract management system with advanced field positioning tools, PDF generation capabilities, and integrated email notification workflows:
@@ -542,7 +601,7 @@ The system provides comprehensive loan tracking capabilities through enhanced co
 The system includes sophisticated automated payment processing capabilities with role-based plan integration and comprehensive email notification workflows:
 
 ### Payment Schedule Generation
-- **Daily Payment Calculation**: Accurate daily payment calculations based on loan amount, interest rate, term, and role-specific plan details with email notification formatting
+- **Daily Payment Calculation**: Accurate daily payment calculations based on loan amount, interest rate snapshot, term, and role-specific plan details with email notification formatting
 - **Amortization Scheduling**: Comprehensive amortization schedules with principal and interest breakdown and role-aware payment processing with automated payment reminder emails
 - **Balance Tracking**: Real-time balance tracking with automatic updates for each payment and role-based payment validation with payment confirmation emails
 
@@ -659,6 +718,12 @@ Enhanced troubleshooting for the improved loan management system with role-based
 - **Plan Visibility**: Check role-based plan visibility logic, filtering implementation, user role mapping, and email template assignment
 - **Access Control**: Ensure proper role-based access control enforcement and role-aware content presentation with email delivery permissions
 
+### Interest Rate Calculation Issues
+- **Snapshot Storage**: Verify proper interest rate snapshot capture during loan application and storage in Firestore
+- **Legacy Data Migration**: Check fix-loan-calculations.js script execution for correcting existing loan calculations
+- **Payment Accuracy**: Ensure payment calculations consistently use stored interest rate snapshots for accurate daily payment amounts
+- **Contract Accuracy**: Verify approved loan contracts reference correct interest rate snapshots for legal and financial accuracy
+
 ### Contract Management Issues
 - **Field Positioning**: Verify proper field positioning functionality, drag-and-drop interactions, position persistence, and email template compatibility
 - **PDF Generation**: Check PDF generation process, error handling, file naming conventions, and email attachment delivery
@@ -685,16 +750,21 @@ Enhanced troubleshooting for the improved loan management system with role-based
 - [LoanContractModal.tsx:120-166](file://components/admin/LoanContractModal.tsx#L120-L166)
 - [ContractPositioningTool.tsx:73-111](file://components/admin/ContractPositioningTool.tsx#L73-L111)
 - [emailService.ts:1-389](file://lib/emailService.ts#L1-L389)
+- [fix-loan-calculations.js:1-68](file://scripts/fix-loan-calculations.js#L1-L68)
 
 ## Conclusion
 The SAMPA Cooperative Management System's enhanced loan management functionality represents a significant advancement in cooperative financial management capabilities. The new tabbed interface system provides seamless navigation between loan applications, active loans, and completed loan history, while the improved LoanActions component streamlines the entire loan application process. The introduction of role-based loan plan filtering ensures that members only see loan plans relevant to their membership category, improving user experience and operational efficiency.
 
-The most significant enhancement is the comprehensive loan contract management system featuring the new LoanContractModal, ContractPreview, and ContractPositioningTool components, along with the integrated email notification system. These components provide sophisticated field positioning tools, PDF generation capabilities, seamless integration with the loan approval process, and comprehensive automated email communication workflows. The system now supports professional loan contract creation with customizable field positioning, high-quality PDF generation, certificate integration workflows, and automated email notifications for loan approvals and rejections.
+**Updated** The most significant enhancement is the implementation of critical interest rate calculation improvements that ensure consistency and accuracy in loan calculations. By storing interest rates as snapshots at the time of loan application, the system prevents discrepancies that could occur if administrators modify loan plans later. This enhancement is supported by a comprehensive migration script that corrects existing loan calculations and maintains historical accuracy across the system.
+
+The system now features sophisticated interest rate snapshot storage, comprehensive legacy data correction capabilities, and consistent payment processing throughout the loan lifecycle. These improvements ensure that loan calculations remain accurate and legally sound regardless of future changes to loan plan configurations.
+
+The addition of comprehensive loan contract management system featuring the new LoanContractModal, ContractPreview, and ContractPositioningTool components, along with the integrated email notification system, provides professional loan contract creation with customizable field positioning, high-quality PDF generation, certificate integration workflows, and automated email notifications for loan approvals and rejections. The system now supports professional loan contract creation with customizable field positioning, high-quality PDF generation, certificate integration workflows, and automated email notifications for loan approvals and rejections.
 
 The integration of comprehensive email services with dedicated templates for loan approvals and rejections demonstrates the system's commitment to professional member communication and automated workflow management. The EmailJS integration with centralized configuration management, template-based delivery, and comprehensive error handling ensures reliable and professional email communication for all loan management events.
 
-The system's modular architecture with custom hooks, optimized data fetching, and comprehensive email notification workflows supports future expansion and customization while maintaining excellent performance and user experience standards. The combination of sophisticated real-time synchronization, comprehensive loan tracking, role-based filtering, streamlined administrative workflows, advanced contract management, and integrated email notification systems positions the system as a modern, scalable solution for cooperative financial management with extensive room for continued evolution and improvement.
+The system's modular architecture with custom hooks, optimized data fetching, and comprehensive email notification workflows supports future expansion and customization while maintaining excellent performance and user experience standards. The combination of sophisticated real-time synchronization, comprehensive loan tracking, role-based filtering, streamlined administrative workflows, advanced contract management, integrated email notification systems, and critical interest rate calculation improvements positions the system as a modern, scalable solution for cooperative financial management with extensive room for continued evolution and improvement.
 
-The role-based filtering system enhances security and user experience by presenting only relevant loan options to each user type, while the enhanced administrative interface provides comprehensive oversight capabilities for cooperative management. The addition of field positioning tools, PDF generation capabilities, and comprehensive email notification workflows demonstrates best practices in role-based access control, real-time data synchronization, user-centric design principles, professional document management systems, and automated member communication workflows.
+The role-based filtering system enhances security and user experience by presenting only relevant loan options to each user type, while the enhanced administrative interface provides comprehensive oversight capabilities for cooperative management. The addition of field positioning tools, PDF generation capabilities, comprehensive email notification workflows, and critical interest rate calculation improvements demonstrates best practices in role-based access control, real-time data synchronization, user-centric design principles, professional document management systems, automated member communication workflows, and financial calculation accuracy.
 
-The refactored LoanRequestsManager using custom hooks eliminates the need for composite indexes while maintaining real-time updates and improved performance, showcasing modern React development practices and Firestore optimization techniques. This comprehensive enhancement makes the SAMPA Cooperative Management System a robust, efficient, and user-friendly solution for cooperative financial management operations.
+The refactored LoanRequestsManager using custom hooks eliminates the need for composite indexes while maintaining real-time updates and improved performance, showcasing modern React development practices and Firestore optimization techniques. The comprehensive enhancement of interest rate calculation consistency, combined with the existing sophisticated features, makes the SAMPA Cooperative Management System a robust, efficient, and user-friendly solution for cooperative financial management operations that prioritizes accuracy, transparency, and long-term financial stability.

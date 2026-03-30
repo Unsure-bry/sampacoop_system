@@ -24,6 +24,7 @@ interface ReportData {
     totalLoanAmount: number;
     averageLoanAmount: number;
     activeLoans: number;
+    completedLoans: number;
     loanStatusDistribution: Record<string, number>;
   };
   capitalSharesSummary: {
@@ -156,14 +157,23 @@ export default function ReportsPage() {
         }));
       
       // Process loans summary (ensure accurate calculations)
-      // Include loans that are active, approved, or disbursed (any status that means money is out)
-      const activeLoanStatuses = ['approved', 'active', 'disbursed', 'paid', 'completed'];
+      // Separate active loans (approved, active, disbursed) from completed loans (paid, completed)
+      const activeLoanStatuses = ['approved', 'active', 'disbursed'];
+      const completedLoanStatuses = ['paid', 'completed'];
+      
       const activeLoans = loans.filter((loan: any) => {
         const status = (loan.status || '').toLowerCase();
         return activeLoanStatuses.includes(status);
       });
       
-      const loanAmounts = activeLoans.map((loan: any) => {
+      const completedLoans = loans.filter((loan: any) => {
+        const status = (loan.status || '').toLowerCase();
+        return completedLoanStatuses.includes(status);
+      });
+      
+      // Calculate totals for all loans (active + completed)
+      const combinedLoans = [...activeLoans, ...completedLoans];
+      const loanAmounts = combinedLoans.map((loan: any) => {
         // Ensure amount is a valid number
         const amount = parseFloat(loan.amount) || 0;
         return amount > 0 ? amount : 0;
@@ -221,8 +231,9 @@ export default function ReportsPage() {
         loansSummary: {
           totalLoans: loans.length,
           totalLoanAmount,
-          averageLoanAmount: activeLoans.length > 0 ? Math.round((totalLoanAmount / activeLoans.length) * 100) / 100 : 0,
+          averageLoanAmount: combinedLoans.length > 0 ? Math.round((totalLoanAmount / combinedLoans.length) * 100) / 100 : 0,
           activeLoans: activeLoans.length,
+          completedLoans: completedLoans.length,
           loanStatusDistribution
         },
         capitalSharesSummary: {
@@ -1420,7 +1431,7 @@ export default function ReportsPage() {
                 </div>
 
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Loans Report</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
                   <div className="bg-purple-50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-purple-600">{reportData.loansSummary.totalLoans}</div>
                     <div className="text-sm text-purple-800">Total Applications</div>
@@ -1428,6 +1439,10 @@ export default function ReportsPage() {
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-blue-600">{reportData.loansSummary.activeLoans}</div>
                     <div className="text-sm text-blue-800">Active Loans</div>
+                  </div>
+                  <div className="bg-indigo-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-indigo-600">{reportData.loansSummary.completedLoans}</div>
+                    <div className="text-sm text-indigo-800">Completed Loans</div>
                   </div>
                   <div className="bg-green-50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-green-600">₱{reportData.loansSummary.totalLoanAmount.toLocaleString()}</div>
