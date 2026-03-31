@@ -25,15 +25,19 @@
 - [Firebase Utils](file://lib/firebase.ts)
 - [Component Exports](file://components/admin/index.ts)
 - [Package Dependencies](file://package.json)
+- [Loan Records Page](file://app/loan/page.tsx)
+- [Loan API Route](file://app/api/loans/route.ts)
+- [User Loan Records Component](file://components/user/LoanRecords.tsx)
+- [User Active Loans Component](file://components/user/ActiveLoans.tsx)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced reporting capabilities with sophisticated chart types including bar charts for monthly trends, pie charts for status distributions, and line charts for historical data
-- Implemented advanced filtering with six-month date ranges and unified overview functionality across all reporting tabs
-- Expanded capital shares reporting with comprehensive payment analytics and status tracking
-- Added comprehensive historical data visualization with cumulative trend analysis
-- Enhanced unified overview system providing professional dashboard functionality across Members, Savings, Loans, and Capital Shares domains
+- Enhanced loan status tracking with new Completed Loans metric and improved status categorization
+- Updated loan status filtering to distinguish between active/completed loans for better analytics
+- Added comprehensive completed loans tracking across user dashboards and reporting interfaces
+- Enhanced reporting system with improved loan performance metrics including completed loan analytics
+- Updated loan status badges and visual indicators to reflect new completed status tracking
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -51,12 +55,15 @@ This document explains the SAMPA Cooperative Management System's comprehensive r
 
 **Enhanced Unified Overview System** provides sophisticated financial analytics through a comprehensive implementation with real-time data processing and interactive visualizations, now including unified overview tabs with dedicated chart sections for Members, Savings, Loans, and Capital Shares.
 
+**Enhanced Loan Status Tracking** introduces a new Completed Loans metric and refined loan status categorization, providing more granular insights into loan performance and repayment completion rates.
+
 Key capabilities include:
 - **Unified Tab Overview**: Comprehensive overview tab replacing individual tab-specific analytics with unified dashboard functionality
 - **Interactive Data Visualization**: Professional charts for unified metrics, pie charts for loan status distribution, and responsive design with mobile-first approach
 - **Advanced Filtering**: Date range filtering and role-based data segmentation with comprehensive error handling
 - **Savings Leaderboards**: Interactive ranking system for top savers with real-time updates
 - **Capital Shares Management**: Dedicated interface for tracking member capital shares with payment history and status tracking
+- **Enhanced Loan Status Tracking**: New Completed Loans metric with improved status categorization and analytics
 - **Role-specific Dashboards**: Tailored analytics interfaces for different cooperative roles
 - **Modern Dashboard Architecture**: Integrated with Recharts v3.3.0 and Lucide React v0.554.0
 - **Comprehensive Analytics**: Financial overview, member statistics, loan performance metrics, savings analytics, and capital shares reporting
@@ -79,6 +86,7 @@ BOD["Board of Directors Dashboard<br/>Strategic reporting"]
 MAN["Manager Dashboard<br/>Operational analytics"]
 SEC["Secretary Dashboard<br/>Administrative reporting"]
 DDP["Dashboard Data Generator<br/>System initialization"]
+LOAN["Loan Records & Status Tracking<br/>Enhanced completed loans monitoring"]
 end
 subgraph "Visualization Libraries"
 RC["Recharts v3.3.0<br/>Interactive data visualization"]
@@ -92,7 +100,7 @@ FS["Firebase Utils<br/>Real-time data access"]
 end
 subgraph "Domain Types"
 MT["Member Types<br/>Strongly typed models"]
-LT["Loan Types<br/>Domain-specific interfaces"]
+LT["Loan Types<br/>Enhanced status tracking interfaces"]
 ST["Savings Types<br/>Transaction schemas"]
 end
 subgraph "Role Access"
@@ -112,7 +120,9 @@ RNA --> UOS
 AD --> UOS
 RP["Reports Page<br/>Unified overview across all tabs"]
 RP --> UOS
+LOAN --> UOS
 end
+LOAN --> LAPI["Loan API Route<br/>Status management"]
 UOS --> RC
 UOS --> LR
 ```
@@ -133,6 +143,8 @@ UOS --> LR
 - [User Action Tracker:1-118](file://lib/userActionTracker.ts#L1-L118)
 - [Firebase Utils:1-309](file://lib/firebase.ts#L1-L309)
 - [Package Dependencies:16-39](file://package.json#L16-L39)
+- [Loan Records Page:1-1005](file://app/loan/page.tsx#L1-L1005)
+- [Loan API Route:1-133](file://app/api/loans/route.ts#L1-L133)
 
 **Section sources**
 - [ReportsAndAnalytics Component:1-508](file://components/admin/ReportsAndAnalytics.tsx#L1-L508)
@@ -150,6 +162,8 @@ UOS --> LR
 - [User Action Tracker:1-118](file://lib/userActionTracker.ts#L1-L118)
 - [Firebase Utils:1-309](file://lib/firebase.ts#L1-L309)
 - [Package Dependencies:16-39](file://package.json#L16-L39)
+- [Loan Records Page:1-1005](file://app/loan/page.tsx#L1-L1005)
+- [Loan API Route:1-133](file://app/api/loans/route.ts#L1-L133)
 
 ## Core Components
 
@@ -166,13 +180,51 @@ The flagship component provides comprehensive financial analytics with real-time
 
 **Enhanced Data Processing Capabilities:**
 - **Monthly Trend Analysis**: Calculates disbursed vs collected amounts for the last 6 months with proper currency formatting
-- **Loan Status Distribution**: Real-time breakdown of active, completed, pending, overdue, and rejected loans with color-coded visualization
+- **Enhanced Loan Status Distribution**: Real-time breakdown of active, completed, pending, overdue, and rejected loans with color-coded visualization
 - **Financial Overview**: Comprehensive summary of receivables, pending approvals, and overdue payments with Lucide React icons
 - **Unified Metrics Visualization**: Consistent color coding system with blue (#3B82F6), green (#10B981), purple (#8B5CF6), and orange (#F59E0B) themes
 - **Historical Data Processing**: Comprehensive monthly trend analysis with cumulative growth tracking for all four domains
 
+### Enhanced Loan Status Tracking System
+The enhanced loan status tracking system introduces a new Completed Loans metric and refined status categorization, providing more granular insights into loan performance and repayment completion rates.
+
+**Enhanced Core Architecture:**
+- **Status Categorization**: Distinguishes between active/completed loans with separate tracking and analytics
+- **Real-time Monitoring**: Live calculation of completed loans alongside active loan tracking
+- **Enhanced Filtering**: Separate filtering for active vs completed loans in reporting interfaces
+- **Status Badge System**: Color-coded status indicators with distinct styling for completed loans
+- **Pagination Support**: Dedicated pagination for completed loans with separate page controls
+- **User Interface Integration**: Consistent status display across loan records, dashboards, and reports
+
+**Enhanced Status Tracking Features:**
+- **Completed Loans Metric**: New metric specifically tracking loan repayment completion
+- **Status Separation**: Active loans (approved, active) vs Completed loans (paid, completed)
+- **Enhanced Analytics**: Separate calculations for active vs completed loan performance
+- **User Experience**: Clear visual distinction between active and completed loan statuses
+- **Reporting Integration**: Dedicated completed loans section in loan records and reports
+
+**Enhanced Data Processing Pipeline:**
+```mermaid
+flowchart TD
+Start(["Loan Status Tracking"]) --> Active["Active Loans (approved, active)"]
+Start --> Completed["Completed Loans (paid, completed)"]
+Active --> ActiveFilter["Active Loan Filtering"]
+Completed --> CompletedFilter["Completed Loan Filtering"]
+ActiveFilter --> ActiveCalc["Active Loan Analytics"]
+CompletedFilter --> CompletedCalc["Completed Loan Analytics"]
+ActiveCalc --> Combined["Combined Loan Metrics"]
+CompletedCalc --> Combined
+Combined --> Reports["Enhanced Reporting"]
+```
+
+**Section sources**
+- [ReportsAndAnalytics Component:31-508](file://components/admin/ReportsAndAnalytics.tsx#L31-L508)
+- [Loan Records Page:35-234](file://app/loan/page.tsx#L35-L234)
+- [Loan Records Page:130-140](file://app/loan/page.tsx#L130-L140)
+- [Loan Records Page:831-872](file://app/loan/page.tsx#L831-L872)
+
 ### Enhanced Admin Dashboard
-The comprehensive administrative dashboard that integrates multiple analytics components into a unified interface with enhanced unified metrics visualization system, now including capital shares management.
+The comprehensive administrative dashboard that integrates multiple analytics components into a unified interface with enhanced unified metrics visualization system, now including capital shares management and enhanced loan status tracking.
 
 **Enhanced Features:**
 - **Unified Metrics Overview**: Professional bar chart visualization of total members, total savings, total loans, and capital shares with custom color coding
@@ -181,6 +233,7 @@ The comprehensive administrative dashboard that integrates multiple analytics co
 - **Interactive Filtering**: Savings leaderboard with monthly/yearly filtering
 - **Responsive Design**: Mobile-first approach with grid-based layout
 - **Role-based Navigation**: Redirects users to appropriate role-specific dashboards
+- **Enhanced Loan Status Tracking**: Unified view of all cooperative financial activities including completed loans
 - **Capital Shares Integration**: Unified view of all cooperative financial activities
 
 **Enhanced Visualization System:**
@@ -189,8 +242,17 @@ The comprehensive administrative dashboard that integrates multiple analytics co
 - **Currency Formatting**: Proper Philippine Peso formatting with k-format for thousands
 - **Interactive Tooltips**: Detailed tooltip formatting with currency display for monetary values
 
+**Enhanced Loan Status Integration:**
+- **Completed Loans Display**: Dedicated section for completed loan tracking and analytics
+- **Status Distribution**: Professional visualization of loan status distribution including completed loans
+- **Performance Metrics**: Enhanced loan performance metrics with completed loan analytics
+
+**Section sources**
+- [Admin Dashboard:538-752](file://app/admin/dashboard/page.tsx#L538-L752)
+- [Reports Page:634-852](file://app/admin/reports/page.tsx#L634-L852)
+
 ### Enhanced Reports Page
-The traditional Reports Page maintains backward compatibility while adding enhanced unified overview functionality across all tabs, now including comprehensive capital shares reporting with unified overview sections:
+The traditional Reports Page maintains backward compatibility while adding enhanced unified overview functionality across all tabs, now including comprehensive capital shares reporting with unified overview sections and enhanced loan status tracking.
 
 **Enhanced Features:**
 - **Unified Overview Tab**: New Overview tab providing comprehensive dashboard functionality across all four main areas
@@ -199,14 +261,15 @@ The traditional Reports Page maintains backward compatibility while adding enhan
 - **Printable Reports**: Comprehensive HTML print functionality with detailed styling and export options
 - **Data Visualization Placeholders**: Charts and graphs ready for implementation with Recharts integration
 - **Real-time Computation**: Dynamic calculation of metrics based on active filters
-- **Unified Overview Charts**: Professional chart sections for Members Overview, Savings Overview, Loans Overview, and Capital Shares Overview
+- **Enhanced Capital Shares Reporting Features**: Dedicated tab for capital shares reporting with status distribution and payment analytics
+- **Enhanced Loan Status Reporting**: Comprehensive loan status distribution including completed loans tracking
 
 **Enhanced Unified Overview Functionality:**
 - **Professional Dashboard**: Key performance indicators with unified metrics across all four domains
 - **Analytics Dashboard**: Comprehensive visualization of all reporting areas with dedicated chart sections
 - **Members Overview**: Member status distribution with active/inactive breakdown
 - **Savings Overview**: Top savers visualization with professional bar charts
-- **Loans Overview**: Comprehensive loan status distribution with extensive color coding
+- **Enhanced Loans Overview**: Comprehensive loan status distribution with extensive color coding including completed loans
 - **Capital Shares Overview**: Capital shares status distribution with payment analytics
 
 **Enhanced Capital Shares Reporting Features:**
@@ -215,216 +278,10 @@ The traditional Reports Page maintains backward compatibility while adding enhan
 - **Status Distribution Chart**: Pie chart visualization of capital shares status distribution with custom color coding
 - **Status Breakdown Table**: Detailed table showing status counts and percentages
 
-**Section sources**
-- [ReportsAndAnalytics Component:31-508](file://components/admin/ReportsAndAnalytics.tsx#L31-L508)
-- [Admin Dashboard:538-752](file://app/admin/dashboard/page.tsx#L538-L752)
-- [Reports Page:634-852](file://app/admin/reports/page.tsx#L634-L852)
-
-## Architecture Overview
-The enhanced reporting system integrates modern dashboard components with traditional reporting interfaces, featuring unified overview functionality across all reporting tabs with real-time data visualization and comprehensive analytics through a sophisticated data processing pipeline with role-specific dashboards and enhanced capital shares management.
-
-```mermaid
-sequenceDiagram
-participant U as "User Interface"
-participant UOS as "Unified Overview System"
-participant AD as "Admin Dashboard"
-participant RNA as "ReportsAndAnalytics"
-participant RP as "Reports Page"
-participant FS as "Firestore Database"
-U->>UOS : View Unified Overview
-UOS->>FS : Load unified metrics data
-FS-->>UOS : Total members, savings, loans, capital shares
-UOS->>UOS : Process metrics with color coding
-UOS-->>U : Unified overview dashboard
-U->>AD : Open Enhanced Dashboard
-AD->>FS : Load members, loans, savings collections
-FS-->>AD : Real-time data streams
-AD->>AD : Process financial metrics calculation
-AD->>UOS : Render unified metrics bar chart
-UOS-->>U : Professional bar chart with custom colors
-U->>RNA : Apply financial filters
-RNA->>FS : Query filtered financial data
-FS-->>RNA : Updated filtered results
-RNA-->>U : Refreshed charts and summary cards
-U->>RP : Navigate to Reports
-RP->>FS : Load report data with unified overview
-FS-->>RP : Report data with enhanced visualization
-RP-->>U : Unified overview across all report tabs
-```
-
-**Diagram sources**
-- [Admin Dashboard:538-752](file://app/admin/dashboard/page.tsx#L538-L752)
-- [ReportsAndAnalytics Component:57-186](file://components/admin/ReportsAndAnalytics.tsx#L57-L186)
-- [Reports Page:634-852](file://app/admin/reports/page.tsx#L634-L852)
-- [Firebase Utils:148-182](file://lib/firebase.ts#L148-L182)
-
-## Detailed Component Analysis
-
-### Enhanced Unified Overview System
-The unified overview system provides comprehensive dashboard functionality across all reporting tabs with professional chart sections for each domain area.
-
-**Core Architecture:**
-- **Unified Dashboard Layout**: Professional key performance indicators with consistent color coding
-- **Domain-specific Chart Sections**: Dedicated chart sections for Members Overview, Savings Overview, Loans Overview, and Capital Shares Overview
-- **Professional Bar Chart Integration**: Recharts bar chart with vertical layout and custom styling
-- **Extensive Color Coding**: Comprehensive color scheme with blue (#3B82F6), green (#10B981), purple (#8B5CF6), orange (#F59E0B), and red (#EF4444) themes
-- **Responsive Container Design**: Adaptive chart containers with proper spacing and styling
-
-**Enhanced Chart Sections:**
-```mermaid
-flowchart TD
-Overview["Unified Overview Tab"] --> Members["Members Overview<br/>Member Status Distribution"]
-Overview --> Savings["Savings Overview<br/>Top Savers Visualization"]
-Overview --> Loans["Loans Overview<br/>Loan Status Distribution"]
-Overview --> Capital["Capital Shares Overview<br/>Payment Status Distribution"]
-Members --> ActiveInactive["Active vs Inactive Members"]
-Savings --> TopSavers["Top 5 Savers"]
-Loans --> StatusDistribution["Extensive Status Colors"]
-Capital --> PaymentStatus["Fully Paid vs Partial vs No Payment"]
-ActiveInactive --> BarChart["Professional Bar Chart"]
-TopSavers --> BarChart
-StatusDistribution --> PieChart["Comprehensive Pie Chart"]
-PaymentStatus --> PieChart
-```
-
-**Key Features:**
-- **Professional Dashboard Layout**: Four key performance indicators with gradient backgrounds and consistent styling
-- **Extensive Color Coding**: Professional color scheme with domain-appropriate colors for each metric category
-- **Responsive Chart Containers**: Adaptive chart containers with proper spacing and styling for all screen sizes
-- **Comprehensive Status Visualization**: Professional visualization of status distributions across all four domains
-- **Interactive Tooltips**: Detailed tooltip formatting with currency display for monetary values
-- **Cross-tab Integration**: Unified overview functionality across all reporting tabs
-
-**Section sources**
-- [Admin Dashboard:538-752](file://app/admin/dashboard/page.tsx#L538-L752)
-- [Reports Page:634-852](file://app/admin/reports/page.tsx#L634-L852)
-- [ReportsAndAnalytics Component:114-125](file://components/admin/ReportsAndAnalytics.tsx#L114-L125)
-
-### Enhanced ReportsAndAnalytics Component
-The ReportsAndAnalytics component serves as the cornerstone of the enhanced reporting system, providing sophisticated financial analytics through a comprehensive implementation with enhanced unified metrics visualization system and advanced real-time data processing capabilities.
-
-**Enhanced Core Architecture:**
-- **State Management**: Manages dashboard statistics, monthly data, loan status data, loading states, and error handling
-- **Real-time Data Processing**: Fetches and processes data from Firestore collections with comprehensive error handling
-- **Enhanced Financial Calculations**: Performs complex calculations for receivables, loan status distributions, monthly trends, and unified metrics processing
-- **Responsive Design**: Implements mobile-first responsive layout with grid-based card system
-- **Advanced Visualization**: Integrates Recharts for professional-grade data visualization with unified metrics support
-
-**Enhanced Data Processing Pipeline:**
-```mermaid
-flowchart TD
-Start(["Component Mount"]) --> Load["Fetch Data from Firestore"]
-Load --> Process["Process Financial Metrics"]
-Process --> Monthly["Calculate Monthly Trends (Last 6 Months)"]
-Process --> Status["Calculate Loan Status Distribution"]
-Process --> CapitalShares["Calculate Capital Shares Summary"]
-Process --> Unified["Process Unified Metrics Data"]
-Monthly --> Charts["Render Bar Charts"]
-Status --> Pie["Render Pie Charts"]
-CapitalShares --> CapitalCharts["Render Capital Shares Charts"]
-Unified --> UnifiedChart["Render Unified Metrics Bar Chart"]
-Charts --> Summary["Display Summary Cards"]
-Pie --> Summary
-CapitalCharts --> Summary
-UnifiedChart --> Summary
-Summary --> Ready["Dashboard Ready"]
-```
-
-**Enhanced Key Features:**
-- **Unified Financial Metrics**: Live calculation of total members, total savings, total loans, and total capital shares with consistent color coding
-- **Interactive Data Visualization**: Bar charts for monthly trends, pie charts for loan status distribution, and responsive design
-- **Advanced Filtering**: Date range filtering and role-based data segmentation
-- **Error Handling**: Comprehensive error states with retry functionality
-- **Loading States**: Skeleton loading indicators for improved user experience
-
-**Enhanced Data Processing Capabilities:**
-- **Monthly Trend Analysis**: Calculates disbursed vs collected amounts for the last 6 months with proper currency formatting
-- **Loan Status Distribution**: Real-time breakdown of active, completed, pending, overdue, and rejected loans with color-coded visualization
-- **Financial Overview**: Comprehensive summary of receivables, pending approvals, and overdue payments with Lucide React icons
-- **Unified Metrics Processing**: Consistent color coding system with blue, green, purple, and orange themes for improved data visualization
-- **Historical Data Processing**: Comprehensive monthly trend analysis with cumulative growth tracking for all four domains
-
-**Section sources**
-- [ReportsAndAnalytics Component:31-508](file://components/admin/ReportsAndAnalytics.tsx#L31-L508)
-
-### Enhanced Admin Dashboard
-The comprehensive administrative dashboard that integrates multiple analytics components into a unified interface with enhanced unified metrics visualization system, now including capital shares management.
-
-**Enhanced Core Architecture:**
-- **Parallel Data Fetching**: Uses Promise.all for efficient data loading
-- **Comprehensive Error Handling**: Individual error handling for each data source
-- **Dynamic Filtering**: Savings leaderboard with monthly/yearly filtering
-- **Real-time Updates**: Live data processing with loading states
-- **Responsive Design**: Mobile-first approach with grid-based layout
-- **Enhanced Unified Metrics**: Professional bar chart visualization with custom color coding
-- **Capital Shares Integration**: Unified view of all cooperative financial activities
-
-**Enhanced Data Processing Pipeline:**
-```mermaid
-flowchart TD
-Start(["Dashboard Mount"]) --> Parallel["Parallel Data Fetching"]
-Parallel --> Members["Fetch Active Members"]
-Parallel --> Requests["Fetch Pending Requests"]
-Parallel --> Loans["Fetch All Loans"]
-Parallel --> Savings["Fetch All Savings"]
-Parallel --> CapitalShares["Fetch Capital Shares Data"]
-Members --> Process["Process Financial Metrics"]
-Requests --> Process
-Loans --> Process
-Savings --> Leaderboard["Build Savings Leaderboard"]
-CapitalShares --> CapitalSummary["Build Capital Shares Summary"]
-Process --> State["Update State"]
-Leaderboard --> State
-CapitalSummary --> State
-State --> Unified["Process Unified Metrics"]
-Unified --> Render["Render Dashboard with Unified Visualization"]
-```
-
-**Enhanced Key Features:**
-- **Unified Metrics Overview**: Professional bar chart visualization of total members, total savings, total loans, and capital shares
-- **Multi-component Integration**: Combines financial metrics, savings leaderboard, business overview, and capital shares management
-- **Real-time Data Processing**: Parallel data fetching with comprehensive error handling
-- **Interactive Filtering**: Savings leaderboard with monthly/yearly filtering
-- **Responsive Design**: Mobile-first approach with grid-based layout
-- **Role-based Navigation**: Redirects users to appropriate role-specific dashboards
-- **Enhanced Visualization**: Professional bar chart with custom color coding and currency formatting
-
-**Section sources**
-- [Admin Dashboard:170-556](file://app/admin/dashboard/page.tsx#L170-L556)
-
-### Enhanced Reports Page
-The traditional Reports Page maintains backward compatibility while adding enhanced unified overview functionality across all tabs, now including comprehensive capital shares reporting with unified overview sections:
-
-**Enhanced Key Features:**
-- **Unified Overview Tab**: New Overview tab providing comprehensive dashboard functionality across all four main areas
-- **Enhanced Tabbed Interface**: Overview, Members, Savings, Loans, and Capital Shares tabs with unified overview functionality
-- **Advanced Filtering**: Date range and role-based filtering with real-time computation
-- **Printable Reports**: Comprehensive HTML print functionality with detailed styling and export options
-- **Data Visualization Placeholders**: Charts and graphs ready for implementation with Recharts integration
-- **Real-time Computation**: Dynamic calculation of metrics based on active filters
-- **Enhanced Capital Shares Tab**: Dedicated tab for capital shares reporting with status distribution and payment analytics
-
-**Enhanced Unified Overview Functionality:**
-- **Professional Dashboard Layout**: Key performance indicators with gradient backgrounds and consistent styling
-- **Analytics Dashboard**: Comprehensive visualization of all reporting areas with dedicated chart sections
-- **Members Overview**: Member status distribution with active/inactive breakdown using professional bar charts
-- **Savings Overview**: Top savers visualization with professional bar charts showing top 5 savers
-- **Loans Overview**: Comprehensive loan status distribution with extensive color coding covering all status types
-- **Capital Shares Overview**: Capital shares status distribution with payment analytics using professional pie charts
-
-**Enhanced Capital Shares Reporting Features:**
-- **Status Summary**: Displays total members, fully paid, partial payment, and no payment counts
-- **Financial Summary**: Shows total capital shares paid and total remaining balance
-- **Status Distribution Chart**: Pie chart visualization of capital shares status distribution with custom color coding
-- **Status Breakdown Table**: Detailed table showing status counts and percentages
-
-**Enhanced Unified Overview Visualization:**
-- **Professional Dashboard**: Four key performance indicators with gradient backgrounds and consistent styling
-- **Analytics Dashboard**: Comprehensive visualization of all four reporting areas with dedicated chart sections
-- **Members Overview**: Professional bar chart for member status distribution with active/inactive breakdown
-- **Savings Overview**: Professional bar chart for top savers visualization with proper currency formatting
-- **Loans Overview**: Comprehensive pie chart for loan status distribution with extensive color coding
-- **Capital Shares Overview**: Professional pie chart for capital shares status distribution with payment analytics
+**Enhanced Loan Status Reporting:**
+- **Status Distribution**: Professional visualization of loan status distribution including completed loans
+- **Performance Metrics**: Enhanced loan performance metrics with completed loan analytics
+- **Completed Loans Section**: Dedicated reporting section for completed loan tracking and analysis
 
 **Section sources**
 - [Reports Page:634-852](file://app/admin/reports/page.tsx#L634-L852)
@@ -536,7 +393,7 @@ CalculateStatus --> ReturnData["Return Capital Shares Info"]
 - [useCapitalShare Hook:24-115](file://hooks/useCapitalShare.ts#L24-L115)
 
 ### Enhanced Role-specific Dashboards
-Enhanced dashboards tailored for different cooperative roles with specialized analytics and filtering capabilities, now including enhanced unified overview functionality.
+Enhanced dashboards tailored for different cooperative roles with specialized analytics and filtering capabilities, now including enhanced unified overview functionality and enhanced loan status tracking.
 
 **Enhanced Board of Directors Dashboard:**
 - **Strategic Focus**: Emphasizes financial overview and savings leadership
@@ -544,6 +401,7 @@ Enhanced dashboards tailored for different cooperative roles with specialized an
 - **Savings Leadership**: Comprehensive leaderboard with all-time rankings
 - **Business Overview**: Bar chart visualization of key business metrics
 - **Enhanced Capital Shares Strategy**: Strategic view of capital shares status and distribution with unified overview integration
+- **Enhanced Loan Status Analytics**: Strategic view of loan performance including completed loans tracking
 
 **Enhanced Manager Dashboard:**
 - **Operational Focus**: Emphasizes pending requests, active loans, and savings performance
@@ -551,6 +409,7 @@ Enhanced dashboards tailored for different cooperative roles with specialized an
 - **Real-time Metrics**: Live updates for pending requests and active loans
 - **Business Analytics**: Bar chart with member, loan, and savings metrics
 - **Enhanced Capital Shares Operations**: Operational view of capital shares tracking and management with unified overview integration
+- **Enhanced Loan Status Monitoring**: Operational view of loan performance with completed loan tracking
 
 **Enhanced Secretary Dashboard:**
 - **Administrative Focus**: Emphasizes member records and loan requests
@@ -558,6 +417,7 @@ Enhanced dashboards tailored for different cooperative roles with specialized an
 - **Business Overview**: Bar chart with operational metrics
 - **Navigation Integration**: Direct links to member and loan management pages
 - **Enhanced Capital Shares Administration**: Administrative view of capital shares management with unified overview integration
+- **Enhanced Loan Status Administration**: Administrative view of loan status tracking and management
 
 **Section sources**
 - [BOD Dashboard:27-366](file://app/admin/bod/home/page.tsx#L27-L366)
@@ -635,6 +495,7 @@ Role-specific dashboards and navigation enable tailored access, now including en
 - **Officer Dashboard**: Aggregates high-level stats with loading states and error handling
 - **Role Pages**: Specialized reporting interfaces for chairman, treasurer, and board of directors
 - **Enhanced Capital Shares Navigation**: Dedicated navigation item for capital shares management across roles
+- **Enhanced Loan Status Navigation**: Dedicated navigation for completed loans tracking across roles
 
 ```mermaid
 graph LR
@@ -643,10 +504,12 @@ SC --> Chairman["Chairman Reports"]
 SC --> Treasurer["Treasurer Reports"]
 SC --> OtherRoles["Other Roles"]
 SC --> CapitalShares["Capital Shares Management"]
+SC --> LoanStatus["Loan Status Tracking"]
 OD["Officer Dashboard"] --> Admin
 Admin --> RP["Reports Page"]
 Admin --> RNA["ReportsAndAnalytics"]
 CapitalShares --> CAP["Capital Shares Page"]
+LoanStatus --> LP["Loan Records Page"]
 ```
 
 **Diagram sources**
@@ -655,6 +518,7 @@ CapitalShares --> CAP["Capital Shares Page"]
 - [Reports Page:29-1572](file://app/admin/reports/page.tsx#L29-L1572)
 - [ReportsAndAnalytics Component:31-48](file://components/admin/ReportsAndAnalytics.tsx#L31-L48)
 - [Capital Shares Page:31-143](file://app/admin/capital-shares/page.tsx#L31-L143)
+- [Loan Records Page:35-234](file://app/loan/page.tsx#L35-L234)
 
 **Section sources**
 - [Role Sidebar Config:29-262](file://lib/sidebarConfig.ts#L29-L262)
@@ -662,6 +526,7 @@ CapitalShares --> CAP["Capital Shares Page"]
 - [Reports Page:29-1572](file://app/admin/reports/page.tsx#L29-L1572)
 - [ReportsAndAnalytics Component:31-48](file://components/admin/ReportsAndAnalytics.tsx#L31-L48)
 - [Capital Shares Page:31-143](file://app/admin/capital-shares/page.tsx#L31-L143)
+- [Loan Records Page:35-234](file://app/loan/page.tsx#L35-L234)
 
 ### Enhanced Data Visualization and Summary Tables
 Enhanced Visualization Capabilities:
@@ -674,13 +539,14 @@ Enhanced Visualization Capabilities:
 - **Savings Leaderboards**: Interactive ranking system with podium-style display
 - **Business Overview**: Bar charts with color-coded metrics for strategic insights
 - **Enhanced Capital Shares Visualization**: Professional-grade charts for capital shares status distribution and payment analytics with custom color coding
+- **Enhanced Loan Status Visualization**: Professional-grade charts for loan status distribution including completed loans tracking
 - **Historical Data Charts**: Comprehensive monthly trend analysis with cumulative growth tracking for all four domains
 
 Enhanced Legacy Visualization:
 - Overview tab displays KPIs and dedicated chart sections for unified analytics across all four reporting areas
 - Members tab shows role distribution with percentages and professional bar charts
 - Savings tab lists top savers and highlights totals and averages with professional bar charts
-- Loans tab presents status distribution and key portfolio metrics with comprehensive color coding
+- Enhanced Loans tab presents status distribution and key portfolio metrics with comprehensive color coding including completed loans
 - Enhanced Capital Shares tab: Dedicated tab for capital shares reporting with status distribution and payment analytics using unified overview functionality
 
 **Section sources**
@@ -696,6 +562,7 @@ Enhanced Printing System:
 - **Enhanced Legacy Print Functionality**: Comprehensive HTML print functionality with detailed styling and export options
 - **Export Options**: PDF export capabilities through jspdf and jspdf-autotable libraries
 - **Enhanced Unified Overview Reports**: Dedicated printable reports for unified analytics across all four reporting areas using unified overview functionality
+- **Enhanced Loan Status Reports**: Dedicated printable reports for completed loan tracking and analysis
 
 **Section sources**
 - [ReportsAndAnalytics Component:233-454](file://components/admin/ReportsAndAnalytics.tsx#L233-L454)
@@ -708,6 +575,7 @@ Enhanced Current Export Capabilities:
 - **PDF Export Pattern**: Demonstrated in loan details modal with jspdf integration
 - **Future Enhancement Potential**: Ready infrastructure for CSV/Excel exports with proper formatting
 - **Enhanced Unified Overview Export**: Dedicated export functionality for unified analytics reports and payment history using unified overview system
+- **Enhanced Loan Status Export**: Dedicated export functionality for completed loan tracking and analysis
 
 **Section sources**
 - [ReportsAndAnalytics Component:233-454](file://components/admin/ReportsAndAnalytics.tsx#L233-L454)
@@ -722,6 +590,7 @@ Enhanced Filtering Options:
 - **Custom Report Creation**: Use filters (date range and role) to tailor datasets
 - **Savings Filtering**: Monthly and yearly filtering for savings leaderboard
 - **Enhanced Capital Shares Filtering**: Search by member name/ID and status filtering for capital shares management
+- **Enhanced Loan Status Filtering**: Separate filtering for active vs completed loans across all interfaces
 - **Individual Member Tracking**: Personalized capital shares view with payment form integration
 - **Unified Overview Filtering**: Consistent filtering across all dashboard components using unified overview system
 
@@ -731,12 +600,14 @@ Enhanced Filtering Options:
 - [Reports Page:36-231](file://app/admin/reports/page.tsx#L36-L231)
 - [Capital Shares Page:299-305](file://app/admin/capital-shares/page.tsx#L299-L305)
 - [useCapitalShare Hook:35-104](file://hooks/useCapitalShare.ts#L35-L104)
+- [Loan Records Page:130-140](file://app/loan/page.tsx#L130-L140)
 
 ### Enhanced Report Scheduling, Distribution, and External Integration
 - **Scheduling**: Not implemented in the current codebase; can be considered for future development
 - **Distribution**: Printing and export provide internal distribution; external sharing can be achieved via saved PDFs
 - **External Accounting Systems**: The system does not include direct integrations; future work could add APIs or batch exports for third-party systems
 - **Enhanced Unified Overview Integration**: Ready infrastructure for integrating unified overview data with external accounting systems using unified overview system
+- **Enhanced Loan Status Integration**: Ready infrastructure for integrating completed loan data with external accounting systems
 
 ## Dependency Analysis
 The enhanced reporting system depends on a comprehensive set of modern libraries and frameworks with enhanced Recharts integration:
@@ -789,6 +660,9 @@ RP --> UOS
 SC["Role Sidebar Config"] --> RP
 OD["Officer Dashboard"] --> RP
 FS --> FSC["Firestore Utils"]
+LOAN["Loan Status Tracking"] --> FS
+LOAN --> LAPI["Loan API Route"]
+LOAN --> RC
 ```
 
 **Diagram sources**
@@ -805,6 +679,8 @@ FS --> FSC["Firestore Utils"]
 - [Reports Page:3-7](file://app/admin/reports/page.tsx#L3-L7)
 - [Firebase Utils:1-309](file://lib/firebase.ts#L1-L309)
 - [Package Dependencies:16-39](file://package.json#L16-L39)
+- [Loan Records Page:1-1005](file://app/loan/page.tsx#L1-L1005)
+- [Loan API Route:1-133](file://app/api/loans/route.ts#L1-L133)
 
 **Section sources**
 - [ReportsAndAnalytics Component:3-6](file://components/admin/ReportsAndAnalytics.tsx#L3-L6)
@@ -820,6 +696,8 @@ FS --> FSC["Firestore Utils"]
 - [Reports Page:3-7](file://app/admin/reports/page.tsx#L3-L7)
 - [Firebase Utils:1-309](file://lib/firebase.ts#L1-L309)
 - [Package Dependencies:16-39](file://package.json#L16-L39)
+- [Loan Records Page:1-1005](file://app/loan/page.tsx#L1-L1005)
+- [Loan API Route:1-133](file://app/api/loans/route.ts#L1-L133)
 
 ## Performance Considerations
 The enhanced reporting system incorporates several performance optimizations with enhanced unified overview functionality:
@@ -835,6 +713,7 @@ The enhanced reporting system incorporates several performance optimizations wit
 - **Conditional Rendering**: Only renders components when data is available
 - **Enhanced Capital Shares Optimization**: Dedicated data processing for capital shares to prevent performance bottlenecks
 - **Unified Overview Caching**: Consistent color coding and data structure for improved rendering performance
+- **Enhanced Loan Status Optimization**: Dedicated data processing for completed loans to prevent performance bottlenecks
 - **Historical Data Processing**: Efficient monthly trend calculations with optimized database queries
 
 ## Troubleshooting Guide
@@ -872,8 +751,15 @@ Common issues and resolutions for the enhanced reporting system with unified ove
 - **Date range filtering problems**: Check timestamp field formats and timezone handling
 - **Missing member/savings data**: Ensure proper nested collection structure in Firestore
 - **Capital shares calculation errors**: Verify paymentInfo structure and required amount configuration
-- **Unified overview processing errors**: Verify color coding consistency and data structure validation
+- **Enhanced unified overview processing errors**: Verify color coding consistency and data structure validation
 - **Historical data processing errors**: Check monthly calculation logic and date boundary conditions
+
+**Enhanced Loan Status Tracking Issues:**
+- **Completed loans not displaying**: Verify loan status values include 'completed' and 'paid' variants
+- **Status categorization errors**: Check loan status filtering logic for active vs completed loans
+- **Performance issues**: Monitor Firestore query performance for completed loan filtering
+- **Pagination problems**: Verify completed loans pagination logic and page state management
+- **Enhanced unified overview integration issues**: Verify completed loan data consistency with unified overview system
 
 **Enhanced Unified Overview Issues:**
 - **Chart rendering problems**: Verify chart data consistency and color coding system
@@ -887,6 +773,7 @@ Common issues and resolutions for the enhanced reporting system with unified ove
 - [useCapitalShare Hook:94-100](file://hooks/useCapitalShare.ts#L94-L100)
 - [SavingsLeaderboard Component:114-123](file://components/admin/SavingsLeaderboard.tsx#L114-L123)
 - [Activity Logger:39-42](file://lib/activityLogger.ts#L39-L42)
+- [Loan Records Page:130-140](file://app/loan/page.tsx#L130-L140)
 
 ## Conclusion
 The SAMPA Cooperative Management System provides a robust foundation for comprehensive reporting and analytics with enhanced unified overview functionality:
@@ -895,17 +782,19 @@ The SAMPA Cooperative Management System provides a robust foundation for compreh
 - **Modern Dashboard**: Sophisticated component with real-time financial metrics and Recharts integration including unified overview dashboard with professional chart sections
 - **Interactive Leaderboards**: Comprehensive component with real-time ranking and filtering
 - **Enhanced Capital Shares Management**: Dedicated interface for tracking member capital shares with payment history and status tracking
+- **Enhanced Loan Status Tracking**: New Completed Loans metric with improved status categorization and analytics
 - **Individual Member Tracking**: Personalized capital shares view with hook integration
 - **Role-specific Interfaces**: Tailored dashboards for Board of Directors, Managers, and Secretaries with specialized analytics
 - **Advanced Data Visualization**: Professional-grade charts with responsive containers and interactive tooltips using consistent color coding system
 - **Real-time Processing**: Live calculation and display of financial indicators with skeleton loading states
+- **Enhanced Loan Status Visualization**: Professional-grade charts for loan status distribution including completed loans tracking
 - **Unified Overview Charts**: Professional chart sections for Members Overview, Savings Overview, Loans Overview, and Capital Shares Overview
 - **Historical Data Analysis**: Comprehensive monthly trend visualization with cumulative growth tracking
 
 **Enhanced Comprehensive Analytics:**
 - **Unified Tab Overview**: Complete replacement of individual tab-specific analytics with comprehensive unified dashboard functionality
 - **Member Statistics**: Detailed role distribution and membership trends with interactive filtering
-- **Loan Performance**: Comprehensive tracking of loan applications, approvals, and completions
+- **Enhanced Loan Performance**: Comprehensive tracking of loan applications, approvals, and completions with new Completed Loans metric
 - **Savings Analytics**: Top saver rankings with monthly and yearly filtering capabilities
 - **Enhanced Capital Shares Reporting**: Complete capital shares status tracking with payment history and analytics
 - **Transaction-based Analytics**: Accurate calculations based on actual payment transactions
@@ -916,6 +805,7 @@ The SAMPA Cooperative Management System provides a robust foundation for compreh
 - **User Action Tracking**: Automated logging of system interactions with metadata capture
 - **Error Handling**: Robust error states with user-friendly messaging and retry functionality
 - **Enhanced Capital Shares Audit Trail**: Complete payment history and status tracking for compliance
+- **Enhanced Loan Status Audit Trail**: Complete loan status tracking and completion analytics for compliance
 - **Unified Overview Audit Trail**: Comprehensive tracking of unified overview data access and modifications
 
 **Enhanced Technical Excellence:**
@@ -925,11 +815,11 @@ The SAMPA Cooperative Management System provides a robust foundation for compreh
 - **Real-time Data Processing**: Live updates with proper error handling and loading states
 - **Scalable Architecture**: Modular design supporting future enhancements and feature additions
 - **Consistent Color Coding**: Professional color scheme with blue, green, purple, orange, and red themes for improved data visualization
-- **Unified Overview Infrastructure**: Solid foundation for comprehensive reporting across all cooperative domains
+- **Enhanced Loan Status Infrastructure**: Solid foundation for comprehensive loan performance tracking across all cooperative domains
 - **Historical Data Processing**: Sophisticated monthly trend analysis with cumulative growth tracking
 
-The system successfully bridges traditional reporting needs with modern dashboard capabilities, providing both familiar interfaces for existing users and innovative features for enhanced analytics. The enhanced unified overview functionality, the new component, and the enhanced Capital Shares Management System serve as the cornerstones of this enhanced functionality, delivering real-time financial insights, interactive rankings, and dedicated capital shares tracking through sophisticated data visualization and comprehensive analytics.
+The system successfully bridges traditional reporting needs with modern dashboard capabilities, providing both familiar interfaces for existing users and innovative features for enhanced analytics. The enhanced unified overview functionality, the new Completed Loans metric, and the enhanced Capital Shares Management System serve as the cornerstones of this enhanced functionality, delivering real-time financial insights, interactive rankings, and dedicated capital shares tracking through sophisticated data visualization and comprehensive analytics.
 
-The addition of unified overview functionality significantly enhances the system's ability to manage cooperative membership finances, providing both administrative oversight and member transparency. The professional chart sections for Members Overview, Savings Overview, Loans Overview, and Capital Shares Overview demonstrate the system's commitment to providing complete financial management solutions for cooperative organizations.
+The addition of the new Completed Loans metric significantly enhances the system's ability to track loan repayment completion and provides more granular insights into cooperative loan performance. The enhanced loan status tracking system, with its improved categorization and analytics, demonstrates the system's commitment to providing complete financial management solutions for cooperative organizations.
 
 Future enhancements can include automated report scheduling, expanded export formats, and deeper integration with external accounting systems, building upon the solid foundation established by this comprehensive reporting architecture with advanced business intelligence capabilities and enhanced unified overview functionality.
