@@ -179,18 +179,23 @@ SAMPA Cooperative Team`
   return sendEmail(config.templateId, emailData);
 };
 
-// Send certificate generation notification email
+// Send certificate generation notification email with hosted download page link
 export const sendCertificateNotificationEmail = async (
-  email: string, 
-  name: string, 
+  email: string,
+  name: string,
   membershipId: string,
   certificateDownloadUrl: string
 ) => {
+  // Create a hosted certificate download page URL
+  // Encode the membershipId to handle special characters like @
+  const encodedMemberId = encodeURIComponent(membershipId);
+  const certificatePageUrl = `https://sampacoop-system.vercel.app/certificate/${encodedMemberId}`;
+
   const emailData = {
     to_name: name,
     email: email,
     membership_id: membershipId,
-    certificate_url: certificateDownloadUrl,
+    certificate_url: certificatePageUrl,
     subject: 'Your Official Membership Certificate - SAMPA Cooperative',
     message: `Dear ${name},
 
@@ -198,8 +203,25 @@ Congratulations! Your official membership certificate has been generated and is 
 
 Membership ID: ${membershipId}
 
-You can download your certificate using the following link:
-${certificateDownloadUrl}
+📄 VIEW & DOWNLOAD YOUR CERTIFICATE:
+${certificatePageUrl}
+
+Instructions to save on your phone:
+1. Click the link above
+2. Your certificate will open in a browser page
+3. Tap the "Download PDF" or "Save to Device" button
+4. The certificate will download to your device
+5. Open your Downloads folder to find the certificate
+
+Alternative method (if the button doesn't work):
+1. Tap and hold on the certificate preview
+2. Select "Save Image" or "Download Image"
+3. The certificate will be saved to your Photos/Gallery
+
+On computer:
+1. Click the link above
+2. Click "Download PDF" button
+3. The file will download to your Downloads folder
 
 Please keep this certificate for your records. If you have any questions or need corrections, please contact our support team.
 
@@ -209,7 +231,6 @@ SAMPA Cooperative Team`
 
   const config = await getEmailJSConfig();
   return sendEmail(config.templateId, emailData);
-
 };
 
 // Loan Payment Message//
