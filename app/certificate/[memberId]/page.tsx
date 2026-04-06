@@ -34,7 +34,7 @@ export default function CertificateDownloadPage() {
       const certResult = await firestore.getCollection(`members/${memberId}/certificates`);
       if (certResult.success && certResult.data && certResult.data.length > 0) {
         // Get the most recent certificate
-        const latestCert = certResult.data[certResult.data.length - 1];
+        const latestCert = certResult.data[certResult.data.length - 1] as any;
         if (latestCert.certificateUrl || latestCert.downloadUrl) {
           setCertificateUrl(latestCert.certificateUrl || latestCert.downloadUrl);
         }
