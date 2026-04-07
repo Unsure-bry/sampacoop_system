@@ -1,0 +1,201 @@
+name: Automated Firestore Backup
+
+on:
+  # Daily backup at 11:59 PM UTC (can be adjusted)
+  schedule:
+    - cron: '59 23 * * *'  # Daily at 23:59 UTC
+    - cron: '0 0 1 * *'    # Monthly on 1st at 00:00 UTC
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      backup_type:
+        description: 'Backup type'
+        required: true
+        default: 'daily'
+        type: choice
+        options:
+          - daily
+          - monthly
+          - full
+      incremental:
+        description: 'Incremental backup (only new data)'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  # Daily Incremental Backup Job
+  daily-backup:
+    if: github.event.schedule == '59 23 * * *' || (github.event.inputs && github.event.inputs.backup_type == 'daily')
+    runs-on: ubuntu-latest
+    name: Daily Incremental Backup
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Daily Backup
+        id: backup
+        run: |
+          echo "Starting daily incremental backup..."
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.APP_URL }}/api/backup/export" \
+            -H "Authorization: Bearer ${{ secrets.BACKUP_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "type": "daily",
+              "incremental": true,
+              "collections": ["members", "loans", "loanRequests", "savings", "users"]
+            }')
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Response code: $HTTP_CODE"
+          echo "Response body: $BODY"
+          
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "Backup failed with HTTP code $HTTP_CODE"
+            echo "error=true" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Check if backup was skipped (no new data)
+          if echo "$BODY" | grep -q '"skipped":true'; then
+            echo "No new data to backup - skipping"
+            echo "skipped=true" >> $GITHUB_OUTPUT
+          else
+            echo "Backup completed successfully"
+            echo "skipped=false" >> $GITHUB_OUTPUT
+            
+            # Extract download URL if available
+            DOWNLOAD_URL=$(echo "$BODY" | grep -o '"downloadUrl":"[^"]*"' | cut -d'"' -f4)
+            if [ ! -z "$DOWNLOAD_URL" ]; then
+              echo "download_url=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Notify on Success
+        if: steps.backup.outputs.error != 'true' && steps.backup.outputs.skipped != 'true'
+        run: |
+          echo "✅ Daily backup completed successfully!"
+          echo "Download URL: ${{ steps.backup.outputs.download_url }}"
+
+      - name: Notify on Skip
+        if: steps.backup.outputs.skipped == 'true'
+        run: |
+          echo "⏭️ Daily backup skipped - no new data to backup"
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "❌ Daily backup failed!"
+          # Here you could add email/Slack/Discord notification
+
+  # Monthly Full Backup Job
+  monthly-backup:
+    if: github.event.schedule == '0 0 1 * *' || (github.event.inputs && github.event.inputs.backup_type == 'monthly')
+    runs-on: ubuntu-latest
+    name: Monthly Full Backup
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Monthly Full Backup
+        id: backup
+        run: |
+          echo "Starting monthly full backup..."
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.APP_URL }}/api/backup/export" \
+            -H "Authorization: Bearer ${{ secrets.BACKUP_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "type": "monthly",
+              "incremental": false,
+              "collections": ["members", "loans", "loanRequests", "savings", "users"]
+            }')
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Response code: $HTTP_CODE"
+          echo "Response body: $BODY"
+          
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "Backup failed with HTTP code $HTTP_CODE"
+            exit 1
+          fi
+          
+          echo "Monthly backup completed successfully"
+          
+          # Extract download URL if available
+          DOWNLOAD_URL=$(echo "$BODY" | grep -o '"downloadUrl":"[^"]*"' | cut -d'"' -f4)
+          if [ ! -z "$DOWNLOAD_URL" ]; then
+            echo "download_url=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Monthly Backup Report
+        if: success()
+        run: |
+          echo "# Monthly Backup Report - $(date +%Y-%m-%d)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Monthly full backup completed successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: Full Backup (Non-incremental)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "- **Download URL**: ${{ steps.backup.outputs.download_url }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "❌ Monthly backup failed!"
+          # Here you could add email/Slack/Discord notification
+
+  # Full Backup (Manual Only)
+  full-backup:
+    if: github.event.inputs && github.event.inputs.backup_type == 'full'
+    runs-on: ubuntu-latest
+    name: Full System Backup
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Full Backup
+        id: backup
+        run: |
+          echo "Starting full system backup..."
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.APP_URL }}/api/backup/export" \
+            -H "Authorization: Bearer ${{ secrets.BACKUP_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "type": "full",
+              "incremental": false,
+              "collections": ["members", "loans", "loanRequests", "savings", "users"]
+            }')
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Response code: $HTTP_CODE"
+          echo "Response body: $BODY"
+          
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "Backup failed with HTTP code $HTTP_CODE"
+            exit 1
+          fi
+          
+          echo "Full backup completed successfully"
+
+      - name: Notify on Success
+        if: success()
+        run: |
+          echo "✅ Full backup completed successfully!"
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "❌ Full backup failed!"
