@@ -130,7 +130,7 @@ export async function uploadToB2(
     const crypto = await import('crypto');
     const sha1Hash = crypto.createHash('sha1').update(fileBuffer).digest('hex');
 
-    // Upload file
+    // Upload file - convert Buffer to Uint8Array for fetch compatibility
     const response = await fetch(uploadUrlData.uploadUrl, {
       method: 'POST',
       headers: {
@@ -140,7 +140,7 @@ export async function uploadToB2(
         'X-Bz-Content-Sha1': sha1Hash,
         'Content-Length': fileBuffer.length.toString(),
       },
-      body: fileBuffer,
+      body: new Uint8Array(fileBuffer),
     });
 
     if (!response.ok) {
