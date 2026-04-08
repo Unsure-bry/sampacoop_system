@@ -150,6 +150,20 @@ export async function POST(request: NextRequest) {
     console.log(`Fetched ${totalRecords} records`);
 
     if (totalRecords === 0 && incremental) {
+      // Save skipped log
+      if (db) {
+        await db.collection('backupLogs').add({
+          type,
+          status: 'skipped',
+          fileName: null,
+          downloadUrl: null,
+          records: 0,
+          incremental: true,
+          since: since?.toISOString() || null,
+          timestamp: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        });
+      }
       return NextResponse.json({
         success: true,
         message: 'No new data to backup',
@@ -222,6 +236,21 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Backup completed successfully');
+
+    // Save backup log to Firestore
+    if (db) {
+      await db.collection('backupLogs').add({
+        type,
+        status: 'success',
+        fileName,
+        downloadUrl: uploadResult.downloadUrl || null,
+        records: totalRecords,
+        incremental: !!since,
+        since: since?.toISOString() || null,
+        timestamp: backupData.timestamp,
+        createdAt: new Date().toISOString(),
+      });
+    }
 
     return NextResponse.json({
       success: true,
