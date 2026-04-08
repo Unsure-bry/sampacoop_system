@@ -8,7 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { firestore } from '@/lib/firebase';
+import { db } from '@/lib/firebaseAdmin';
+import admin from 'firebase-admin';
 import { uploadToB2, getLatestBackupTimestamp } from '@/lib/backblazeB2';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
@@ -75,20 +76,19 @@ const verifyAuth = (request: NextRequest): boolean => {
 // Fetch data modified since a specific timestamp (for incremental backups)
 const fetchModifiedData = async (collectionName: string, since?: Date): Promise<any[]> => {
   try {
-    let result;
-    
-    if (since) {
-      // For incremental backup, fetch only documents modified since last backup
-      // This assumes documents have an 'updatedAt' or 'createdAt' field
-      result = await firestore.queryDocuments(collectionName, [
-        { field: 'updatedAt', operator: '>=', value: since.toISOString() }
-      ]);
-    } else {
-      // Full backup - fetch all documents
-      result = await firestore.getCollection(collectionName);
+    if (!db) {
+      console.error('Firestore Admin not initialized');
+      return [];
     }
-    
-    return result.success ? result.data || [] : [];
+
+    let query: admin.firestore.Query = db.collection(collectionName);
+
+    if (since) {
+      query = query.where('updatedAt', '>=', since.toISOString());
+    }
+
+    const snapshot = await query.get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
     console.error(`Error fetching ${collectionName}:`, error);
     return [];
