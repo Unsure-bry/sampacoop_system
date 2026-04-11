@@ -569,6 +569,32 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
             {/* Loan Information Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-black">Member Name</p>
+                <p className="font-medium text-black">{loan.fullName || 'N/A'}</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-black">Role</p>
+                <p className="font-medium text-black">{loan.role || 'N/A'}</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-black">Status</p>
+                <p className="font-medium text-black">
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    loan.status === 'active' || loan.status === 'approved'
+                      ? 'bg-green-100 text-green-800'
+                      : loan.status === 'completed'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {loan.status?.charAt(0).toUpperCase() + loan.status?.slice(1) || 'N/A'}
+                  </span>
+                </p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-black">Start Date</p>
+                <p className="font-medium text-black">{loan.startDate ? formatDate(loan.startDate) : 'N/A'}</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-black">Loan Amount</p>
                 <p className="font-medium text-black">{formatCurrency(loan.amount)}</p>
               </div>
