@@ -595,10 +595,7 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-black">Remaining Balance</p>
                 <p className="font-medium text-black">
-                  {formatCurrency(
-                    (loan.remainingBalance || loan.amount || 0) + 
-                    ((loan.amount || 0) * (loan.interest || 0) / 100 * (loan.term || 0))
-                  )}
+                  {formatCurrency(getExactRemainingBalance())}
                 </p>
               </div>
             </div>
