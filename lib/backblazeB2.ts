@@ -1,7 +1,13 @@
 /**
  * Backblaze B2 Upload Utility
- * Handles uploading backup files to Backblaze B2 cloud storage
+ * Uses native B2 API (b2_authorize_account, b2_get_upload_url, b2_upload_file)
  */
+
+interface B2AuthResponse {
+  authorizationToken: string;
+  apiUrl: string;
+  downloadUrl: string;
+}
 
 interface B2UploadResult {
   success: boolean;
@@ -11,38 +17,25 @@ interface B2UploadResult {
   error?: string;
 }
 
-interface B2AuthResponse {
-  authorizationToken: string;
-  apiUrl: string;
-  downloadUrl: string;
-  recommendedPartSize: number;
-}
-
-/**
- * Authenticate with Backblaze B2
- */
 async function authenticateB2(): Promise<B2AuthResponse | null> {
   try {
-    const accountId = process.env.B2_ACCOUNT_ID;
-    const applicationKey = process.env.B2_APPLICATION_KEY;
+    const keyId = process.env.B2_KEY_ID;
+    const appKey = process.env.B2_APP_KEY;
 
-    if (!accountId || !applicationKey) {
-      console.error('B2 credentials not configured');
+    if (!keyId || !appKey) {
+      console.error('B2_KEY_ID or B2_APP_KEY not configured');
       return null;
     }
 
-    const authString = Buffer.from(`${accountId}:${applicationKey}`).toString('base64');
+    const authString = Buffer.from(`${keyId}:${appKey}`).toString('base64');
 
     const response = await fetch('https://api.backblazeb2.com/b2api/v2/b2_authorize_account', {
       method: 'GET',
-      headers: {
-        'Authorization': `Basic ${authString}`,
-      },
+      headers: { 'Authorization': `Basic ${authString}` },
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error('B2 authentication failed:', error);
+      console.error('B2 auth failed:', await response.text());
       return null;
     }
 
@@ -51,19 +44,21 @@ async function authenticateB2(): Promise<B2AuthResponse | null> {
       authorizationToken: data.authorizationToken,
       apiUrl: data.apiUrl,
       downloadUrl: data.downloadUrl,
-      recommendedPartSize: data.recommendedPartSize,
     };
   } catch (error) {
-    console.error('B2 authentication error:', error);
+    console.error('B2 auth error:', error);
     return null;
   }
 }
 
-/**
- * Get upload URL for a bucket
- */
-async function getUploadUrl(auth: B2AuthResponse, bucketId: string): Promise<{ uploadUrl: string; uploadAuthorizationToken: string } | null> {
+async function getUploadUrl(auth: B2AuthResponse): Promise<{ uploadUrl: string; uploadAuthorizationToken: string } | null> {
   try {
+    const bucketId = process.env.B2_BUCKET_ID;
+    if (!bucketId) {
+      console.error('B2_BUCKET_ID not configured');
+      return null;
+    }
+
     const response = await fetch(`${auth.apiUrl}/b2api/v2/b2_get_upload_url`, {
       method: 'POST',
       headers: {
@@ -74,8 +69,7 @@ async function getUploadUrl(auth: B2AuthResponse, bucketId: string): Promise<{ u
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error('Failed to get upload URL:', error);
+      console.error('Failed to get upload URL:', await response.text());
       return null;
     }
 
@@ -90,47 +84,21 @@ async function getUploadUrl(auth: B2AuthResponse, bucketId: string): Promise<{ u
   }
 }
 
-/**
- * Upload a file to Backblaze B2
- */
 export async function uploadToB2(
   fileBuffer: Buffer,
   fileName: string,
   contentType: string = 'application/zip'
 ): Promise<B2UploadResult> {
   try {
-    const bucketId = process.env.B2_BUCKET_ID;
-    
-    if (!bucketId) {
-      return {
-        success: false,
-        error: 'B2_BUCKET_ID not configured',
-      };
-    }
-
-    // Authenticate
     const auth = await authenticateB2();
-    if (!auth) {
-      return {
-        success: false,
-        error: 'Failed to authenticate with B2',
-      };
-    }
+    if (!auth) return { success: false, error: 'Failed to authenticate with B2' };
 
-    // Get upload URL
-    const uploadUrlData = await getUploadUrl(auth, bucketId);
-    if (!uploadUrlData) {
-      return {
-        success: false,
-        error: 'Failed to get upload URL',
-      };
-    }
+    const uploadUrlData = await getUploadUrl(auth);
+    if (!uploadUrlData) return { success: false, error: 'Failed to get upload URL' };
 
-    // Calculate SHA1 hash of file
     const crypto = await import('crypto');
     const sha1Hash = crypto.createHash('sha1').update(fileBuffer).digest('hex');
 
-    // Upload file - convert Buffer to Uint8Array for fetch compatibility
     const response = await fetch(uploadUrlData.uploadUrl, {
       method: 'POST',
       headers: {
@@ -146,52 +114,29 @@ export async function uploadToB2(
     if (!response.ok) {
       const error = await response.text();
       console.error('B2 upload failed:', error);
-      return {
-        success: false,
-        error: `Upload failed: ${error}`,
-      };
+      return { success: false, error: `Upload failed: ${error}` };
     }
 
     const data = await response.json();
-    
-    // Construct download URL
     const bucketName = process.env.B2_BUCKET_NAME;
-    const downloadUrl = bucketName 
+    const downloadUrl = bucketName
       ? `${auth.downloadUrl}/file/${bucketName}/${encodeURIComponent(fileName)}`
       : undefined;
 
-    return {
-      success: true,
-      fileId: data.fileId,
-      fileName: data.fileName,
-      downloadUrl,
-    };
+    return { success: true, fileId: data.fileId, fileName: data.fileName, downloadUrl };
   } catch (error) {
     console.error('B2 upload error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
-/**
- * List files in B2 bucket (for incremental backup logic)
- */
 export async function listB2Files(prefix?: string): Promise<{ fileName: string; uploadTimestamp: number }[]> {
   try {
     const bucketId = process.env.B2_BUCKET_ID;
-    
-    if (!bucketId) {
-      console.error('B2_BUCKET_ID not configured');
-      return [];
-    }
+    if (!bucketId) return [];
 
     const auth = await authenticateB2();
-    if (!auth) {
-      console.error('Failed to authenticate with B2');
-      return [];
-    }
+    if (!auth) return [];
 
     const response = await fetch(`${auth.apiUrl}/b2api/v2/b2_list_file_names`, {
       method: 'POST',
@@ -199,18 +144,10 @@ export async function listB2Files(prefix?: string): Promise<{ fileName: string; 
         'Authorization': auth.authorizationToken,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        bucketId,
-        prefix: prefix || '',
-        maxFileCount: 1000,
-      }),
+      body: JSON.stringify({ bucketId, prefix: prefix || '', maxFileCount: 1000 }),
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Failed to list files:', error);
-      return [];
-    }
+    if (!response.ok) return [];
 
     const data = await response.json();
     return data.files.map((file: any) => ({
@@ -223,18 +160,9 @@ export async function listB2Files(prefix?: string): Promise<{ fileName: string; 
   }
 }
 
-/**
- * Get the latest backup timestamp from B2
- */
 export async function getLatestBackupTimestamp(): Promise<Date | null> {
   const files = await listB2Files('backups/');
-  
-  if (files.length === 0) {
-    return null;
-  }
-
-  // Sort by upload timestamp (newest first)
+  if (files.length === 0) return null;
   files.sort((a, b) => b.uploadTimestamp - a.uploadTimestamp);
-  
   return new Date(files[0].uploadTimestamp);
 }

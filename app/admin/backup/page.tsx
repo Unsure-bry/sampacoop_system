@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getFirestore, collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { usePermissions } from '@/lib/rolePermissions';
@@ -18,10 +19,84 @@ interface BackupData {
   version: string;
 }
 
+interface BackupLog {
+  id: string;
+  type: 'daily' | 'monthly' | 'full' | 'manual';
+  status: 'success' | 'skipped';
+  fileName: string | null;
+  downloadUrl: string | null;
+  records: number;
+  incremental: boolean;
+  timestamp: string;
+  createdAt: string;
+}
+
 export default function BackupPage() {
   const { hasPermission } = usePermissions();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [backupLogs, setBackupLogs] = useState<BackupLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(true);
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+
+  // Filters & pagination
+  const [typeFilter, setTypeFilter] = useState<'all' | 'daily' | 'monthly' | 'manual'>('all');
+  const [dateFilter, setDateFilter] = useState('');
+  const [timeFilter, setTimeFilter] = useState('');
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Realtime snapshot
+  useEffect(() => {
+    const db = getFirestore();
+    const q = query(collection(db, 'backupLogs'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const logs = snap.docs.map(d => ({ id: d.id, ...d.data() } as BackupLog));
+      setBackupLogs(logs);
+      setLoadingLogs(false);
+    }, () => setLoadingLogs(false));
+    return () => unsub();
+  }, []);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [typeFilter, dateFilter, timeFilter, rowsPerPage]);
+
+  const filteredLogs = backupLogs.filter(log => {
+    if (typeFilter !== 'all' && log.type !== typeFilter) return false;
+    if (dateFilter) {
+      const logDate = new Date(log.createdAt).toLocaleDateString('en-CA'); // YYYY-MM-DD
+      if (logDate !== dateFilter) return false;
+    }
+    if (timeFilter) {
+      const logTime = new Date(log.createdAt).toTimeString().slice(0, 5); // HH:MM
+      if (!logTime.startsWith(timeFilter)) return false;
+    }
+    return true;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / rowsPerPage));
+  const paginatedLogs = filteredLogs.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+  const handleDownload = async (fileName: string) => {
+    try {
+      setDownloadingFile(fileName);
+      const res = await fetch(`/api/backup/download?file=${encodeURIComponent(fileName)}`);
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName.split('/').pop() || 'backup.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Failed to download backup file');
+    } finally {
+      setDownloadingFile(null);
+    }
+  };
 
   // Check if user has manageSettings permission
   if (!hasPermission('manageSettings')) {
@@ -74,13 +149,12 @@ export default function BackupPage() {
     return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   };
 
-  // Export all data from Firestore as ZIP with Excel files
+  // Export all data from Firestore as ZIP with Excel files + upload to B2 + log
   const handleExportBackup = async () => {
     try {
       setIsExporting(true);
       toast.loading('Preparing backup...', { id: 'export' });
 
-      // Fetch all collections
       const [membersResult, loansResult, loanRequestsResult, savingsResult, usersResult] = await Promise.all([
         firestore.getCollection('members'),
         firestore.getCollection('loans'),
@@ -94,39 +168,56 @@ export default function BackupPage() {
       const loanRequests = loanRequestsResult.success ? loanRequestsResult.data || [] : [];
       const savings = savingsResult.success ? savingsResult.data || [] : [];
       const users = usersResult.success ? usersResult.data || [] : [];
+      const totalRecords = members.length + loans.length + loanRequests.length + savings.length + users.length;
 
-      // Create ZIP file
       const zip = new JSZip();
-      
-      // Add Excel files to ZIP
-      if (members.length > 0) {
-        zip.file('Members.xlsx', convertToExcel(members, 'Members'));
-      }
-      if (loans.length > 0) {
-        zip.file('Loans.xlsx', convertToExcel(loans, 'Loans'));
-      }
-      if (loanRequests.length > 0) {
-        zip.file('LoanRequests.xlsx', convertToExcel(loanRequests, 'LoanRequests'));
-      }
-      if (savings.length > 0) {
-        zip.file('Savings.xlsx', convertToExcel(savings, 'Savings'));
-      }
-      if (users.length > 0) {
-        zip.file('Users.xlsx', convertToExcel(users, 'Users'));
-      }
 
-      // Generate ZIP file
+      // Add JSON files
+      zip.file('members.json', JSON.stringify(members, null, 2));
+      zip.file('loans.json', JSON.stringify(loans, null, 2));
+      zip.file('loanRequests.json', JSON.stringify(loanRequests, null, 2));
+      zip.file('savings.json', JSON.stringify(savings, null, 2));
+      zip.file('users.json', JSON.stringify(users, null, 2));
+      zip.file('metadata.json', JSON.stringify({
+        type: 'manual',
+        timestamp: new Date().toISOString(),
+        records: { members: members.length, loans: loans.length, loanRequests: loanRequests.length, savings: savings.length, users: users.length },
+      }, null, 2));
+
+      // Add Excel files
+      if (members.length > 0) zip.file('Members.xlsx', convertToExcel(members, 'Members'));
+      if (loans.length > 0) zip.file('Loans.xlsx', convertToExcel(loans, 'Loans'));
+      if (loanRequests.length > 0) zip.file('LoanRequests.xlsx', convertToExcel(loanRequests, 'LoanRequests'));
+      if (savings.length > 0) zip.file('Savings.xlsx', convertToExcel(savings, 'Savings'));
+      if (users.length > 0) zip.file('Users.xlsx', convertToExcel(users, 'Users'));
+
       const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const fileName = `sampa-backup-manual-${new Date().toISOString().split('T')[0]}.zip`;
+
+      // Download locally
       const url = URL.createObjectURL(zipBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `sampa-backup-${new Date().toISOString().split('T')[0]}.zip`;
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast.success('Backup exported successfully!', { id: 'export' });
+      // Upload to B2 + save log via API
+      toast.loading('Uploading to Backblaze B2...', { id: 'export' });
+      const formData = new FormData();
+      formData.append('file', zipBlob, fileName);
+      formData.append('fileName', `backups/${fileName}`);
+      formData.append('type', 'manual');
+      formData.append('records', String(totalRecords));
+
+      await fetch('/api/backup/manual-upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      toast.success('Backup exported and uploaded to B2!', { id: 'export' });
     } catch (error) {
       console.error('Export error:', error);
       toast.error('Failed to export backup', { id: 'export' });
@@ -425,6 +516,120 @@ export default function BackupPage() {
               Only .zip files exported from this system are supported
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Automated Backup Status */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Automated Backup Status</h2>
+
+        {/* Controls */}
+        <div className="flex flex-wrap gap-3 mb-4">
+          {/* Type filter */}
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+            {(['all', 'daily', 'monthly', 'manual'] as const).map(t => (
+              <button key={t} onClick={() => setTypeFilter(t)}
+                className={`px-4 py-2 capitalize ${typeFilter === t ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {/* Date filter */}
+          <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700" />
+
+          {/* Time filter */}
+          <input type="time" value={timeFilter} onChange={e => setTimeFilter(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700" />
+
+          {/* Clear */}
+          {(dateFilter || timeFilter) && (
+            <button onClick={() => { setDateFilter(''); setTimeFilter(''); }}
+              className="text-sm text-gray-500 hover:text-gray-700 px-2">Clear</button>
+          )}
+
+          {/* Rows per page */}
+          <div className="ml-auto flex items-center gap-2 text-sm text-gray-600">
+            <span>Rows:</span>
+            <select value={rowsPerPage} onChange={e => setRowsPerPage(Number(e.target.value))}
+              className="border border-gray-200 rounded-lg px-2 py-2">
+              {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Table */}
+        {loadingLogs ? (
+          <p className="text-sm text-gray-500 py-4">Loading backup history...</p>
+        ) : filteredLogs.length === 0 ? (
+          <p className="text-sm text-gray-500 py-4">No backup logs found.</p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 text-left text-gray-500">
+                    <th className="pb-2 pr-4 font-medium">Type</th>
+                    <th className="pb-2 pr-4 font-medium">Date</th>
+                    <th className="pb-2 pr-4 font-medium">Time</th>
+                    <th className="pb-2 pr-4 font-medium">Status</th>
+                    <th className="pb-2 pr-4 font-medium">Records</th>
+                    <th className="pb-2 font-medium">Download</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedLogs.map(log => {
+                    const d = new Date(log.createdAt);
+                    return (
+                      <tr key={log.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 pr-4">
+                          <span className={`inline-flex items-center gap-1.5 font-medium ${log.type === 'daily' ? 'text-blue-600' : log.type === 'manual' ? 'text-orange-600' : 'text-purple-600'}`}>
+                            <span className={`w-2 h-2 rounded-full ${log.type === 'daily' ? 'bg-blue-500' : log.type === 'manual' ? 'bg-orange-500' : 'bg-purple-500'}`}></span>
+                            {log.type.charAt(0).toUpperCase() + log.type.slice(1)}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 text-gray-700">{d.toLocaleDateString()}</td>
+                        <td className="py-3 pr-4 text-gray-700">{d.toLocaleTimeString()}</td>
+                        <td className="py-3 pr-4">
+                          {log.status === 'skipped'
+                            ? <span className="text-yellow-600 font-medium">No new data</span>
+                            : <span className="text-green-600 font-medium">Success</span>}
+                        </td>
+                        <td className="py-3 pr-4 text-gray-700">{log.records}</td>
+                        <td className="py-3">
+                          {log.fileName ? (
+                            <button onClick={() => handleDownload(log.fileName!)}
+                              disabled={downloadingFile === log.fileName}
+                              className="flex items-center gap-1 text-blue-600 hover:text-blue-800 disabled:opacity-50">
+                              <Download className="h-4 w-4" />
+                              {downloadingFile === log.fileName ? 'Downloading...' : 'Download'}
+                            </button>
+                          ) : <span className="text-gray-400">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
+              <span>{filteredLogs.length} total logs</span>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                  className="px-3 py-1 border border-gray-200 rounded disabled:opacity-40 hover:bg-gray-50">Prev</button>
+                <span>{currentPage} / {totalPages}</span>
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                  className="px-3 py-1 border border-gray-200 rounded disabled:opacity-40 hover:bg-gray-50">Next</button>
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-600">
+          Backup files are stored in Backblaze B2 bucket <span className="font-mono font-medium text-gray-800">sampacoop-coop</span> under the <span className="font-mono font-medium text-gray-800">backups/</span> folder.
         </div>
       </div>
 
