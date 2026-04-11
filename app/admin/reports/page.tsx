@@ -906,7 +906,12 @@ export default function ReportsPage() {
                             <XAxis dataKey="month" />
                             <YAxis yAxisId="left" />
                             <YAxis yAxisId="right" orientation="right" tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
-                            <Tooltip formatter={(value, name) => name === 'amount' ? `₱${Number(value || 0).toLocaleString()}` : value} />
+                            <Tooltip formatter={(value, name) => {
+                              if (name === 'Amount' || name === 'amount') {
+                                return [`₱${Number(value || 0).toLocaleString()}`, 'Amount'];
+                              }
+                              return [value, name];
+                            }} />
                             <Legend />
                             <Bar yAxisId="left" dataKey="count" name="Loan Count" fill="#8B5CF6" />
                             <Bar yAxisId="right" dataKey="amount" name="Amount" fill="#F59E0B" />
