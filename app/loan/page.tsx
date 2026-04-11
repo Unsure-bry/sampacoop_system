@@ -357,41 +357,42 @@ export default function LoanPage() {
     setSelectedLoan(null);
   };
 
-  // Calculate amortization schedule
+  // Calculate daily amortization schedule
   const calculateAmortization = (loan: any) => {
     if (!loan) return [];
     
     const principal = parseFloat(loan.amount) || 0;
     const annualInterest = parseFloat(loan.interest) || 0;
     const termMonths = parseInt(loan.term) || 0;
+    const totalDays = termMonths * 30; // Convert months to days (30 days per month)
     
-    if (principal <= 0 || termMonths <= 0) return [];
+    if (principal <= 0 || totalDays <= 0) return [];
     
-    const monthlyInterestRate = (annualInterest / 100) / 12;
-    let monthlyPayment: number;
+    const dailyInterestRate = (annualInterest / 100) / 365; // Daily interest rate
+    let dailyPayment: number;
     
-    if (monthlyInterestRate === 0) {
-      monthlyPayment = principal / termMonths;
+    if (dailyInterestRate === 0) {
+      dailyPayment = principal / totalDays;
     } else {
-      monthlyPayment = principal * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, termMonths)) / (Math.pow(1 + monthlyInterestRate, termMonths) - 1);
+      dailyPayment = principal * (dailyInterestRate * Math.pow(1 + dailyInterestRate, totalDays)) / (Math.pow(1 + dailyInterestRate, totalDays) - 1);
     }
     
     const schedule = [];
     let remainingBalance = principal;
     const startDate = loan.disbursedAt ? new Date(loan.disbursedAt) : new Date();
     
-    for (let i = 1; i <= termMonths; i++) {
-      const interestPayment = remainingBalance * monthlyInterestRate;
-      const principalPayment = monthlyPayment - interestPayment;
+    for (let i = 1; i <= totalDays; i++) {
+      const interestPayment = remainingBalance * dailyInterestRate;
+      const principalPayment = dailyPayment - interestPayment;
       remainingBalance = Math.max(0, remainingBalance - principalPayment);
       
       const paymentDate = new Date(startDate);
-      paymentDate.setMonth(paymentDate.getMonth() + i);
+      paymentDate.setDate(paymentDate.getDate() + i);
       
       schedule.push({
-        month: i,
-        paymentDate: paymentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        monthlyPayment: monthlyPayment,
+        day: i,
+        paymentDate: paymentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        dailyPayment: dailyPayment,
         principalPayment: principalPayment,
         interestPayment: interestPayment,
         remainingBalance: remainingBalance
@@ -985,22 +986,8 @@ export default function LoanPage() {
               {/* Info Cards Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-xs text-gray-500 mb-1">Member Name</p>
-                  <p className="text-sm font-semibold text-gray-900">{selectedLoan.fullName || selectedLoan.userName || 'N/A'}</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-xs text-gray-500 mb-1">Role</p>
-                  <p className="text-sm font-semibold text-gray-900">{user?.role || 'Member'}</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-xs text-gray-500 mb-1">Loan Amount</p>
                   <p className="text-sm font-semibold text-gray-900">{formatCurrency(selectedLoan.amount)}</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-xs text-gray-500 mb-1">Status</p>
-                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getLoanStatusBadgeClass(selectedLoan.status)}`}>
-                    {selectedLoan.status?.toLowerCase()}
-                  </span>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-xs text-gray-500 mb-1">Interest Rate</p>
@@ -1009,17 +996,6 @@ export default function LoanPage() {
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-xs text-gray-500 mb-1">Term</p>
                   <p className="text-sm font-semibold text-gray-900">{selectedLoan.term} months</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-xs text-gray-500 mb-1">Start Date</p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {selectedLoan.disbursedAt 
-                      ? new Date(selectedLoan.disbursedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                      : selectedLoan.createdAt 
-                        ? new Date(selectedLoan.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                        : 'N/A'
-                    }
-                  </p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-xs text-gray-500 mb-1">Remaining Balance</p>
@@ -1031,9 +1007,9 @@ export default function LoanPage() {
               {(selectedLoan.status === 'active' || selectedLoan.status === 'approved') && (
                 <div className="mb-5 sm:mb-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Amortization Schedule</h3>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
                     <table className="min-w-full">
-                      <thead>
+                      <thead className="sticky top-0 bg-white">
                         <tr className="border-b border-gray-200">
                           <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
                           <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
@@ -1050,11 +1026,11 @@ export default function LoanPage() {
                       <tbody className="divide-y divide-gray-100">
                         {calculateAmortization(selectedLoan).map((row, index) => (
                           <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{row.month}</td>
+                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{row.day}</td>
                             <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{row.paymentDate}</td>
                             <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(row.principalPayment)}</td>
                             <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(row.interestPayment)}</td>
-                            <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency(row.monthlyPayment)}</td>
+                            <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency(row.dailyPayment)}</td>
                             <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(row.remainingBalance)}</td>
                             <td className="px-3 py-3 whitespace-nowrap">
                               <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">pending</span>
