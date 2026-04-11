@@ -16,13 +16,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced certificate generation API with improved PDF export functionality and direct print capabilities
-- Added comprehensive certificate retrieval, generation, and management endpoints with enhanced error handling and validation
-- Integrated advanced positioning tools for certificate customization with drag-and-drop interface
-- Expanded certificate workflow to include loan contract integration and automatic certificate generation
-- Enhanced certificate tracking system with improved Firestore integration and certificate management
-- Added comprehensive print functionality with html2canvas integration for direct printing
+- Enhanced certificate retrieval functionality with improved error handling, content-type validation, and dual parsing logic for both data URLs and raw base64 formats
+- Added comprehensive certificate format validation and enhanced certificate data URL extraction with fallback mechanisms
 - Improved certificate validation process with enhanced member verification and data integrity checks
+- Updated certificate retrieval endpoint with robust error handling and enhanced response streaming
+- Enhanced certificate data URL parsing with support for both data URLs and raw base64 formats
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -43,11 +41,11 @@
 ## Introduction
 This document provides comprehensive API documentation for the certificate generation endpoints, focusing on enhanced PDF export functionality with improved certificate management capabilities. The system now features advanced certificate generation workflows with direct print capabilities, comprehensive positioning tools, and enhanced certificate tracking. The API covers GET endpoint for certificate retrieval, certificate types (membership, share, loan contracts), template selection, request/response schemas, dynamic content injection, member information embedding, official formatting, validation processes, PDF generation workflow using jsPDF, template customization, branding requirements, examples of certificate templates, dynamic content placeholders, batch certificate generation considerations, security features, and integration examples for automated issuance, email delivery, and storage management.
 
-**Updated** Enhanced with improved PDF export functionality, direct print capabilities, advanced positioning tools, and comprehensive certificate management endpoints.
+**Updated** Enhanced with improved PDF export functionality, direct print capabilities, advanced positioning tools, comprehensive certificate management endpoints, and robust certificate retrieval with enhanced error handling and dual parsing logic.
 
 ## Project Structure
 The certificate generation functionality spans several key areas with enhanced capabilities including advanced positioning tools and direct print functionality:
-- API route handler for retrieving certificates via GET requests with improved error handling
+- API route handler for retrieving certificates via GET requests with improved error handling and dual parsing logic
 - Certificate service for generating and retrieving multiple certificate types with enhanced validation
 - Firebase integration for Firestore document operations and certificate tracking
 - TypeScript types for member, certificate, and loan data structures
@@ -128,7 +126,7 @@ EmailService --> EmailJS
 The certificate generation system consists of seven primary components with enhanced functionality including advanced positioning tools and direct print capabilities:
 
 ### API Route Handler
-The Next.js API route handles GET requests for certificate retrieval with comprehensive error handling, parameter validation, and content-type checking for PDF data URLs. Now includes enhanced certificate format validation and improved response streaming.
+The Next.js API route handles GET requests for certificate retrieval with comprehensive error handling, parameter validation, and content-type checking for PDF data URLs. Now includes enhanced certificate format validation and improved response streaming with dual parsing logic supporting both data URLs and raw base64 formats.
 
 ### Certificate Service
 Provides certificate generation functions for multiple certificate types using jsPDF for PDF creation, Firestore for data persistence, and email notifications for automatic delivery. Includes enhanced certificate validation, improved error handling, and comprehensive certificate tracking.
@@ -215,7 +213,8 @@ CertificateExists --> |Yes| ExtractData["Extract certificate data URL"]
 ExtractData --> ValidateFormat{"Is data URL format?"}
 ValidateFormat --> |No| Return500["Return 500 Unsupported format"]
 ValidateFormat --> |Yes| ExtractBase64["Extract base64 data"]
-ExtractBase64 --> ConvertBase64["Convert base64 to buffer"]
+ExtractBase64 --> DualParsingLogic["Dual parsing logic for data URLs and raw base64"]
+DualParsingLogic --> ConvertBase64["Convert base64 to buffer"]
 ConvertBase64 --> StreamPDF["Stream PDF response"]
 StreamPDF --> End([Response Sent])
 Return404 --> End
@@ -229,10 +228,11 @@ Return500 --> End
 Key features:
 - Parameter decoding for special characters
 - Comprehensive error handling with appropriate HTTP status codes
-- Content-type validation for PDF data URLs with dual parsing logic
+- Content-type validation for PDF data URLs with dual parsing logic supporting both data URLs and raw base64 formats
 - Proper response headers for PDF streaming with inline disposition
 - Enhanced certificate format validation supporting both data URLs and raw base64
-- Improved certificate data URL extraction with fallback mechanisms
+- Improved certificate data URL extraction with fallback mechanisms for malformed data URLs
+- Robust error handling for certificate retrieval failures
 
 **Section sources**
 - [route.ts:4-68](file://app/api/certificate/[memberId]/route.ts#L4-L68)
@@ -773,7 +773,8 @@ CertificateGenerated --> |Yes| VerifyCertificateData["Verify certificate data UR
 VerifyCertificateData --> ValidateFormat{"Valid data URL format?"}
 ValidateFormat --> |No| Return500["Return 500 Format error"]
 ValidateFormat --> |Yes| ExtractBase64["Extract base64 data"]
-ExtractBase64 --> ValidateBase64["Validate base64 format"]
+ExtractBase64 --> DualParsingLogic["Dual parsing logic for data URLs and raw base64"]
+DualParsingLogic --> ValidateBase64["Validate base64 format"]
 ValidateBase64 --> |Invalid| Return500_2["Return 500 Invalid base64"]
 ValidateBase64 --> |Valid| Proceed["Proceed with PDF generation"]
 Return404 --> End([End])
@@ -1078,6 +1079,7 @@ async function generateBatchCertificates(memberIds: string[], includePrint: bool
 - HTML-to-PDF conversion optimized with proper scaling factors and memory management
 - Print functionality optimized with canvas caching and popup management for better user experience
 - Advanced positioning tools implement efficient coordinate calculations and real-time updates
+- Enhanced dual parsing logic reduces processing overhead for certificate data URL extraction
 
 ## Troubleshooting Guide
 
@@ -1200,6 +1202,24 @@ async function generateBatchCertificates(memberIds: string[], includePrint: bool
 - Optimize print functionality with canvas caching and popup management
 - Implement request throttling and rate limiting for high-volume scenarios
 
+#### Enhanced Certificate Retrieval Issues
+**Symptoms**: Certificate retrieval failures despite valid certificates
+**Causes**:
+- Malformed certificate data URL format
+- Raw base64 string without proper data URL prefix
+- Certificate format validation failures
+- Dual parsing logic errors
+- Content-type validation issues
+
+**Solutions**:
+- Verify certificate data URL format includes proper "data:application/pdf;base64," prefix
+- Implement fallback mechanism for raw base64 strings without data URL prefix
+- Add comprehensive certificate format validation with multiple parsing attempts
+- Implement enhanced error handling for certificate data URL extraction
+- Validate content-type headers and certificate format compatibility
+- Add logging for certificate retrieval failures with specific error codes
+- Implement certificate format detection with automatic fallback mechanisms
+
 **Section sources**
 - [route.ts:61-67](file://app/api/certificate/[memberId]/route.ts#L61-L67)
 - [certificateService.ts:270-276](file://lib/certificateService.ts#L270-L276)
@@ -1208,4 +1228,4 @@ async function generateBatchCertificates(memberIds: string[], includePrint: bool
 - [CertificatePreviewModal.tsx:170-263](file://components/admin/CertificatePreviewModal.tsx#L170-L263)
 
 ## Conclusion
-The enhanced certificate generation API provides a robust foundation for issuing multiple types of certificates with official formatting, comprehensive error handling, integrated email notification system, advanced positioning tools, and seamless print capabilities. The system now features comprehensive certificate management workflows with enhanced user interaction capabilities, supporting share certificates as the primary certificate type while maintaining backward compatibility with membership certificates. Key improvements include enhanced error handling, comprehensive certificate data validation, expanded certificate types support including loan contracts, automatic email delivery notifications, certificate tracking system, redesigned certificate preview modal with interactive editing capabilities, comprehensive loan contract positioning tools with drag-and-drop interface, automatic certificate generation after loan approval workflow, persistent field position storage, direct print functionality with html2canvas integration, and enhanced certificate validation processes. The architecture demonstrates clear separation of concerns with proper PDF streaming, secure storage, and seamless frontend integration. Future enhancements could include additional certificate types (savings, good standing), advanced security features with digital signatures, improved performance optimizations with caching strategies, enhanced certificate management interfaces for administrative oversight, expanded loan contract customization options, and integration with advanced document management systems.
+The enhanced certificate generation API provides a robust foundation for issuing multiple types of certificates with official formatting, comprehensive error handling, integrated email notification system, advanced positioning tools, and seamless print capabilities. The system now features comprehensive certificate management workflows with enhanced user interaction capabilities, supporting share certificates as the primary certificate type while maintaining backward compatibility with membership certificates. Key improvements include enhanced error handling, comprehensive certificate data validation, expanded certificate types support including loan contracts, automatic email delivery notifications, certificate tracking system, redesigned certificate preview modal with interactive editing capabilities, comprehensive loan contract positioning tools with drag-and-drop interface, automatic certificate generation after loan approval workflow, persistent field position storage, direct print functionality with html2canvas integration, and enhanced certificate validation processes with dual parsing logic for both data URLs and raw base64 formats. The architecture demonstrates clear separation of concerns with proper PDF streaming, secure storage, and seamless frontend integration. Future enhancements could include additional certificate types (savings, good standing), advanced security features with digital signatures, improved performance optimizations with caching strategies, enhanced certificate management interfaces for administrative oversight, expanded loan contract customization options, and integration with advanced document management systems.

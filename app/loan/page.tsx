@@ -999,7 +999,12 @@ export default function LoanPage() {
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-xs text-gray-500 mb-1">Remaining Balance</p>
-                  <p className="text-sm font-semibold text-gray-900">{formatCurrency(selectedLoan.remainingBalance || selectedLoan.amount || 0)}</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {formatCurrency(
+                      (selectedLoan.remainingBalance || selectedLoan.amount || 0) + 
+                      ((selectedLoan.amount || 0) * (selectedLoan.interest || selectedLoan.interestRate || 0) / 100 * (selectedLoan.term || 0))
+                    )}
+                  </p>
                 </div>
               </div>
 

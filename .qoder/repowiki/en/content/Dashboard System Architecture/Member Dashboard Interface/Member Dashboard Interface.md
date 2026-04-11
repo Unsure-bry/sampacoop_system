@@ -15,14 +15,21 @@
 - [lib/types/savings.ts](file://lib/types/savings.ts)
 - [middleware.ts](file://middleware.ts)
 - [app/layout.tsx](file://app/layout.tsx)
+- [app/certificate/[memberId]/page.tsx](file://app/certificate/[memberId]/page.tsx)
+- [lib/certificateService.ts](file://lib/certificateService.ts)
+- [app/api/certificate/[memberId]/route.ts](file://app/api/certificate/[memberId]/route.ts)
+- [components/admin/CertificatePreviewModal.tsx](file://components/admin/CertificatePreviewModal.tsx)
+- [components/admin/MemberDetailsModal.tsx](file://components/admin/MemberDetailsModal.tsx)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated capital share display logic to show remaining balance for incomplete payments and total paid amount for fully paid members
-- Enhanced capital share information presentation with improved conditional rendering
-- Added refined status indicators and visual feedback for capital share payment status
-- Updated dashboard sections to reflect the new capital share display patterns
+- Enhanced member dashboard interface with improved certificate access capabilities
+- Added new certificate download and viewing interface allowing members to access official membership certificates
+- Implemented sophisticated member data integration with dual download mechanisms (PDF and image formats)
+- Integrated certificate generation service with email notification system
+- Added certificate preview modal for administrative certificate management
+- Enhanced certificate storage and retrieval from Firestore collections
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -30,13 +37,14 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
+6. [Certificate Management System](#certificate-management-system)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
 
 ## Introduction
-This document provides comprehensive documentation for the Member Dashboard interface that delivers personalized financial information to cooperative members. The dashboard dynamically adapts content based on member account status and loan eligibility, displaying active loans with payment schedules and due dates, and showcasing active savings accounts with balances, transaction history, and contribution summaries. The system now features refined capital share information display that clearly communicates payment status through conditional formatting and status indicators. It integrates real-time data synchronization from Firestore collections, supports member-specific navigation and quick-access features, and implements responsive design patterns for mobile-friendly access. The documentation also covers customization examples, data privacy considerations, and secure information display patterns.
+This document provides comprehensive documentation for the Member Dashboard interface that delivers personalized financial information to cooperative members. The dashboard dynamically adapts content based on member account status and loan eligibility, displaying active loans with payment schedules and due dates, and showcasing active savings accounts with balances, transaction history, and contribution summaries. The system now features enhanced certificate access capabilities that allow members to download and view their official membership certificates with sophisticated member data integration and dual download mechanisms. It integrates real-time data synchronization from Firestore collections, supports member-specific navigation and quick-access features, and implements responsive design patterns for mobile-friendly access. The documentation covers customization examples, data privacy considerations, and secure information display patterns.
 
 ## Project Structure
 The Member Dashboard is built as a Next.js application with a modular component architecture. Key areas include:
@@ -44,6 +52,7 @@ The Member Dashboard is built as a Next.js application with a modular component 
 - Dynamic dashboard wrapper for role-aware content
 - Financial components for loans and savings
 - Capital share management with payment status tracking
+- Certificate management system with dual download capabilities
 - Shared UI components and services for data access
 - Authentication and middleware for role-based routing
 - Real-time Firestore integration utilities
@@ -58,6 +67,8 @@ DynamicWrapper["Dynamic Dashboard Wrapper"]
 ActiveLoans["Active Loans Component"]
 ActiveSavings["Active Savings Component"]
 CapitalShareHook["useCapitalShare Hook<br/>Payment Status Tracking"]
+CertificatePage["Certificate Download Page<br/>Dual Download Interface"]
+CertificateService["Certificate Service<br/>Generation & Storage"]
 NotificationBell["Notification Bell"]
 end
 subgraph "Services & Utilities"
@@ -65,13 +76,15 @@ Auth["Auth Service<br/>Role Resolution"]
 Firebase["Firebase Utils<br/>Firestore Operations"]
 SavingsSvc["Savings Service<br/>Member Linking"]
 HookFS["useFirestoreData Hook<br/>Real-time Listener"]
-end
+CertAPI["Certificate API Route<br/>PDF Generation"]
+End
 subgraph "Data Layer"
 Firestore["Firestore Collections"]
 Members["members"]
 Savings["savings"]
 Loans["loans"]
-CapitalShare["capitalShareTransactions"]
+Certificates["member_certificates"]
+MemberSubCollections["members/{memberId}/certificates"]
 Reminders["reminders"]
 Events["events"]
 Notifications["notifications"]
@@ -82,18 +95,22 @@ DashboardPage --> DynamicWrapper
 DashboardPage --> ActiveSavings
 DashboardPage --> ActiveLoans
 DashboardPage --> CapitalShareHook
-DashboardPage --> NotificationBell
+DashboardPage --> CertificatePage
 ActiveSavings --> SavingsSvc
 ActiveLoans --> Firebase
 DynamicWrapper --> Firebase
 CapitalShareHook --> Firebase
+CertificatePage --> CertAPI
+CertificatePage --> CertificateService
+CertificateService --> Firebase
 SavingsSvc --> Firebase
 HookFS --> Firebase
 Firebase --> Firestore
 Firestore --> Members
 Firestore --> Savings
 Firestore --> Loans
-Firestore --> CapitalShare
+Firestore --> Certificates
+Firestore --> MemberSubCollections
 Firestore --> Reminders
 Firestore --> Events
 Firestore --> Notifications
@@ -107,6 +124,9 @@ Firestore --> Notifications
 - [components/user/ActiveLoans.tsx:19-177](file://components/user/ActiveLoans.tsx#L19-L177)
 - [components/user/ActiveSavings.tsx:16-270](file://components/user/ActiveSavings.tsx#L16-L270)
 - [hooks/useCapitalShare.ts:1-143](file://hooks/useCapitalShare.ts#L1-L143)
+- [app/certificate/[memberId]/page.tsx:1-197](file://app/certificate/[memberId]/page.tsx#L1-L197)
+- [lib/certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
+- [app/api/certificate/[memberId]/route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
 - [lib/firebase.ts:89-309](file://lib/firebase.ts#L89-L309)
 - [lib/savingsService.ts:21-135](file://lib/savingsService.ts#L21-L135)
 
@@ -120,6 +140,9 @@ Firestore --> Notifications
 - [lib/savingsService.ts:1-455](file://lib/savingsService.ts#L1-L455)
 - [middleware.ts:1-62](file://middleware.ts#L1-L62)
 - [app/layout.tsx:1-37](file://app/layout.tsx#L1-L37)
+- [app/certificate/[memberId]/page.tsx:1-197](file://app/certificate/[memberId]/page.tsx#L1-L197)
+- [lib/certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
+- [app/api/certificate/[memberId]/route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
 
 ## Core Components
 This section outlines the primary building blocks of the Member Dashboard and their responsibilities.
@@ -129,6 +152,7 @@ This section outlines the primary building blocks of the Member Dashboard and th
   - Integrates with authentication to ensure only members access the dashboard
   - Implements real-time savings aggregation and notification checks
   - **Updated**: Features refined capital share display showing remaining balance for incomplete payments and total paid amount for fully paid members
+  - **Updated**: Includes certificate access section for downloading membership certificates
 
 - Dynamic Dashboard Wrapper
   - Provides role-aware reminders and events for all users
@@ -150,6 +174,18 @@ This section outlines the primary building blocks of the Member Dashboard and th
   - Tracks required amount, paid amount, remaining balance, and payment status
   - Provides real-time updates for capital share payment progress
 
+- Certificate Download Page
+  - **New**: Provides dual download interface for membership certificates
+  - Supports both PDF download and image save functionality
+  - Integrates with Firestore for certificate retrieval and member data
+  - Implements responsive design for mobile-friendly certificate access
+
+- Certificate Service
+  - **New**: Handles certificate generation using jsPDF library
+  - Manages certificate data storage in Firestore collections
+  - Provides email notification system for certificate delivery
+  - Supports certificate preview and printing functionality
+
 - Savings Service
   - Links user IDs to member records across multiple lookup strategies
   - Manages atomic savings transactions with balance calculations
@@ -161,10 +197,12 @@ This section outlines the primary building blocks of the Member Dashboard and th
 - [components/user/ActiveLoans.tsx:19-177](file://components/user/ActiveLoans.tsx#L19-L177)
 - [components/user/ActiveSavings.tsx:16-270](file://components/user/ActiveSavings.tsx#L16-L270)
 - [hooks/useCapitalShare.ts:24-143](file://hooks/useCapitalShare.ts#L24-L143)
+- [app/certificate/[memberId]/page.tsx:1-197](file://app/certificate/[memberId]/page.tsx#L1-L197)
+- [lib/certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [lib/savingsService.ts:21-135](file://lib/savingsService.ts#L21-L135)
 
 ## Architecture Overview
-The Member Dashboard follows a client-side rendered Next.js architecture with real-time Firestore integration. The system enforces role-based access control through middleware and authentication providers, ensuring members only access their designated dashboard. Data flows from Firestore collections through service utilities and hooks to UI components, with caching and fallback strategies for reliability. The architecture now includes refined capital share management with conditional display logic based on payment status.
+The Member Dashboard follows a client-side rendered Next.js architecture with real-time Firestore integration. The system enforces role-based access control through middleware and authentication providers, ensuring members only access their designated dashboard. Data flows from Firestore collections through service utilities and hooks to UI components, with caching and fallback strategies for reliability. The architecture now includes refined capital share management with conditional display logic based on payment status and comprehensive certificate management system with dual download capabilities.
 
 ```mermaid
 sequenceDiagram
@@ -173,6 +211,8 @@ participant Middleware as "Middleware"
 participant Auth as "Auth Provider"
 participant Dashboard as "Dashboard Page"
 participant CapitalShareHook as "useCapitalShare Hook"
+participant CertificatePage as "Certificate Download Page"
+participant CertificateService as "Certificate Service"
 participant Firebase as "Firebase Utils"
 participant Firestore as "Firestore"
 Browser->>Middleware : Request /dashboard
@@ -187,7 +227,14 @@ Firebase->>Firestore : getDocument + getCollection
 Firestore-->>Firebase : Member and transaction data
 Firebase-->>CapitalShareHook : Processed capital share info
 CapitalShareHook-->>Dashboard : Status and payment info
-Dashboard-->>Browser : Render refined capital share display
+Browser->>CertificatePage : Navigate to certificate page
+CertificatePage->>Firebase : Fetch member and certificate data
+Firebase->>Firestore : getDocument + getCollection
+Firestore-->>Firebase : Member and certificate data
+Firebase-->>CertificatePage : Processed certificate info
+CertificatePage->>CertificateService : Generate or retrieve certificate
+CertificateService-->>CertificatePage : Certificate data URL
+CertificatePage-->>Browser : Render certificate with dual download options
 ```
 
 **Diagram sources**
@@ -195,6 +242,8 @@ Dashboard-->>Browser : Render refined capital share display
 - [lib/auth.tsx:158-682](file://lib/auth.tsx#L158-L682)
 - [app/dashboard/page.tsx:37-125](file://app/dashboard/page.tsx#L37-L125)
 - [hooks/useCapitalShare.ts:35-128](file://hooks/useCapitalShare.ts#L35-L128)
+- [app/certificate/[memberId]/page.tsx:22-48](file://app/certificate/[memberId]/page.tsx#L22-L48)
+- [lib/certificateService.ts:301-326](file://lib/certificateService.ts#L301-L326)
 - [lib/firebase.ts:149-240](file://lib/firebase.ts#L149-L240)
 
 ## Detailed Component Analysis
@@ -208,6 +257,7 @@ Key capabilities:
 - Notification bell with unread status indicators
 - Conditional rendering of member-specific components
 - **Updated**: Refined capital share display showing remaining balance for incomplete payments and total paid amount for fully paid members
+- **Updated**: Certificate access section for downloading membership certificates
 
 ```mermaid
 flowchart TD
@@ -224,7 +274,9 @@ QuerySavings --> AggregateData["Aggregate Totals & Last Transaction"]
 AggregateData --> RenderUI["Render Dashboard UI with Refined Capital Share"]
 DefaultValues --> RenderUI
 RenderUI --> Notifications["Load Notifications"]
+RenderUI --> CertificateAccess["Load Certificate Access Section"]
 Notifications --> End(["Ready"])
+CertificateAccess --> End
 ```
 
 **Diagram sources**
@@ -374,6 +426,76 @@ SetCapitalShare --> End
 **Section sources**
 - [hooks/useCapitalShare.ts:1-143](file://hooks/useCapitalShare.ts#L1-L143)
 
+### Certificate Download Page: Dual Download Interface
+The certificate download page provides a sophisticated interface for members to access and download their official membership certificates with dual download mechanisms.
+
+Key features:
+- Member data integration with automatic certificate retrieval
+- Dual download capabilities (PDF and image formats)
+- Responsive design optimized for mobile devices
+- Error handling and loading states
+- Integration with Firestore for certificate storage and retrieval
+
+```mermaid
+sequenceDiagram
+participant Member as "Member Browser"
+participant CertificatePage as "Certificate Download Page"
+participant Firebase as "Firebase Utils"
+participant Firestore as "Firestore"
+participant CertificateService as "Certificate Service"
+Member->>CertificatePage : Navigate to /certificate/[memberId]
+CertificatePage->>Firebase : Fetch member data
+Firebase->>Firestore : getDocument('members', memberId)
+Firestore-->>Firebase : Member data
+Firebase-->>CertificatePage : Member info
+CertificatePage->>Firebase : Fetch certificate from subcollection
+Firebase->>Firestore : getCollection('members/{memberId}/certificates')
+Firestore-->>Firebase : Certificate data
+Firebase-->>CertificatePage : Latest certificate URL
+CertificatePage->>CertificateService : Handle download/save actions
+CertificateService-->>CertificatePage : Processed certificate data
+CertificatePage-->>Member : Render certificate with dual download options
+```
+
+**Diagram sources**
+- [app/certificate/[memberId]/page.tsx:22-48](file://app/certificate/[memberId]/page.tsx#L22-L48)
+- [lib/certificateService.ts:301-326](file://lib/certificateService.ts#L301-L326)
+- [lib/firebase.ts:149-240](file://lib/firebase.ts#L149-L240)
+
+**Section sources**
+- [app/certificate/[memberId]/page.tsx:1-197](file://app/certificate/[memberId]/page.tsx#L1-L197)
+
+### Certificate Service: Advanced Generation and Storage
+The certificate service implements sophisticated certificate generation and management with advanced features including PDF generation, email notifications, and dual storage mechanisms.
+
+Key processes:
+- jsPDF-based certificate generation with custom styling and layouts
+- Member data integration for personalized certificate content
+- Dual storage mechanisms (in-member-document and dedicated collections)
+- Email notification system for certificate delivery
+- Base64 encoding for efficient certificate storage and transmission
+
+```mermaid
+flowchart TD
+Start(["generateShareCertificate"]) --> CreatePDF["Create jsPDF Instance"]
+CreatePDF --> AddStyling["Apply Green Color Scheme & Decorative Elements"]
+AddStyling --> AddMemberData["Integrate Member Personal Data"]
+AddMemberData --> AddCoopInfo["Add Cooperative Information"]
+AddCoopInfo --> AddLegalText["Add Legal & Witness Clauses"]
+AddLegalText --> AddSignatures["Add Officer Signatures & Seal"]
+AddSignatures --> SaveToDataURL["Convert to Data URL"]
+SaveToDataURL --> StoreInFirestore["Store in Firestore Member Document"]
+StoreInFirestore --> CreateMemberCertificates["Create Dedicated Certificate Record"]
+CreateMemberCertificates --> SendEmail["Send Email Notification"]
+SendEmail --> ReturnSuccess["Return Success Status"]
+```
+
+**Diagram sources**
+- [lib/certificateService.ts:12-294](file://lib/certificateService.ts#L12-L294)
+
+**Section sources**
+- [lib/certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
+
 ### Savings Service: Member Linking and Atomic Transactions
 The savings service implements robust member-to-user linking and atomic transaction processing with balance validation.
 
@@ -417,6 +539,49 @@ Integration patterns:
 - [hooks/useFirestoreData.ts:19-151](file://hooks/useFirestoreData.ts#L19-L151)
 - [lib/firebase.ts:89-309](file://lib/firebase.ts#L89-L309)
 
+## Certificate Management System
+The certificate management system provides comprehensive functionality for generating, storing, retrieving, and accessing membership certificates with advanced features and dual download capabilities.
+
+### Certificate Generation Workflow
+The system generates official membership certificates using jsPDF with sophisticated styling and member data integration:
+
+- Custom green color scheme representing cooperative values
+- Decorative borders and corner elements for official appearance
+- Member personal information integration (full name, share details)
+- Cooperative information and legal text sections
+- Officer signatures and official seal representation
+- Base64 encoding for efficient storage and transmission
+
+### Dual Download Mechanisms
+The certificate system supports two download methods for maximum accessibility:
+
+- **PDF Download**: Direct PDF file download with proper file naming conventions
+- **Image Save**: HTML-to-image conversion for mobile device compatibility
+- **Responsive Design**: Optimized interface for various screen sizes and devices
+
+### Certificate Storage and Retrieval
+Certificates are stored using multiple approaches for redundancy and accessibility:
+
+- **Member Document Storage**: Direct integration within member profiles
+- **Dedicated Collections**: Separate storage in member_certificates collection
+- **Subcollection Organization**: Structured storage under members/{memberId}/certificates
+- **Base64 Encoding**: Efficient binary data storage for web compatibility
+
+### Administrative Certificate Management
+Administrative interfaces provide comprehensive certificate management capabilities:
+
+- **Certificate Preview Modal**: Real-time certificate visualization with editable fields
+- **Officer Integration**: Automatic officer name retrieval and display
+- **Bulk Generation**: Support for certificate generation during member registration
+- **Status Tracking**: Complete certificate lifecycle management
+
+**Section sources**
+- [lib/certificateService.ts:12-294](file://lib/certificateService.ts#L12-L294)
+- [app/certificate/[memberId]/page.tsx:1-197](file://app/certificate/[memberId]/page.tsx#L1-L197)
+- [app/api/certificate/[memberId]/route.ts:1-68](file://app/api/certificate/[memberId]/route.ts#L1-L68)
+- [components/admin/CertificatePreviewModal.tsx:1-200](file://components/admin/CertificatePreviewModal.tsx#L1-L200)
+- [components/admin/MemberDetailsModal.tsx:297-325](file://components/admin/MemberDetailsModal.tsx#L297-L325)
+
 ## Dependency Analysis
 The Member Dashboard exhibits strong separation of concerns with clear dependency relationships:
 
@@ -428,12 +593,15 @@ DynamicWrapper["Dynamic Dashboard"]
 ActiveLoans["Active Loans"]
 ActiveSavings["Active Savings"]
 CapitalShareHook["useCapitalShare Hook"]
+CertificatePage["Certificate Download Page"]
 Card["Shared Card"]
 end
 subgraph "Business Logic"
 Auth["Auth Service"]
 SavingsSvc["Savings Service"]
+CertificateService["Certificate Service"]
 Validators["Route Validators"]
+CertificateAPI["Certificate API Route"]
 end
 subgraph "Data Access"
 HookFS["useFirestoreData"]
@@ -442,15 +610,26 @@ end
 subgraph "External Systems"
 Firestore["Firestore"]
 Cookies["HTTP Cookies"]
+jsPDF["jsPDF Library"]
+HTML2Canvas["HTML2Canvas"]
+EmailService["Email Service"]
 end
 DashboardPage --> DynamicWrapper
 DashboardPage --> ActiveSavings
 DashboardPage --> ActiveLoans
 DashboardPage --> CapitalShareHook
+DashboardPage --> CertificatePage
 ActiveSavings --> SavingsSvc
 ActiveLoans --> Firebase
 DynamicWrapper --> Firebase
 CapitalShareHook --> Firebase
+CertificatePage --> CertificateAPI
+CertificatePage --> CertificateService
+CertificateService --> Firebase
+CertificateService --> jsPDF
+CertificateService --> HTML2Canvas
+CertificateAPI --> Firebase
+CertificateAPI --> EmailService
 DashboardPage --> Auth
 Auth --> Validators
 Auth --> Cookies
@@ -465,8 +644,10 @@ Firebase --> Firestore
 - [components/user/ActiveLoans.tsx:3-6](file://components/user/ActiveLoans.tsx#L3-L6)
 - [components/user/ActiveSavings.tsx:3-10](file://components/user/ActiveSavings.tsx#L3-L10)
 - [hooks/useCapitalShare.ts:1-3](file://hooks/useCapitalShare.ts#L1-L3)
+- [app/certificate/[memberId]/page.tsx:1-7](file://app/certificate/[memberId]/page.tsx#L1-L7)
 - [lib/auth.tsx:158-682](file://lib/auth.tsx#L158-L682)
 - [lib/savingsService.ts:1-455](file://lib/savingsService.ts#L1-L455)
+- [lib/certificateService.ts:1-410](file://lib/certificateService.ts#L1-L410)
 - [hooks/useFirestoreData.ts:1-182](file://hooks/useFirestoreData.ts#L1-L182)
 - [lib/firebase.ts:1-309](file://lib/firebase.ts#L1-L309)
 
@@ -484,6 +665,8 @@ The dashboard implements several performance optimizations:
 - Efficient query patterns with role-based filtering to minimize data transfer
 - Responsive design patterns ensuring optimal mobile performance
 - **Updated**: Optimized capital share display logic to reduce unnecessary re-renders through conditional rendering
+- **Updated**: Certificate data caching and lazy loading for improved certificate access performance
+- **Updated**: Dual download mechanism optimization for reduced bandwidth usage
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -497,19 +680,28 @@ Common issues and resolutions:
 - Monitor Firestore query results for permission-denied errors
 - Verify member-user linking resolves correctly for savings data
 - Check real-time listener initialization and error handling
-- **Updated**: Monitor capital share data fetching for proper transaction and member data resolution
+- **Updated**: Monitor certificate data fetching for proper transaction and member data resolution
+- **Updated**: Verify certificate URL generation and base64 encoding for proper certificate display
 
 ### Component Rendering Problems
 - Confirm authentication context availability in components
 - Validate Firestore connection status and configuration
 - Review error boundaries and fallback UI states
 - **Updated**: Verify capital share display logic for proper conditional rendering based on payment status
+- **Updated**: Check certificate download button functionality and error handling
+
+### Certificate Access Issues
+- **Updated**: Verify certificate data exists in Firestore member subcollections
+- **Updated**: Check PDF generation process and base64 encoding
+- **Updated**: Ensure proper MIME type handling for certificate downloads
+- **Updated**: Validate certificate preview iframe functionality across different browsers
 
 **Section sources**
 - [lib/auth.tsx:197-348](file://lib/auth.tsx#L197-L348)
 - [lib/firebase.ts:62-87](file://lib/firebase.ts#L62-L87)
 - [components/user/ActiveSavings.tsx:42-50](file://components/user/ActiveSavings.tsx#L42-L50)
 - [hooks/useCapitalShare.ts:122-127](file://hooks/useCapitalShare.ts#L122-L127)
+- [app/certificate/[memberId]/page.tsx:42-48](file://app/certificate/[memberId]/page.tsx#L42-L48)
 
 ## Conclusion
-The Member Dashboard provides a robust, real-time financial interface tailored to cooperative members with refined capital share display capabilities. Through role-based access control, dynamic content adaptation, and seamless Firestore integration, it delivers personalized financial insights with responsive design and comprehensive error handling. The enhanced capital share management system now clearly communicates payment status through conditional formatting, showing remaining balance for incomplete payments and total paid amount for fully paid members. The modular architecture supports easy customization and extension for additional financial summaries and member services while maintaining strong data privacy and security practices.
+The Member Dashboard provides a robust, real-time financial interface tailored to cooperative members with enhanced certificate access capabilities. Through role-based access control, dynamic content adaptation, and seamless Firestore integration, it delivers personalized financial insights with responsive design and comprehensive error handling. The enhanced capital share management system now clearly communicates payment status through conditional formatting, showing remaining balance for incomplete payments and total paid amount for fully paid members. The comprehensive certificate management system provides sophisticated member data integration with dual download mechanisms, supporting both PDF and image formats for maximum accessibility. The modular architecture supports easy customization and extension for additional financial summaries and member services while maintaining strong data privacy and security practices.
