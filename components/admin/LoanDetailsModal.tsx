@@ -97,22 +97,24 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
     const schedule: AmortizationSchedule[] = [];
     
     const principal = loan.amount || 0;
-    const annualInterest = loan.interest || 0;
+    const interestRate = loan.interest || 0;
     const termMonths = loan.term || 0;
     const totalDays = termMonths * 30; // Convert months to days (30 days per month)
     
     if (principal <= 0 || totalDays <= 0) return [];
     
-    const dailyInterestRate = (annualInterest / 100) / 365; // Daily interest rate
-    let dailyPayment: number;
+    // Calculate total interest: Principal × Interest Rate × Term (in months)
+    const totalInterest = principal * (interestRate / 100) * termMonths;
     
-    if (dailyInterestRate === 0) {
-      dailyPayment = principal / totalDays;
-    } else {
-      dailyPayment = principal * (dailyInterestRate * Math.pow(1 + dailyInterestRate, totalDays)) / (Math.pow(1 + dailyInterestRate, totalDays) - 1);
-    }
+    // Calculate total amount to pay: Principal + Total Interest
+    const totalAmount = principal + totalInterest;
     
-    let remainingBalance = principal;
+    // Calculate daily amounts
+    const dailyPrincipal = principal / totalDays;
+    const dailyInterest = totalInterest / totalDays;
+    const dailyPayment = totalAmount / totalDays;
+    
+    let remainingBalance = totalAmount;
     const startDate = loan.startDate ? new Date(loan.startDate) : new Date();
     let currentDate = new Date(startDate);
     
@@ -120,15 +122,13 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
       // Add one day for each payment date
       currentDate.setDate(currentDate.getDate() + 1);
       
-      const interestPayment = remainingBalance * dailyInterestRate;
-      const principalPayment = dailyPayment - interestPayment;
-      remainingBalance = Math.max(0, remainingBalance - principalPayment);
+      remainingBalance = Math.max(0, remainingBalance - dailyPayment);
       
       schedule.push({
         day,
         paymentDate: currentDate.toISOString().split('T')[0],
-        principal: principalPayment,
-        interest: interestPayment,
+        principal: dailyPrincipal,
+        interest: dailyInterest,
         totalPayment: dailyPayment,
         remainingBalance
       });

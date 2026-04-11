@@ -362,29 +362,31 @@ export default function LoanPage() {
     if (!loan) return [];
     
     const principal = parseFloat(loan.amount) || 0;
-    const annualInterest = parseFloat(loan.interest) || 0;
+    const interestRate = parseFloat(loan.interest) || 0;
     const termMonths = parseInt(loan.term) || 0;
     const totalDays = termMonths * 30; // Convert months to days (30 days per month)
     
     if (principal <= 0 || totalDays <= 0) return [];
     
-    const dailyInterestRate = (annualInterest / 100) / 365; // Daily interest rate
-    let dailyPayment: number;
+    // Calculate total interest: Principal × Interest Rate × Term (in months)
+    // Example: 5000 × 2% × 6 = 600
+    const totalInterest = principal * (interestRate / 100) * termMonths;
     
-    if (dailyInterestRate === 0) {
-      dailyPayment = principal / totalDays;
-    } else {
-      dailyPayment = principal * (dailyInterestRate * Math.pow(1 + dailyInterestRate, totalDays)) / (Math.pow(1 + dailyInterestRate, totalDays) - 1);
-    }
+    // Calculate total amount to pay: Principal + Total Interest
+    // Example: 5000 + 600 = 5600
+    const totalAmount = principal + totalInterest;
+    
+    // Calculate daily amounts
+    const dailyPrincipal = principal / totalDays;
+    const dailyInterest = totalInterest / totalDays;
+    const dailyPayment = totalAmount / totalDays;
     
     const schedule = [];
-    let remainingBalance = principal;
+    let remainingBalance = totalAmount;
     const startDate = loan.disbursedAt ? new Date(loan.disbursedAt) : new Date();
     
     for (let i = 1; i <= totalDays; i++) {
-      const interestPayment = remainingBalance * dailyInterestRate;
-      const principalPayment = dailyPayment - interestPayment;
-      remainingBalance = Math.max(0, remainingBalance - principalPayment);
+      remainingBalance = Math.max(0, remainingBalance - dailyPayment);
       
       const paymentDate = new Date(startDate);
       paymentDate.setDate(paymentDate.getDate() + i);
@@ -393,8 +395,8 @@ export default function LoanPage() {
         day: i,
         paymentDate: paymentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         dailyPayment: dailyPayment,
-        principalPayment: principalPayment,
-        interestPayment: interestPayment,
+        principalPayment: dailyPrincipal,
+        interestPayment: dailyInterest,
         remainingBalance: remainingBalance
       });
     }
