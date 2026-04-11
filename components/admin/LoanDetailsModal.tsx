@@ -309,45 +309,33 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
   
   // Helper function to calculate remaining balance from a given schedule
   const calculateRemainingBalanceFromSchedule = (schedule: AmortizationSchedule[]) => {
-    // Calculate remaining balance by summing up all unpaid amounts
-    let totalRemaining = 0;
+    if (!schedule || schedule.length === 0) return 0;
     
-    for (const item of schedule) {
-      if (item.status === 'paid') {
-        // Fully paid, nothing remaining
-        continue;
-      } else if (item.status === 'partial') {
-        // Partially paid - add the remaining amount for this day
-        const paidAmount = item.paidAmount || 0;
-        totalRemaining += item.totalPayment - paidAmount;
-      } else {
-        // Not paid at all - add full amount
-        totalRemaining += item.totalPayment;
-      }
-    }
-    
-    // Add to the remaining balance from the last item to account for accumulated interest/principal
-    const lastItem = schedule[schedule.length - 1];
-    if (lastItem) {
-      // The remainingBalance field shows the balance after each scheduled payment
-      // We need to adjust it based on actual payments made
-      const originalTotal = schedule.reduce((sum, item) => sum + item.totalPayment, 0);
-      const totalPaid = schedule.reduce((sum, item) => sum + (item.paidAmount || 0), 0);
-      return Math.max(0, originalTotal - totalPaid);
-    }
-    
-    return Math.max(0, totalRemaining);
+    // Calculate remaining balance as: Total Amount - Total Paid
+    const originalTotal = schedule.reduce((sum, item) => sum + item.totalPayment, 0);
+    const totalPaid = schedule.reduce((sum, item) => sum + (item.paidAmount || 0), 0);
+    return Math.max(0, originalTotal - totalPaid);
   };
 
   // Function to get exact remaining balance from loan data
   const getExactRemainingBalance = () => {
-    // First check if loan has remainingBalance property (this is the exact balance from database)
+    // Always calculate from the current schedule to reflect real-time payment status
+    // This ensures partial and full payments are properly accounted for
+    if (amortizationSchedule.length > 0) {
+      return calculateRemainingBalanceFromSchedule(amortizationSchedule);
+    }
+    
+    // Fallback to loan.remainingBalance if schedule is not loaded yet
     if (loan && loan.remainingBalance !== undefined && loan.remainingBalance !== null) {
       return loan.remainingBalance;
     }
     
-    // If no remainingBalance property, calculate from current schedule
-    return calculateRemainingBalanceFromSchedule(amortizationSchedule);
+    // Final fallback: calculate from loan amount + interest
+    const principal = loan?.amount || 0;
+    const interestRate = loan?.interest || 0;
+    const termMonths = loan?.term || 0;
+    const totalInterest = principal * (interestRate / 100) * termMonths;
+    return principal + totalInterest;
   };
 
   // Function to handle payment confirmation
