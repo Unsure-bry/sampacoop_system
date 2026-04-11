@@ -345,16 +345,22 @@ export default function LoanPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3;
 
+  // Pagination state for amortization schedule
+  const [amortizationPage, setAmortizationPage] = useState(1);
+  const amortizationItemsPerPage = 10;
+
   // Handle view loan details
   const handleViewLoanDetails = (loan: any) => {
     setSelectedLoan(loan);
     setShowLoanDetails(true);
+    setAmortizationPage(1); // Reset to first page when opening modal
   };
 
   // Close loan details modal
   const handleCloseLoanDetails = () => {
     setShowLoanDetails(false);
     setSelectedLoan(null);
+    setAmortizationPage(1); // Reset pagination when closing
   };
 
   // Calculate daily amortization schedule
@@ -391,13 +397,21 @@ export default function LoanPage() {
       const paymentDate = new Date(startDate);
       paymentDate.setDate(paymentDate.getDate() + i);
       
+      // Check if there's payment data from the database
+      const storedPayment = loan.paymentSchedule?.[i - 1];
+      
       schedule.push({
         day: i,
         paymentDate: paymentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         dailyPayment: dailyPayment,
         principalPayment: dailyPrincipal,
         interestPayment: dailyInterest,
-        remainingBalance: remainingBalance
+        remainingBalance: remainingBalance,
+        // Sync payment status from database if available
+        status: storedPayment?.status || 'pending',
+        paidAmount: storedPayment?.paidAmount || 0,
+        receiptNumber: storedPayment?.receiptNumber || null,
+        paymentDateProcessed: storedPayment?.paymentDateProcessed || null
       });
     }
     
@@ -1014,32 +1028,122 @@ export default function LoanPage() {
               {(selectedLoan.status === 'active' || selectedLoan.status === 'approved') && (
                 <div className="mb-5 sm:mb-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Amortization Schedule</h3>
-                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                    <table className="min-w-full">
-                      <thead className="sticky top-0 bg-white">
-                        <tr className="border-b border-gray-200">
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Principal</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interest Amount</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Payment</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {calculateAmortization(selectedLoan).map((row, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{row.day}</td>
-                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{row.paymentDate}</td>
-                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(row.principalPayment)}</td>
-                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(row.interestPayment)}</td>
-                            <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency(row.dailyPayment)}</td>
-                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(row.remainingBalance)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  
+                  {/* Calculate paginated data */}
+                  {(() => {
+                    const amortizationData = calculateAmortization(selectedLoan);
+                    const totalAmortizationPages = Math.ceil(amortizationData.length / amortizationItemsPerPage);
+                    const indexOfLastItem = amortizationPage * amortizationItemsPerPage;
+                    const indexOfFirstItem = indexOfLastItem - amortizationItemsPerPage;
+                    const currentItems = amortizationData.slice(indexOfFirstItem, indexOfLastItem);
+                    
+                    return (
+                      <>
+                        <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                          <table className="min-w-full">
+                            <thead className="sticky top-0 bg-white">
+                              <tr className="border-b border-gray-200">
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Principal</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interest Amount</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Payment</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Balance</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Amount</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt No.</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Processed Date</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {currentItems.map((row, index) => (
+                                <tr key={indexOfFirstItem + index} className={`hover:bg-gray-50 ${row.status === 'paid' ? 'bg-green-50' : row.status === 'partial' ? 'bg-yellow-50' : ''}`}>
+                                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{row.day}</td>
+                                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{row.paymentDate}</td>
+                                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(row.principalPayment)}</td>
+                                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(row.interestPayment)}</td>
+                                  <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency(row.dailyPayment)}</td>
+                                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(row.remainingBalance)}</td>
+                                  <td className="px-3 py-3 whitespace-nowrap">
+                                    <span className={`px-2 py-1 rounded-full text-xs ${
+                                      row.status === 'paid' 
+                                        ? 'bg-green-100 text-green-800' 
+                                        : row.status === 'partial' 
+                                          ? 'bg-yellow-100 text-yellow-800' 
+                                          : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                      {row.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                                    {row.paidAmount ? formatCurrency(row.paidAmount) : '-'}
+                                    {row.status === 'partial' && row.paidAmount > 0 && (
+                                      <span className="text-xs text-gray-500 ml-1">/ {formatCurrency(row.dailyPayment)}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{row.receiptNumber || '-'}</td>
+                                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                                    {row.paymentDateProcessed 
+                                      ? new Date(row.paymentDateProcessed).toLocaleString('en-PH', {
+                                          year: 'numeric',
+                                          month: 'short',
+                                          day: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        }) 
+                                      : '-'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        {/* Pagination Controls */}
+                        {totalAmortizationPages > 1 && (
+                          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50 mt-4">
+                            <div className="text-sm text-gray-700">
+                              Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
+                              <span className="font-medium">
+                                {Math.min(indexOfLastItem, amortizationData.length)}
+                              </span>{' '}
+                              of <span className="font-medium">{amortizationData.length}</span> payments
+                            </div>
+                            
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => setAmortizationPage(prev => Math.max(prev - 1, 1))}
+                                disabled={amortizationPage === 1}
+                                className={`px-3 py-1 rounded-md text-sm font-medium ${
+                                  amortizationPage === 1
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                              >
+                                Previous
+                              </button>
+                              
+                              <span className="px-3 py-1 text-sm font-medium text-gray-700">
+                                Page {amortizationPage} of {totalAmortizationPages}
+                              </span>
+                              
+                              <button
+                                onClick={() => setAmortizationPage(prev => Math.min(prev + 1, totalAmortizationPages))}
+                                disabled={amortizationPage === totalAmortizationPages}
+                                className={`px-3 py-1 rounded-md text-sm font-medium ${
+                                  amortizationPage === totalAmortizationPages
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                              >
+                                Next
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
 
