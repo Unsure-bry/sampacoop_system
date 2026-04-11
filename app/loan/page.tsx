@@ -357,6 +357,50 @@ export default function LoanPage() {
     setSelectedLoan(null);
   };
 
+  // Calculate amortization schedule
+  const calculateAmortization = (loan: any) => {
+    if (!loan) return [];
+    
+    const principal = parseFloat(loan.amount) || 0;
+    const annualInterest = parseFloat(loan.interest) || 0;
+    const termMonths = parseInt(loan.term) || 0;
+    
+    if (principal <= 0 || termMonths <= 0) return [];
+    
+    const monthlyInterestRate = (annualInterest / 100) / 12;
+    let monthlyPayment: number;
+    
+    if (monthlyInterestRate === 0) {
+      monthlyPayment = principal / termMonths;
+    } else {
+      monthlyPayment = principal * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, termMonths)) / (Math.pow(1 + monthlyInterestRate, termMonths) - 1);
+    }
+    
+    const schedule = [];
+    let remainingBalance = principal;
+    const startDate = loan.disbursedAt ? new Date(loan.disbursedAt) : new Date();
+    
+    for (let i = 1; i <= termMonths; i++) {
+      const interestPayment = remainingBalance * monthlyInterestRate;
+      const principalPayment = monthlyPayment - interestPayment;
+      remainingBalance = Math.max(0, remainingBalance - principalPayment);
+      
+      const paymentDate = new Date(startDate);
+      paymentDate.setMonth(paymentDate.getMonth() + i);
+      
+      schedule.push({
+        month: i,
+        paymentDate: paymentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        monthlyPayment: monthlyPayment,
+        principalPayment: principalPayment,
+        interestPayment: interestPayment,
+        remainingBalance: remainingBalance
+      });
+    }
+    
+    return schedule;
+  };
+
   if (loading || activeLoanCheckLoading || capitalShareLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -723,7 +767,12 @@ export default function LoanPage() {
                       {activeLoans
                         .slice((activeLoansPage - 1) * itemsPerPage, activeLoansPage * itemsPerPage)
                         .map((loan) => (
-                        <tr key={loan.id} className="hover:bg-gray-50">
+                        <tr 
+                          key={loan.id} 
+                          className="hover:bg-gray-50 cursor-pointer transition-colors"
+                          onClick={() => handleViewLoanDetails(loan)}
+                          title="Click to view loan details and amortization schedule"
+                        >
                           <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
                             {loan.loanId || loan.id}
                           </td>
@@ -915,11 +964,13 @@ export default function LoanPage() {
       {/* Loan Application Details Modal */}
       {showLoanDetails && selectedLoan && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-200">
             <div className="p-5 sm:p-6">
               <div className="flex justify-between items-start mb-5 sm:mb-6 pb-4 border-b border-gray-200">
                 <div className="flex-1 min-w-0 pr-4">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Loan Application Details</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+                    {selectedLoan.status === 'active' || selectedLoan.status === 'approved' ? 'Active Loan Details' : 'Loan Application Details'}
+                  </h2>
                   <p className="text-sm sm:text-base text-gray-700 mt-2 font-medium">Loan ID: <span className="text-gray-900">{selectedLoan.loanId || selectedLoan.id}</span></p>
                 </div>
                 <button
@@ -932,7 +983,7 @@ export default function LoanPage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5 sm:mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5 sm:mb-6">
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Loan Plan</p>
                   <p className="text-base sm:text-lg font-bold text-gray-900">{selectedLoan.planName || 'General Loan'}</p>
@@ -947,7 +998,7 @@ export default function LoanPage() {
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Interest Rate</p>
-                  <p className="text-base sm:text-lg font-bold text-gray-900">{selectedLoan.interestRate || 3}%</p>
+                  <p className="text-base sm:text-lg font-bold text-gray-900">{selectedLoan.interest || selectedLoan.interestRate || 3}%</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Status</p>
@@ -961,10 +1012,28 @@ export default function LoanPage() {
                     {selectedLoan.createdAt ? new Date(selectedLoan.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
                   </p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Applicant Name</p>
-                  <p className="text-base sm:text-lg font-bold text-gray-900 truncate">{selectedLoan.fullName || selectedLoan.userName || 'N/A'}</p>
-                </div>
+                {(selectedLoan.status === 'active' || selectedLoan.status === 'approved') && (
+                  <>
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                      <p className="text-xs font-semibold text-blue-600 mb-2 uppercase tracking-wide">Monthly Payment</p>
+                      <p className="text-base sm:text-lg font-bold text-blue-900">
+                        {formatCurrency(calculateAmortization(selectedLoan)[0]?.monthlyPayment || 0)}
+                      </p>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                      <p className="text-xs font-semibold text-green-600 mb-2 uppercase tracking-wide">Total Payment</p>
+                      <p className="text-base sm:text-lg font-bold text-green-900">
+                        {formatCurrency((calculateAmortization(selectedLoan)[0]?.monthlyPayment || 0) * (selectedLoan.term || 1))}
+                      </p>
+                    </div>
+                    <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                      <p className="text-xs font-semibold text-purple-600 mb-2 uppercase tracking-wide">Remaining Balance</p>
+                      <p className="text-base sm:text-lg font-bold text-purple-900">
+                        {formatCurrency(selectedLoan.remainingBalance || selectedLoan.amount || 0)}
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
 
               {selectedLoan.description && (
@@ -978,6 +1047,39 @@ export default function LoanPage() {
                 <div className="bg-red-50 rounded-lg p-4 mb-5 sm:mb-6 border border-red-200">
                   <p className="text-xs font-semibold text-red-700 mb-2 uppercase tracking-wide">Rejection Reason</p>
                   <p className="text-sm sm:text-base text-red-900 leading-relaxed">{selectedLoan.rejectionReason}</p>
+                </div>
+              )}
+
+              {/* Amortization Schedule for Active Loans */}
+              {(selectedLoan.status === 'active' || selectedLoan.status === 'approved') && (
+                <div className="mb-5 sm:mb-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">Amortization Schedule</h3>
+                  <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly Payment</th>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Principal</th>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interest</th>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {calculateAmortization(selectedLoan).map((row, index) => (
+                          <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{row.month}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{row.paymentDate}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency(row.monthlyPayment)}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatCurrency(row.principalPayment)}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{formatCurrency(row.interestPayment)}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency(row.remainingBalance)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
