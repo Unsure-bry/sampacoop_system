@@ -1002,10 +1002,10 @@ export default function LoanPage() {
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-xs text-gray-500 mb-1">Remaining Balance</p>
                   <p className="text-sm font-semibold text-gray-900">
-                    {formatCurrency(
-                      (selectedLoan.remainingBalance || selectedLoan.amount || 0) + 
+                    {formatCurrency(selectedLoan.remainingBalance !== undefined ? selectedLoan.remainingBalance : (
+                      (selectedLoan.amount || 0) + 
                       ((selectedLoan.amount || 0) * (selectedLoan.interest || selectedLoan.interestRate || 0) / 100 * (selectedLoan.term || 0))
-                    )}
+                    ))}
                   </p>
                 </div>
               </div>
@@ -1024,10 +1024,6 @@ export default function LoanPage() {
                           <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interest Amount</th>
                           <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Payment</th>
                           <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Balance</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Amount</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt No.</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Processed Date</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -1039,12 +1035,6 @@ export default function LoanPage() {
                             <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(row.interestPayment)}</td>
                             <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency(row.dailyPayment)}</td>
                             <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatCurrency(row.remainingBalance)}</td>
-                            <td className="px-3 py-3 whitespace-nowrap">
-                              <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">pending</span>
-                            </td>
-                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-400">-</td>
-                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-400">-</td>
-                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-400">-</td>
                           </tr>
                         ))}
                       </tbody>

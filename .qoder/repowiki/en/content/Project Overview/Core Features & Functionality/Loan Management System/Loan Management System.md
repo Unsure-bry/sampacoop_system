@@ -45,13 +45,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced amortization schedule calculations for active loans with detailed payment breakdowns
-- Improved remaining balance tracking with multiple calculation methods and enhanced accuracy
-- Added comprehensive monthly payment amounts display with daily payment granularity
-- Enhanced loan details modal with improved financial metrics and payment visualization
-- Implemented sophisticated payment processing with auto-marking logic and receipt generation
-- Added detailed principal and interest breakdowns for each scheduled payment
-- Enhanced payment schedule pagination with improved user experience
+- **Daily Amortization Model**: Complete transition from monthly to daily payment calculations with 30-day month approximation
+- **Enhanced PDF Export Functionality**: New PDF generation capabilities for loan amortization schedules using jspdf and jspdf-autotable
+- **Improved Administrative Interface**: Enhanced LoanDetailsModal with comprehensive payment tracking and export features
+- **Advanced Payment Processing**: Sophisticated auto-marking logic with receipt number tracking and payment status management
+- **Streamlined User Experience**: Simplified payment processing workflow with improved user feedback and status tracking
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -80,7 +78,7 @@
 ## Introduction
 This document describes the SAMPA Cooperative Management System's enhanced loan management functionality featuring a comprehensive tabbed interface system, improved loan application processes, sophisticated real-time status monitoring, advanced loan contract management capabilities, and comprehensive email notification system. The system now provides a unified platform for members to manage their loan applications, track active loans, and monitor completed loan history through an intuitive three-tab interface. A significant enhancement is the role-based loan plan filtering system that ensures members only see loan plans relevant to their membership category (Driver, Operator, or All Members). Additionally, the system now includes a comprehensive loan contract management system with field positioning tools, PDF generation capabilities, certificate integration, and an enhanced email notification system that automatically communicates loan approval and rejection decisions to applicants.
 
-**Updated** The system now implements enhanced amortization schedule calculations with detailed payment breakdowns, comprehensive monthly payment amounts display, improved remaining balance tracking, and enhanced loan details modal with improved financial metrics for better transparency and user experience.
+**Updated** The system now implements a daily amortization model replacing the previous monthly payment system, with sophisticated PDF export functionality for loan schedules, enhanced administrative capabilities for payment tracking, and improved user interface for loan details and payment monitoring.
 
 ## Project Structure
 The loan management system is implemented as a Next.js application with role-based admin pages, shared React components, and enhanced loan contract management infrastructure. The enhanced structure supports seamless navigation between loan applications, active loans, and completed loan history, with intelligent role-based filtering of available loan plans, comprehensive contract management capabilities, and automated email notification workflows.
@@ -109,11 +107,12 @@ EMAILSERVICE["EmailService.ts<br/>Dedicated Templates + Configuration"]
 FIXSCRIPT["Fix Loan Calculations<br/>Legacy Data Migration"]
 END
 subgraph "Enhanced Tracking Components"
-LOANDETAILSMODAL["LoanDetailsModal.tsx<br/>Enhanced Amortization + Payment Tracking"]
+LOANDETAILSMODAL["LoanDetailsModal.tsx<br/>Enhanced Amortization + Payment Tracking + PDF Export"]
 ACTIVELOANS["ActiveLoans.tsx<br/>Detailed Payment Schedule + Auto-marking"]
 PAYMENTPROCESSING["Payment Processing<br/>Auto-marking + Receipt Generation"]
 REMBALANCE["Remaining Balance<br/>Multiple Calculation Methods"]
 AMORTIZATION["Amortization Schedule<br/>Daily Payment Breakdown"]
+PDFEXPORT["PDF Export Functionality<br/>jspdf + jspdf-autotable"]
 END
 subgraph "Supporting Components"
 LAYOUT["LoanLayout.tsx<br/>Responsive Layout"]
@@ -131,6 +130,7 @@ CONTRACTMODAL --> CONTRACTPREVIEW
 CONTRACTMODAL --> POSITIONTOOL
 DETAILSMODAL --> CONTRACTPREVIEW
 DETAILSMODAL --> AMORTIZATION
+DETAILSMODAL --> PDFEXPORT
 ACTIVELOANS --> REMBALANCE
 PAYMENTPROCESSING --> REMBALANCE
 PAYMENTPROCESSING --> AMORTIZATION
@@ -165,7 +165,7 @@ FIXSCRIPT --> INTERESTSNAPSHOT
 - **LoanContractModal**: New comprehensive component for creating loan contracts with field positioning tools, PDF generation capabilities, and certificate integration workflow.
 - **ContractPreview**: Component for rendering loan contract templates with field positioning, currency formatting, and responsive design.
 - **ContractPositioningTool**: Interactive tool for customizing field positions on loan contracts with drag-and-drop functionality and real-time preview.
-- **LoanDetailsModal**: Enhanced modal component with comprehensive amortization schedule display, detailed payment breakdowns, remaining balance calculations, and improved financial metrics presentation.
+- **LoanDetailsModal**: Enhanced modal component with comprehensive amortization schedule display, detailed payment breakdowns, remaining balance calculations, enhanced financial metrics presentation, and new PDF export functionality.
 - **ActiveLoans**: Enhanced component with detailed payment schedule visualization, auto-payment marking, remaining balance tracking, and improved user interaction patterns.
 - **LoanLayout**: Responsive layout component providing collapsible sidebar navigation, role-based content filtering, and consistent styling across loan management pages.
 - **LoanPlan Types**: Enhanced type definitions supporting the 'applicableTo' field with 'Driver', 'Operator', and 'All Members' enum values for role-based filtering.
@@ -201,6 +201,7 @@ The system follows a modular architecture with enhanced real-time synchronizatio
 - **Interest Rate Management Layer**: Critical enhancement ensuring interest rates are captured as snapshots at application time to prevent calculation discrepancies.
 - **Payment Processing Layer**: Enhanced payment processing with auto-marking logic, detailed payment tracking, remaining balance calculations, and comprehensive receipt generation.
 - **Amortization Calculation Layer**: Sophisticated amortization schedule calculations with daily payment breakdowns, principal and interest separation, and enhanced financial transparency.
+- **PDF Export Layer**: New functionality for generating professional PDF documents from loan amortization schedules with jspdf and jspdf-autotable libraries.
 - **User Experience Layer**: Streamlined application process with integrated verification, role-aware plan selection, enhanced contract creation workflow, improved user feedback mechanisms, and automated email notifications.
 - **Performance Layer**: Custom hooks and optimized data fetching with client-side sorting, real-time updates without composite indexes, and improved user experience.
 
@@ -225,6 +226,7 @@ CONTRACTMODAL --> CONTRACTPREVIEW["ContractPreview.tsx"]
 CONTRACTMODAL --> POSITIONTOOL["ContractPositioningTool.tsx"]
 DETAILSMODAL --> CONTRACTPREVIEW
 DETAILSMODAL --> AMORTIZATION["Enhanced Amortization<br/>Daily Payment Breakdown"]
+DETAILSMODAL --> PDFEXPORT["PDF Export Functionality<br/>jspdf + jspdf-autotable"]
 ACTIVELOANS --> AMORTIZATION
 ACTIVELOANS --> REMBALANCE["Remaining Balance<br/>Multiple Calculation Methods"]
 PAYMENTPROCESSING["Payment Processing<br/>Auto-marking + Receipt Generation"] --> REMBALANCE
@@ -630,8 +632,8 @@ The system provides comprehensive loan tracking capabilities through enhanced co
 ## Enhanced Loan Details Modal with Amortization Scheduling
 The system now features an enhanced LoanDetailsModal component with comprehensive amortization schedule calculations, detailed payment breakdowns, and improved financial metrics display:
 
-### Amortization Schedule Calculations
-- **Daily Payment Breakdown**: Sophisticated calculation of daily principal and interest amounts with accurate remaining balance tracking
+### Daily Amortization Schedule Calculations
+- **Daily Payment Breakdown**: Sophisticated calculation of daily principal and interest amounts with accurate remaining balance tracking using 30-day month approximation
 - **Total Payment Obligations**: Clear display of total payment obligations including principal and interest components
 - **Remaining Balance Tracking**: Multiple calculation methods for accurate remaining balance determination with fallback mechanisms
 - **Status Visualization**: Color-coded status indicators for paid, partial, and pending payments with detailed payment history
@@ -651,9 +653,17 @@ The system now features an enhanced LoanDetailsModal component with comprehensiv
 
 ### Enhanced User Experience
 - **Pagination Controls**: 10-item per page pagination for large amortization schedules with navigation controls
-- **Print and Export Options**: PDF export and print functionality for payment schedules with comprehensive formatting
+- **PDF Export Functionality**: New PDF export capabilities using jspdf and jspdf-autotable libraries for professional document generation
+- **Print Functionality**: Integrated print functionality for loan schedules with professional formatting
 - **Responsive Design**: Mobile-friendly table layout with horizontal scrolling for smaller screens
 - **Loading States**: Appropriate loading indicators during schedule calculation and payment processing
+
+### PDF Export Capabilities
+- **Professional PDF Generation**: High-quality PDF export of amortization schedules with jspdf library
+- **Table Formatting**: Professional table formatting using jspdf-autotable for structured data presentation
+- **Header Styling**: Red-colored headers with professional styling for visual appeal
+- **File Naming**: Automatic file naming with loan ID for organized document management
+- **Success Notifications**: User feedback for successful PDF generation and download
 
 ```mermaid
 graph TB
@@ -663,17 +673,23 @@ DAILY --> BALANCE["Remaining Balance<br/>Accumulated Through Payments"]
 BALANCE --> STATUS["Status Tracking<br/>Paid/Partial/Pending"]
 STATUS --> PAYMENTS["Payment Processing<br/>Auto-marking + Receipt Generation"]
 PAYMENTS --> NOTIFICATIONS["Notifications<br/>Payment Confirmation + Completion Alerts"]
+PDFEXPORT["PDF Export Functionality<br/>jspdf + jspdf-autotable"] --> PRINT["Print Functionality<br/>Professional Formatting"]
+PDFEXPORT --> DOWNLOAD["Download Capability<br/>Automatic File Naming"]
 ```
 
 **Diagram sources**
 - [LoanDetailsModal.tsx:103-156](file://components/admin/LoanDetailsModal.tsx#L103-L156)
 - [LoanDetailsModal.tsx:522-576](file://components/admin/LoanDetailsModal.tsx#L522-L576)
 - [LoanDetailsModal.tsx:578-587](file://components/admin/LoanDetailsModal.tsx#L578-L587)
+- [LoanDetailsModal.tsx:156-202](file://components/admin/LoanDetailsModal.tsx#L156-L202)
+- [LoanDetailsModal.tsx:204-269](file://components/admin/LoanDetailsModal.tsx#L204-L269)
 
 **Section sources**
 - [LoanDetailsModal.tsx:103-156](file://components/admin/LoanDetailsModal.tsx#L103-L156)
 - [LoanDetailsModal.tsx:522-576](file://components/admin/LoanDetailsModal.tsx#L522-L576)
 - [LoanDetailsModal.tsx:578-587](file://components/admin/LoanDetailsModal.tsx#L578-L587)
+- [LoanDetailsModal.tsx:156-202](file://components/admin/LoanDetailsModal.tsx#L156-L202)
+- [LoanDetailsModal.tsx:204-269](file://components/admin/LoanDetailsModal.tsx#L204-L269)
 
 ## Automated Payment Processing
 The system includes sophisticated automated payment processing capabilities with role-based plan integration and comprehensive email notification workflows:
@@ -779,6 +795,11 @@ Enhanced performance optimizations and considerations for the improved system wi
 - **Template Management**: Efficient template management with role-specific template assignment and email delivery optimization
 - **Batch Processing**: Batch processing capabilities for email notifications with role-based filtering and delivery status tracking
 
+### PDF Export Performance
+- **Library Optimization**: Efficient use of jspdf and jspdf-autotable libraries for optimal PDF generation performance
+- **Memory Management**: Proper memory management for PDF generation with large datasets and complex formatting
+- **User Feedback**: Appropriate loading states and progress indication during PDF generation process
+
 ## Troubleshooting Guide
 Enhanced troubleshooting for the improved loan management system with role-based filtering, comprehensive contract management, and integrated email notification workflows:
 
@@ -809,10 +830,16 @@ Enhanced troubleshooting for the improved loan management system with role-based
 - **Contract Accuracy**: Verify approved loan contracts reference correct interest rate snapshots for legal and financial accuracy
 
 ### Amortization Schedule Issues
-- **Calculation Accuracy**: Verify proper amortization schedule calculations with daily principal and interest breakdown
+- **Daily Calculation Accuracy**: Verify proper daily amortization schedule calculations with 30-day month approximation and accurate remaining balance tracking
 - **Remaining Balance**: Check remaining balance calculation methods and fallback mechanisms for accuracy
 - **Status Updates**: Ensure proper status updates for paid, partial, and pending payments with auto-marking logic
 - **Payment Application**: Verify proper payment application to unpaid installments with partial payment handling
+
+### PDF Export Issues
+- **Library Integration**: Verify proper integration of jspdf and jspdf-autotable libraries for PDF generation functionality
+- **Export Functionality**: Check PDF export process, error handling, file naming conventions, and download functionality
+- **Print Functionality**: Ensure proper print functionality for loan schedules with professional formatting
+- **Performance Issues**: Monitor PDF generation performance with large datasets and complex formatting
 
 ### Contract Management Issues
 - **Field Positioning**: Verify proper field positioning functionality, drag-and-drop interactions, position persistence, and email template compatibility
@@ -837,7 +864,8 @@ Enhanced troubleshooting for the improved loan management system with role-based
 - [LoanPage.tsx:328-334](file://app/loan/page.tsx#L328-L334)
 - [LoanActions.tsx:136-292](file://components/user/actions/LoanActions.tsx#L136-L292)
 - [LoanRequestsManager.tsx:164-225](file://components/admin/LoanRequestsManager.tsx#L164-L225)
-- [LoanContractModal.tsx:120-166](file://components/admin/LoanContractModal.tsx#L120-L166)
+- [LoanDetailsModal.tsx:156-202](file://components/admin/LoanDetailsModal.tsx#L156-L202)
+- [LoanDetailsModal.tsx:204-269](file://components/admin/LoanDetailsModal.tsx#L204-L269)
 - [ContractPositioningTool.tsx:73-111](file://components/admin/ContractPositioningTool.tsx#L73-L111)
 - [LoanDetailsModal.tsx:522-576](file://components/admin/LoanDetailsModal.tsx#L522-L576)
 - [ActiveLoans.tsx:326-437](file://components/user/ActiveLoans.tsx#L326-L437)
@@ -847,7 +875,7 @@ Enhanced troubleshooting for the improved loan management system with role-based
 ## Conclusion
 The SAMPA Cooperative Management System's enhanced loan management functionality represents a significant advancement in cooperative financial management capabilities. The new tabbed interface system provides seamless navigation between loan applications, active loans, and completed loan history, while the improved LoanActions component streamlines the entire loan application process. The introduction of role-based loan plan filtering ensures that members only see loan plans relevant to their membership category, improving user experience and operational efficiency.
 
-**Updated** The most significant enhancement is the implementation of comprehensive amortization schedule calculations with detailed payment breakdowns, monthly payment amounts display, improved remaining balance tracking, and enhanced loan details modal with improved financial metrics. These enhancements provide unprecedented transparency and accuracy in loan management, with sophisticated daily payment calculations, principal and interest separation, and comprehensive payment tracking capabilities.
+**Updated** The most significant enhancement is the implementation of comprehensive daily amortization schedule calculations with detailed payment breakdowns, monthly payment amounts display, improved remaining balance tracking, and enhanced loan details modal with improved financial metrics. These enhancements provide unprecedented transparency and accuracy in loan management, with sophisticated daily payment calculations, principal and interest separation, and comprehensive payment tracking capabilities.
 
 The system now features sophisticated amortization schedule calculations with daily payment breakdowns, comprehensive remaining balance tracking with multiple calculation methods, detailed principal and interest displays, enhanced payment processing with auto-marking logic, and improved user experience through better financial transparency and payment visualization.
 
@@ -859,4 +887,6 @@ The system's modular architecture with custom hooks, optimized data fetching, an
 
 The role-based filtering system enhances security and user experience by presenting only relevant loan options to each user type, while the enhanced administrative interface provides comprehensive oversight capabilities for cooperative management. The addition of field positioning tools, PDF generation capabilities, comprehensive email notification workflows, and enhanced amortization calculation improvements demonstrates best practices in role-based access control, real-time data synchronization, user-centric design principles, professional document management systems, automated member communication workflows, and financial calculation accuracy.
 
-The refactored LoanRequestsManager using custom hooks eliminates the need for composite indexes while maintaining real-time updates and improved performance, showcasing modern React development practices and Firestore optimization techniques. The comprehensive enhancement of interest rate calculation consistency, combined with the existing sophisticated features and the new amortization schedule calculations, makes the SAMPA Cooperative Management System a robust, efficient, and user-friendly solution for cooperative financial management operations that prioritizes accuracy, transparency, and long-term financial stability.
+The refactored LoanRequestsManager using custom hooks eliminates the need for composite indexes while maintaining real-time updates and improved performance, showcasing modern React development practices and Firestore optimization techniques. The comprehensive enhancement of interest rate calculation consistency, combined with the existing sophisticated features and the new daily amortization model with PDF export functionality, makes the SAMPA Cooperative Management System a robust, efficient, and user-friendly solution for cooperative financial management operations that prioritizes accuracy, transparency, and long-term financial stability.
+
+The new PDF export functionality represents a significant enhancement to the administrative capabilities, allowing for professional document generation and printing of loan amortization schedules. This feature, combined with the daily amortization model and enhanced payment tracking, provides a comprehensive solution for cooperative loan management that meets the needs of both members and administrative staff.
