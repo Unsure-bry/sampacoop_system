@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { firestore } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { sendLoanPaymentReceipt } from '@/lib/transactionReceiptService';
 
 interface Loan {
   id: string;
@@ -43,7 +45,12 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
   const [amortizationSchedule, setAmortizationSchedule] = useState<AmortizationSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Payment functionality removed - admin handles payments separately
+  // State for payment functionality
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [receiptNumber, setReceiptNumber] = useState('');
   
   // Pagination state for amortization schedule
   const [currentPage, setCurrentPage] = useState(1);
@@ -343,6 +350,212 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
     return calculateRemainingBalanceFromSchedule(amortizationSchedule);
   };
 
+  // Function to handle payment confirmation
+  const handlePaymentConfirmation = () => {
+    // Remove all non-numeric characters except decimal point, then parse
+    const cleanAmount = paymentAmount.replace(/[^\d.]/g, '');
+    const amount = parseFloat(cleanAmount);
+    const remainingBalance = getExactRemainingBalance();
+    
+    // Validate payment amount
+    if (!paymentAmount || isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid payment amount');
+      return;
+    }
+    
+    // Validate payment amount does not exceed remaining balance (with small tolerance for floating point)
+    if (amount > remainingBalance + 0.01) {
+      toast.error(`Payment amount cannot exceed the remaining balance of ${formatCurrency(remainingBalance)}`);
+      return;
+    }
+    
+    // Validate receipt number
+    if (!receiptNumber.trim()) {
+      toast.error('Please enter a receipt number');
+      return;
+    }
+    
+    // Show confirmation modal
+    setShowPaymentModal(false);
+    setShowConfirmationModal(true);
+  };
+
+  // Function to process the actual payment
+  const processPayment = async () => {
+    setPaymentLoading(true);
+
+    try {
+      const amount = parseFloat(paymentAmount.replace(/,/g, ''));
+      
+      // Find unpaid payments that can be covered by this payment
+      let remainingPayment = amount;
+      const updatedSchedule = [...amortizationSchedule];
+      let paymentsApplied = 0;
+      const paidItems: AmortizationSchedule[] = [];
+
+      for (let i = 0; i < updatedSchedule.length; i++) {
+        if (updatedSchedule[i].status !== 'paid' && remainingPayment > 0) {
+          const totalPaymentDue = updatedSchedule[i].totalPayment;
+          const alreadyPaid = updatedSchedule[i].paidAmount || 0;
+          const remainingDue = totalPaymentDue - alreadyPaid;
+          
+          // Use a small tolerance for floating point comparison (0.01 peso)
+          const tolerance = 0.01;
+          const isFullPayment = remainingPayment >= remainingDue - tolerance;
+          
+          if (isFullPayment) {
+            // Full payment for this installment
+            updatedSchedule[i].status = 'paid';
+            updatedSchedule[i].receiptNumber = receiptNumber;
+            updatedSchedule[i].paymentDateProcessed = new Date().toISOString();
+            updatedSchedule[i].paidAmount = totalPaymentDue; // Mark as fully paid
+            paidItems.push(updatedSchedule[i]);
+            remainingPayment -= remainingDue;
+            paymentsApplied++;
+          } else {
+            // Partial payment - accumulate the paid amount
+            updatedSchedule[i].status = 'partial';
+            updatedSchedule[i].receiptNumber = receiptNumber;
+            updatedSchedule[i].paymentDateProcessed = new Date().toISOString();
+            updatedSchedule[i].partialPaymentAmount = remainingPayment;
+            updatedSchedule[i].paidAmount = alreadyPaid + remainingPayment;
+            paidItems.push(updatedSchedule[i]);
+            remainingPayment = 0;
+            paymentsApplied++;
+            break;
+          }
+        }
+      }
+
+      // Calculate the new remaining balance after payments
+      const newRemainingBalance = calculateRemainingBalanceFromSchedule(updatedSchedule);
+      
+      // Clean the schedule data to remove undefined values before saving
+      const cleanSchedule = updatedSchedule.map(item => ({
+        day: item.day,
+        paymentDate: item.paymentDate,
+        principal: item.principal,
+        interest: item.interest,
+        totalPayment: item.totalPayment,
+        remainingBalance: item.remainingBalance,
+        status: item.status || 'pending',
+        receiptNumber: item.receiptNumber || null,
+        paymentDateProcessed: item.paymentDateProcessed || null,
+        partialPaymentAmount: item.partialPaymentAmount || null,
+        paidAmount: item.paidAmount || 0
+      }));
+      
+      // Update the loan document with the new payment schedule and remaining balance
+      const updateResult = await firestore.updateDocument('loans', loan!.id, {
+        paymentSchedule: cleanSchedule,
+        remainingBalance: newRemainingBalance
+      });
+
+      if (updateResult.success) {
+        setAmortizationSchedule(updatedSchedule);
+        
+        // Create notification for the user
+        await createPaymentNotification(amount, receiptNumber, paidItems);
+        
+        // Send email receipt to Driver/Operator
+        if (loan?.userId && loan?.role) {
+          const role = loan.role.toLowerCase();
+          console.log('Checking email receipt for role:', role, 'userId:', loan.userId);
+          
+          if (role === 'driver' || role === 'operator') {
+            console.log('Sending loan payment receipt to', role, '- userId:', loan.userId);
+            try {
+              const firstPaidItem = paidItems.length > 0 ? paidItems[0] : null;
+              console.log('Payment details:', { 
+                amount, 
+                newRemainingBalance, 
+                firstPaidDay: firstPaidItem?.day,
+                loanId: loan.id 
+              });
+              
+              const receiptResult = await sendLoanPaymentReceipt(
+                loan.userId,
+                loan.id,
+                amount,
+                newRemainingBalance,
+                firstPaidItem?.day
+              );
+              
+              if (receiptResult.success) {
+                console.log('✅ Loan payment receipt sent:', receiptResult.receiptNumber);
+              } else {
+                console.error('❌ Failed to send loan payment receipt:', receiptResult.error, receiptResult);
+              }
+            } catch (emailError: any) {
+              console.error('❌ Error sending loan payment receipt:', emailError);
+            }
+          }
+        }
+        
+        // Close modals and reset state
+        setShowConfirmationModal(false);
+        setPaymentAmount('');
+        setReceiptNumber('');
+        
+        toast.success(`Payment of ${formatCurrency(amount)} processed successfully! Receipt: ${receiptNumber}`);
+        
+        // Check if all payments are completed to update loan status
+        const allPaid = updatedSchedule.every(item => item.status === 'paid');
+        if (allPaid) {
+          await firestore.updateDocument('loans', loan!.id, {
+            status: 'completed'
+          });
+          toast.success('All payments completed! Loan marked as completed.');
+        }
+      } else {
+        toast.error('Failed to update payment status');
+      }
+    } catch (err) {
+      console.error('Error processing payment:', err);
+      toast.error('Failed to process payment');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // Function to create payment notification
+  const createPaymentNotification = async (amount: number, receipt: string, paidItems: AmortizationSchedule[]) => {
+    try {
+      // Create detailed message with payment information
+      let message = `Your payment of ${formatCurrency(amount)} has been successfully processed. Receipt No: ${receipt}`;
+      
+      if (paidItems.length > 0) {
+        message += `\n\nPayments applied to:`;
+        paidItems.forEach((item) => {
+          message += `\n- Day ${item.day}: ${formatCurrency(item.totalPayment)}`;
+        });
+      }
+
+      const notificationId = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const notificationData = {
+        userId: loan?.userId,
+        userRole: loan?.role,
+        title: 'Payment Received',
+        message: message,
+        type: 'payment',
+        status: 'unread',
+        createdAt: new Date().toISOString(),
+        loanId: loan?.id,
+        receiptNumber: receipt,
+        paymentAmount: amount,
+        paidItems: paidItems.map(item => ({
+          day: item.day,
+          amount: item.totalPayment,
+          date: item.paymentDate
+        }))
+      };
+
+      await firestore.setDocument('notifications', notificationId, notificationData);
+    } catch (error) {
+      console.error('Error creating notification:', error);
+    }
+  };
+
   if (!isOpen || !loan) return null;
 
   return (
@@ -388,6 +601,42 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
                   )}
                 </p>
               </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 mb-6">
+              <button
+                onClick={exportToPDF}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                </svg>
+                Export PDF
+              </button>
+              <button
+                onClick={printSchedule}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Print Schedule
+              </button>
+              <button
+                onClick={() => setShowPaymentModal(true)}
+                disabled={loan.status === 'completed'}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center ${
+                  loan.status === 'completed'
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                {loan.status === 'completed' ? 'Loan Completed' : 'Make Payment'}
+              </button>
             </div>
 
             {/* Amortization Schedule */}
@@ -546,7 +795,182 @@ export default function LoanDetailsModal({ loan, isOpen, onClose }: LoanDetailsM
         </div>
       </div>
 
-      {/* Payment modals removed - admin handles payments separately */}
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-black">Make Loan Payment</h3>
+                <button 
+                  onClick={() => setShowPaymentModal(false)}
+                  className="text-black hover:text-gray-700"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-black mb-1">
+                  Control No. <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={receiptNumber}
+                  onChange={(e) => setReceiptNumber(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
+                  placeholder="Enter Control No."
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-black mb-1">Payment Amount</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                    ₱
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={paymentAmount}
+                    onChange={(e) => {
+                      const rawValue = e.target.value.replace(/,/g, '');
+                      if (rawValue === '' || /^\d+$/.test(rawValue) || /^\d+\.$/.test(rawValue) || /^\d+\.\d{0,2}$/.test(rawValue)) {
+                        if (rawValue === '' || rawValue === '.') {
+                          setPaymentAmount(rawValue);
+                        } else if (rawValue.endsWith('.')) {
+                          const numPart = rawValue.slice(0, -1);
+                          const formatted = parseFloat(numPart).toLocaleString('en-PH');
+                          setPaymentAmount(formatted + '.');
+                        } else if (rawValue.includes('.')) {
+                          const [intPart, decPart] = rawValue.split('.');
+                          const formatted = parseFloat(intPart || '0').toLocaleString('en-PH');
+                          setPaymentAmount(`${formatted}.${decPart}`);
+                        } else {
+                          setPaymentAmount(parseFloat(rawValue).toLocaleString('en-PH'));
+                        }
+                      }
+                    }}
+                    className="w-full pl-8 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
+                    placeholder="Enter payment amount"
+                  />
+                </div>
+              </div>
+              
+              <div className="mb-4 bg-gray-50 rounded-lg p-3">
+                <p className="text-sm text-black">
+                  <span className="font-medium">Remaining Balance:</span> {formatCurrency(getExactRemainingBalance())}
+                </p>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  disabled={paymentLoading}
+                  className="px-4 py-2 border border-gray-300 text-black rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePaymentConfirmation}
+                  disabled={paymentLoading || !paymentAmount || parseFloat(paymentAmount.replace(/,/g, '')) <= 0 || !receiptNumber.trim()}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {paymentLoading ? 'Processing...' : 'Next'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Confirmation Modal */}
+      {showConfirmationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-black">Confirm Payment</h3>
+                <button 
+                  onClick={() => setShowConfirmationModal(false)}
+                  className="text-black hover:text-gray-700"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center mb-3">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-green-800">Confirm Payment</h3>
+                  </div>
+                </div>
+                
+                <div className="space-y-2 text-sm text-black">
+                  <div className="flex justify-between">
+                    <span>Receipt Number:</span>
+                    <span className="font-medium">{receiptNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Amount:</span>
+                    <span className="font-medium">{formatCurrency(parseFloat(paymentAmount.replace(/,/g, '')))}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Member:</span>
+                    <span className="font-medium">{loan?.fullName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Loan ID:</span>
+                    <span className="font-medium">{loan?.id}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-black">
+                  <span className="font-medium">Note:</span> This payment will be processed immediately and a notification will be sent to the member.
+                </p>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowConfirmationModal(false)}
+                  disabled={paymentLoading}
+                  className="px-4 py-2 border border-gray-300 text-black rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={processPayment}
+                  disabled={paymentLoading}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {paymentLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </>
+                  ) : (
+                    'Confirm Payment'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 
